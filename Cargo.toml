@@ -1,0 +1,43 @@
+[package]
+name = "monarch"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "A modern, open source central monitoring server for Monit agents (M/Monit compatible)"
+repository = "https://github.com/pschmitt/monarch"
+readme = "README.md"
+default-run = "monarch"
+
+[dependencies]
+anyhow = "1"
+argon2 = { version = "0.5", features = ["std"] }
+axum = { version = "0.8", features = ["macros"] }
+base64 = "0.22"
+clap = { version = "4", features = ["derive", "env"] }
+futures = "0.3"
+hex = "0.4"
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
+mime_guess = "2"
+quick-xml = { version = "0.38", features = ["serialize"] }
+rand = "0.9"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rust-embed = "8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_urlencoded = "0.7"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+toml = "0.9"
+tower = "0.5"
+tower-http = { version = "0.6", features = ["compression-gzip", "compression-br", "decompression-gzip", "trace", "set-header"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true
