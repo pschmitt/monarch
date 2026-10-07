@@ -322,6 +322,10 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
     .map(|(name, state, state_since)| (name, Existing { state, state_since }))
     .collect();
 
+    // Monit needs one cycle to compute deltas; its first report says 0% cpu.
+    let warming_up = xml::int(&srv.uptime).unwrap_or(i64::MAX)
+        <= xml::int(&srv.startdelay).unwrap_or(0) + xml::int(&srv.poll).unwrap_or(30);
+
     let services = doc
         .services
         .as_ref()
@@ -373,7 +377,7 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
         .await?;
 
         // Only record metrics for monitored services with fresh data.
-        if monitor & 1 != 0 && status_is_measurable(svc_state) {
+        if !warming_up && monitor & 1 != 0 && status_is_measurable(svc_state) {
             let sample_ts = xml::int(&s.collected_sec).filter(|t| *t > 0).unwrap_or(ts);
             for (metric, value) in model::metrics(s) {
                 record_sample(state, &mut tx, host_id, &name, metric, sample_ts, value).await?;
