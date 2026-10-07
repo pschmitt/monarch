@@ -114,7 +114,7 @@ pub async fn ack_many(
     Json(body): Json<AckMany>,
 ) -> ApiResult<StatusCode> {
     user.require(Role::Operator)?;
-    let mut tx = state.db.begin().await?;
+    let mut tx = state.db.begin_with("BEGIN IMMEDIATE").await?;
     for id in body.ids.iter().take(1000) {
         sqlx::query(
             "UPDATE events SET acked_by = ?, acked_at = ? WHERE id = ? AND acked_at IS NULL",

@@ -250,6 +250,12 @@ type StreamMessage =
 - `POST /api/users` `{"username","password","role"}` → `User`
 - `PATCH /api/users/:id` `{"username"?, "password"?, "role"?}` → `User` (users may change their own username and password via `PATCH /api/users/me {"username"?, "password"?, "current_password"?}`; `current_password` is required with `password`; usernames of SSO accounts cannot be changed)
 - `DELETE /api/users/:id` → `204`
+- `GET /api/tokens` → `{id, name, prefix, created_at, last_used, expires_at}[]` (your own API tokens)
+- `POST /api/tokens` `{"name", "expires_days"?}` → the token info plus `token` (shown once)
+- `DELETE /api/tokens/:id` → `204`
+
+API tokens (`mnr_…`) authenticate every endpoint as their owner (same role) via
+`Authorization: Bearer <token>`. They can only be managed from a browser session.
 
 ## Notification channels (admin)
 

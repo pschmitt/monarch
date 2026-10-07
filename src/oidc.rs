@@ -322,31 +322,56 @@ async fn finish(
     let Some(role) = role_for(cfg, &groups) else {
         bail!("your account is not allowed to use Monarch");
     };
-    let user = upsert_user(state, &subject, &username, role).await?;
+    let user = upsert_user(state, cfg, &subject, &username, role).await?;
     Ok((user, next))
 }
 
 async fn upsert_user(
     state: &SharedState,
+    cfg: &OidcConfig,
     subject: &str,
     username: &str,
     role: Role,
 ) -> Result<User> {
     let db = &state.db;
-    let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE oidc_subject = ?")
-        .bind(subject)
+    let existing: Option<(i64, String)> =
+        sqlx::query_as("SELECT id, auth_source FROM users WHERE oidc_subject = ?")
+            .bind(subject)
+            .fetch_optional(db)
+            .await?;
+    // A linked local account keeps its own role; only SSO-created ones follow the IdP groups.
+    let linkable: Option<(i64,)> = if existing.is_none() && cfg.link_local_users {
+        sqlx::query_as(
+            "SELECT id FROM users WHERE username = ? AND auth_source = 'local'
+               AND role != 'collector' AND oidc_subject IS NULL",
+        )
+        .bind(username)
         .fetch_optional(db)
-        .await?;
-    let id = match existing {
-        Some((id,)) => {
-            sqlx::query("UPDATE users SET role = ? WHERE id = ?")
-                .bind(role_str(role))
+        .await?
+    } else {
+        None
+    };
+    let id = match (existing, linkable) {
+        (Some((id, source)), _) => {
+            if source == "oidc" {
+                sqlx::query("UPDATE users SET role = ? WHERE id = ?")
+                    .bind(role_str(role))
+                    .bind(id)
+                    .execute(db)
+                    .await?;
+            }
+            id
+        }
+        (None, Some((id,))) => {
+            sqlx::query("UPDATE users SET oidc_subject = ? WHERE id = ?")
+                .bind(subject)
                 .bind(id)
                 .execute(db)
                 .await?;
+            tracing::info!(%username, "linked single sign-on identity to the local account");
             id
         }
-        None => {
+        (None, None) => {
             // Never take over a local account with the same name.
             let mut name = username.to_owned();
             let taken: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")

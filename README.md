@@ -141,6 +141,7 @@ services.monarch = {
     admin_groups = [ "admins" ];
     operator_groups = [ "ops" ];
     default_role = "viewer";   # or "none" to deny everyone else
+    link_local_users = true;   # first sign-in adopts the local account with the same username
   };
   # settings.disable_password_login = true;
 };

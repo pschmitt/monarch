@@ -1,4 +1,5 @@
 import type {
+  ApiToken,
   Channel,
   EventsResponse,
   HostDetail,
@@ -128,6 +129,11 @@ export const api = {
   createUser: (u: { username: string; password: string; role: Role }) => request<User>("POST", "/api/users", u),
   updateUser: (id: number | "me", patch: Record<string, unknown>) => request<User>("PATCH", `/api/users/${id}`, patch),
   deleteUser: (id: number) => request<void>("DELETE", `/api/users/${id}`),
+
+  tokens: () => request<ApiToken[]>("GET", "/api/tokens"),
+  createToken: (name: string, expires_days: number | null) =>
+    request<ApiToken & { token: string }>("POST", "/api/tokens", { name, expires_days }),
+  revokeToken: (id: number) => request<void>("DELETE", `/api/tokens/${id}`),
 
   channels: () => request<Channel[]>("GET", "/api/channels"),
   createChannel: (c: Partial<Channel>) => request<Channel>("POST", "/api/channels", c),

@@ -290,7 +290,7 @@ async fn ingest_locked(
         })
         .unwrap_or_default();
 
-    let mut tx = state.db.begin().await?;
+    let mut tx = state.db.begin_with("BEGIN IMMEDIATE").await?;
 
     let prev: Option<(i64, i64)> =
         sqlx::query_as("SELECT id, online FROM hosts WHERE monit_id = ?")

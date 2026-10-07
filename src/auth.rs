@@ -187,10 +187,56 @@ pub fn session_token(headers: &HeaderMap) -> Option<String> {
         .map(|(_, v)| v.to_owned())
 }
 
+pub const API_TOKEN_PREFIX: &str = "mnr_";
+
+/// A new API token: `mnr_` + 32 random bytes (base64url). Only its hash is stored.
+pub fn generate_api_token() -> String {
+    let mut raw = [0u8; 32];
+    rand::rng().fill_bytes(&mut raw);
+    format!(
+        "{API_TOKEN_PREFIX}{}",
+        base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, raw)
+    )
+}
+
+pub fn api_token_hash(token: &str) -> String {
+    token_hash(token)
+}
+
+pub fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    let v = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, token) = v.split_once(' ')?;
+    scheme
+        .eq_ignore_ascii_case("bearer")
+        .then(|| token.trim())
+        .filter(|t| t.starts_with(API_TOKEN_PREFIX))
+}
+
 pub async fn user_from_headers(
     state: &SharedState,
     headers: &HeaderMap,
 ) -> anyhow::Result<Option<User>> {
+    if let Some(token) = bearer_token(headers) {
+        let ts = now();
+        let hash = token_hash(token);
+        let user: Option<User> = sqlx::query_as(
+            "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source FROM api_tokens t
+             JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > ?)",
+        )
+        .bind(&hash)
+        .bind(ts)
+        .fetch_optional(&state.db)
+        .await?;
+        if user.is_some() {
+            sqlx::query("UPDATE api_tokens SET last_used = ? WHERE token_hash = ? AND (last_used IS NULL OR last_used < ?)")
+                .bind(ts)
+                .bind(&hash)
+                .bind(ts - 60)
+                .execute(&state.db)
+                .await?;
+        }
+        return Ok(user);
+    }
     let Some(token) = session_token(headers) else {
         return Ok(None);
     };

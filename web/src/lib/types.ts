@@ -289,3 +289,12 @@ export interface TargetTestResult {
   services: number | null;
   latency_ms: number | null;
 }
+
+export interface ApiToken {
+  id: number;
+  name: string;
+  prefix: string;
+  created_at: number;
+  last_used: number | null;
+  expires_at: number | null;
+}

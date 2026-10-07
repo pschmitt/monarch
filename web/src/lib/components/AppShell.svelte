@@ -20,6 +20,7 @@
   import { router } from "../router.svelte";
   import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import ChangePassword from "./ChangePassword.svelte";
+  import ApiTokens from "./ApiTokens.svelte";
   import ChangeUsername from "./ChangeUsername.svelte";
   import Logo from "./Logo.svelte";
   import Menu from "./Menu.svelte";
@@ -28,6 +29,7 @@
   let { children, onlogout }: { children: Snippet; onlogout: () => void } = $props();
   let pwOpen = $state(false);
   let nameOpen = $state(false);
+  let tokensOpen = $state(false);
 
   const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
   const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
@@ -162,6 +164,7 @@
                     { label: "Change username", icon: Pencil, onselect: () => (nameOpen = true) },
                     { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
                   ]),
+              { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },
               ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
               "sep" as const,
               { label: "Sign out", icon: LogOut, danger: true, onselect: onlogout },
@@ -185,3 +188,4 @@
 
 <ChangePassword bind:open={pwOpen} />
 <ChangeUsername bind:open={nameOpen} />
+<ApiTokens bind:open={tokensOpen} />

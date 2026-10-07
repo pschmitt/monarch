@@ -15,6 +15,7 @@ mod hosts;
 mod metrics;
 mod stream;
 mod targets;
+mod tokens;
 
 pub use hosts::action_by_name as hosts_action;
 
@@ -87,6 +88,8 @@ pub fn router() -> Router<SharedState> {
         .route("/stream", get(stream::stream))
         .route("/users", get(admin::users).post(admin::create_user))
         .route("/users/me", axum::routing::patch(admin::update_me))
+        .route("/tokens", get(tokens::list).post(tokens::create))
+        .route("/tokens/{id}", axum::routing::delete(tokens::revoke))
         .route(
             "/users/{id}",
             axum::routing::patch(admin::update_user).delete(admin::delete_user),

@@ -60,6 +60,12 @@ pub struct OidcConfig {
     /// Role for users in none of the groups above; "none" denies access.
     #[serde(default = "default_oidc_role")]
     pub default_role: String,
+    /// Link a first sign-in to the existing local account with the same
+    /// username (keeping its role and password) instead of creating a separate
+    /// SSO account. Only enable this when the identity provider controls who
+    /// can hold a given username.
+    #[serde(default)]
+    pub link_local_users: bool,
 }
 
 fn default_oidc_name() -> String {

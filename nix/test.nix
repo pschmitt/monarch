@@ -83,6 +83,15 @@
     machine.succeed("curl -sf -c /tmp/cj2 -H 'content-type: application/json' -d '{\"username\":\"alicia\",\"password\":\"alicepass1\"}' http://127.0.0.1:8080/api/auth/login")
     machine.succeed("curl -sf -b /tmp/cj2 -H 'content-type: application/json' -X PATCH -d '{\"username\":\"ali\"}' http://127.0.0.1:8080/api/users/me | jq -e '.username == \"ali\"'")
 
+    # API tokens authenticate as their owner, and cannot manage tokens themselves.
+    tok = json.loads(machine.succeed(api + "-d '{\"name\":\"test\",\"expires_days\":1}' http://127.0.0.1:8080/api/tokens"))
+    assert tok["token"].startswith("mnr_"), tok
+    machine.succeed(f"curl -sf -H 'Authorization: Bearer {tok['token']}' http://127.0.0.1:8080/api/users | jq -e 'length >= 3'")
+    assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Bearer {tok['token']}' http://127.0.0.1:8080/api/tokens") == "403"
+    assert machine.succeed("curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer mnr_bogus' http://127.0.0.1:8080/api/users") == "401"
+    machine.succeed(api + f"-X DELETE http://127.0.0.1:8080/api/tokens/{tok['id']}")
+    assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Bearer {tok['token']}' http://127.0.0.1:8080/api/users") == "401"
+
     # The monit agent registers itself and reports all of its services.
     machine.wait_until_succeeds(
         "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts | jq -e 'length == 1 and .[0].services.total == 4'",
