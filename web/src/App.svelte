@@ -28,6 +28,22 @@
     else stopLive();
   });
 
+  // Release the SSE connection when the page is hidden (navigation, reload,
+  // back/forward cache). Browsers allow only ~6 HTTP/1.1 connections per
+  // host, and lingering streams would otherwise starve new page loads.
+  $effect(() => {
+    const hide = () => stopLive();
+    const show = (e: PageTransitionEvent) => {
+      if (e.persisted && authed) startLive();
+    };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
+    return () => {
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("pageshow", show);
+    };
+  });
+
   // Keep the URL in sync with the auth state.
   $effect(() => {
     if (session.loading) return;
