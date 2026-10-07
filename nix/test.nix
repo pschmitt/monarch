@@ -5,10 +5,11 @@
   nodes.machine =
     { pkgs, ... }:
     {
-      imports = [ self.nixosModules.default ];
+      imports = [ ./module.nix ];
 
       services.monarch = {
         enable = true;
+        package = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
         settings.public_url = "http://machine:8080";
         initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
       };

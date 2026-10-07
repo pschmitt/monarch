@@ -34,7 +34,7 @@
         {
           inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) monarch;
         }
-        // nixpkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+        // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           nixos = pkgs.testers.runNixOSTest (import ./nix/test.nix { inherit self; });
         }
       );
