@@ -56,7 +56,11 @@ pub async fn collector(
         Ok(d) => d,
         Err(e) => {
             tracing::warn!(%peer, "collector: cannot parse status document: {e}");
-            return (StatusCode::BAD_REQUEST, format!("invalid status document: {e}")).into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                format!("invalid status document: {e}"),
+            )
+                .into_response();
         }
     };
 
@@ -73,7 +77,10 @@ pub async fn collector(
 
 fn client_ip(headers: &HeaderMap) -> Option<String> {
     let v = headers.get("x-forwarded-for")?.to_str().ok()?;
-    v.split(',').next().map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
+    v.split(',')
+        .next()
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
 }
 
 async fn authorize(state: &SharedState, headers: &HeaderMap) -> Result<bool> {
@@ -81,7 +88,11 @@ async fn authorize(state: &SharedState, headers: &HeaderMap) -> Result<bool> {
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Basic "))
-        .and_then(|v| base64::engine::general_purpose::STANDARD.decode(v.trim()).ok())
+        .and_then(|v| {
+            base64::engine::general_purpose::STANDARD
+                .decode(v.trim())
+                .ok()
+        })
         .and_then(|v| String::from_utf8(v).ok());
     let Some(creds) = creds else {
         return Ok(state.config.collector_allow_anonymous);
@@ -98,8 +109,15 @@ async fn authorize(state: &SharedState, headers: &HeaderMap) -> Result<bool> {
     // Monit URL-encodes nothing, but be lenient with users that did.
     let user = percent_decode(user);
     let pass = percent_decode(pass);
-    if auth::check_credentials(&state.db, &user, &pass).await?.is_some() {
-        state.collector_auth.lock().unwrap().insert(key, Instant::now());
+    if auth::check_credentials(&state.db, &user, &pass)
+        .await?
+        .is_some()
+    {
+        state
+            .collector_auth
+            .lock()
+            .unwrap()
+            .insert(key, Instant::now());
         return Ok(true);
     }
     Ok(state.config.collector_allow_anonymous)
@@ -112,7 +130,8 @@ fn percent_decode(s: &str) -> String {
     while i < bytes.len() {
         if bytes[i] == b'%'
             && i + 2 < bytes.len()
-            && let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+            && let Ok(b) =
+                u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
         {
             out.push(b);
             i += 3;
@@ -140,18 +159,21 @@ async fn series_id(
     if let Some(id) = state.series.lock().unwrap().get(&key) {
         return Ok(*id);
     }
-    sqlx::query("INSERT INTO series (host_id, service, metric) VALUES (?, ?, ?) ON CONFLICT DO NOTHING")
-        .bind(host_id)
-        .bind(service)
-        .bind(metric)
-        .execute(&mut **tx)
-        .await?;
-    let (id,): (i64,) = sqlx::query_as("SELECT id FROM series WHERE host_id = ? AND service = ? AND metric = ?")
-        .bind(host_id)
-        .bind(service)
-        .bind(metric)
-        .fetch_one(&mut **tx)
-        .await?;
+    sqlx::query(
+        "INSERT INTO series (host_id, service, metric) VALUES (?, ?, ?) ON CONFLICT DO NOTHING",
+    )
+    .bind(host_id)
+    .bind(service)
+    .bind(metric)
+    .execute(&mut **tx)
+    .await?;
+    let (id,): (i64,) =
+        sqlx::query_as("SELECT id FROM series WHERE host_id = ? AND service = ? AND metric = ?")
+            .bind(host_id)
+            .bind(service)
+            .bind(metric)
+            .fetch_one(&mut **tx)
+            .await?;
     state.series.lock().unwrap().insert(key, id);
     Ok(id)
 }
@@ -166,13 +188,14 @@ async fn record_sample(
     value: f64,
 ) -> Result<()> {
     let sid = series_id(state, tx, host_id, service, metric).await?;
-    let inserted = sqlx::query("INSERT OR IGNORE INTO samples (series_id, ts, value) VALUES (?, ?, ?)")
-        .bind(sid)
-        .bind(ts)
-        .bind(value)
-        .execute(&mut **tx)
-        .await?
-        .rows_affected();
+    let inserted =
+        sqlx::query("INSERT OR IGNORE INTO samples (series_id, ts, value) VALUES (?, ?, ?)")
+            .bind(sid)
+            .bind(ts)
+            .bind(value)
+            .execute(&mut **tx)
+            .await?
+            .rows_affected();
     if inserted == 0 {
         return Ok(());
     }
@@ -202,7 +225,10 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
         .or_else(|| srv.id.clone())
         .filter(|s| !s.is_empty())
         .context("status document has no monit id")?;
-    let hostname = srv.localhostname.clone().unwrap_or_else(|| monit_id.clone());
+    let hostname = srv
+        .localhostname
+        .clone()
+        .unwrap_or_else(|| monit_id.clone());
     let ts = now();
     let platform = doc.platform.as_ref();
     let httpd = srv.httpd.as_ref();
@@ -210,20 +236,32 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
     let hostgroups: Vec<String> = doc
         .hostgroups
         .as_ref()
-        .map(|g| g.names.iter().map(|n| n.trim().to_owned()).filter(|n| !n.is_empty()).collect())
+        .map(|g| {
+            g.names
+                .iter()
+                .map(|n| n.trim().to_owned())
+                .filter(|n| !n.is_empty())
+                .collect()
+        })
         .unwrap_or_default();
     let servicegroups: HashMap<String, Vec<String>> = doc
         .servicegroups
         .as_ref()
-        .map(|g| g.groups.iter().map(|g| (g.name.clone(), g.services.clone())).collect())
+        .map(|g| {
+            g.groups
+                .iter()
+                .map(|g| (g.name.clone(), g.services.clone()))
+                .collect()
+        })
         .unwrap_or_default();
 
     let mut tx = state.db.begin().await?;
 
-    let prev: Option<(i64, i64)> = sqlx::query_as("SELECT id, online FROM hosts WHERE monit_id = ?")
-        .bind(&monit_id)
-        .fetch_optional(&mut *tx)
-        .await?;
+    let prev: Option<(i64, i64)> =
+        sqlx::query_as("SELECT id, online FROM hosts WHERE monit_id = ?")
+            .bind(&monit_id)
+            .fetch_optional(&mut *tx)
+            .await?;
 
     let (host_id,): (i64,) = sqlx::query_as(
         "INSERT INTO hosts (monit_id, hostname, monit_version, incarnation, monit_uptime, poll, startdelay,
@@ -284,7 +322,11 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
     .map(|(name, state, state_since)| (name, Existing { state, state_since }))
     .collect();
 
-    let services = doc.services.as_ref().map(|s| s.services.as_slice()).unwrap_or_default();
+    let services = doc
+        .services
+        .as_ref()
+        .map(|s| s.services.as_slice())
+        .unwrap_or_default();
     for s in services {
         let name = s.name();
         if name.is_empty() {

@@ -177,7 +177,11 @@ async fn host_detail(state: &SharedState, h: &HostRow) -> ApiResult<Value> {
     Ok(v)
 }
 
-pub async fn detail(State(state): State<SharedState>, _user: User, Path(id): Path<i64>) -> ApiResult<Json<Value>> {
+pub async fn detail(
+    State(state): State<SharedState>,
+    _user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
     let h = load_host(&state, id).await?;
     Ok(Json(host_detail(&state, &h).await?))
 }
@@ -201,9 +205,12 @@ pub async fn update(
     load_host(&state, id).await?;
     for (key, value) in &body {
         let column = match key.as_str() {
-            "display_name" | "description" | "override_url" | "override_username" | "override_password" => key.as_str(),
+            "display_name" | "description" | "override_url" | "override_username"
+            | "override_password" => key.as_str(),
             "tls_skip_verify" => {
-                let b = value.as_bool().ok_or_else(|| ApiError::bad_request("tls_skip_verify must be a boolean"))?;
+                let b = value
+                    .as_bool()
+                    .ok_or_else(|| ApiError::bad_request("tls_skip_verify must be a boolean"))?;
                 sqlx::query("UPDATE hosts SET tls_skip_verify = ? WHERE id = ?")
                     .bind(b as i64)
                     .bind(id)
@@ -212,10 +219,13 @@ pub async fn update(
                 continue;
             }
             "muted_until" => {
-                let v = match value {
-                    Value::Null => None,
-                    v => Some(v.as_i64().ok_or_else(|| ApiError::bad_request("muted_until must be a timestamp"))?),
-                };
+                let v =
+                    match value {
+                        Value::Null => None,
+                        v => Some(v.as_i64().ok_or_else(|| {
+                            ApiError::bad_request("muted_until must be a timestamp")
+                        })?),
+                    };
                 sqlx::query("UPDATE hosts SET muted_until = ? WHERE id = ?")
                     .bind(v)
                     .bind(id)
@@ -230,7 +240,9 @@ pub async fn update(
             && let Some(u) = &v
         {
             if !(u.starts_with("http://") || u.starts_with("https://")) {
-                return Err(ApiError::bad_request("override_url must start with http:// or https://"));
+                return Err(ApiError::bad_request(
+                    "override_url must start with http:// or https://",
+                ));
             }
             v = Some(u.trim_end_matches('/').to_owned());
         }
@@ -248,17 +260,32 @@ pub async fn update(
     Ok(Json(detail))
 }
 
-pub async fn remove(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<StatusCode> {
+pub async fn remove(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<StatusCode> {
     user.require(Role::Admin)?;
     let h = load_host(&state, id).await?;
-    sqlx::query("DELETE FROM hosts WHERE id = ?").bind(id).execute(&state.db).await?;
-    state.series.lock().unwrap().retain(|(host, _, _), _| *host != id);
+    sqlx::query("DELETE FROM hosts WHERE id = ?")
+        .bind(id)
+        .execute(&state.db)
+        .await?;
+    state
+        .series
+        .lock()
+        .unwrap()
+        .retain(|(host, _, _), _| *host != id);
     state.publish(json!({"type": "host_removed", "id": id}));
     tracing::info!(host = %h.hostname, by = %user.username, "host deleted");
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub async fn test(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<Json<Value>> {
+pub async fn test(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Operator)?;
     let h = load_host(&state, id).await?;
     let Some(target) = h.target() else {
@@ -281,7 +308,13 @@ pub struct ActionBody {
     services: Vec<String>,
 }
 
-async fn run_action(state: &SharedState, user: &User, h: &HostRow, services: Vec<String>, action: &str) -> ApiResult<Json<Value>> {
+async fn run_action(
+    state: &SharedState,
+    user: &User,
+    h: &HostRow,
+    services: Vec<String>,
+    action: &str,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Operator)?;
     if !model::USER_ACTIONS.contains(&action) {
         return Err(ApiError::bad_request(format!("invalid action {action}")));
@@ -337,7 +370,13 @@ pub async fn bulk_action(
 }
 
 /// Shared with the M/Monit compatibility layer.
-pub async fn action_by_name(state: &SharedState, user: &User, host_id: i64, service: &str, action: &str) -> ApiResult<Json<Value>> {
+pub async fn action_by_name(
+    state: &SharedState,
+    user: &User,
+    host_id: i64,
+    service: &str,
+    action: &str,
+) -> ApiResult<Json<Value>> {
     let h = load_host(state, host_id).await?;
     run_action(state, user, &h, vec![service.to_owned()], action).await
 }
@@ -354,7 +393,11 @@ pub async fn service(
         .find(|s| s.name == name)
         .ok_or_else(|| ApiError::not_found("service"))?;
     let counts = views::event_counts(&state.db, id).await?;
-    let mut v = views::service_json(s, &h.servicegroups(), counts.get(&s.name).copied().unwrap_or(0));
+    let mut v = views::service_json(
+        s,
+        &h.servicegroups(),
+        counts.get(&s.name).copied().unwrap_or(0),
+    );
     let events: Vec<EventRow> = sqlx::query_as(&format!(
         "{} WHERE e.host_id = ? AND e.service = ? ORDER BY e.created_at DESC LIMIT 25",
         views::EVENT_SELECT

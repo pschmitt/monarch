@@ -208,7 +208,9 @@ impl Service {
     }
 
     pub fn type_id(&self) -> i64 {
-        int(&self.service_type).or(int(&self.type_attr)).unwrap_or(-1)
+        int(&self.service_type)
+            .or(int(&self.type_attr))
+            .unwrap_or(-1)
     }
 }
 
@@ -411,7 +413,15 @@ mod tests {
         let sys = services.iter().find(|s| s.type_id() == 5).unwrap();
         assert!(sys.system.as_ref().unwrap().load.is_some());
         let prog = services.iter().find(|s| s.type_id() == 7).unwrap();
-        assert!(prog.program.as_ref().unwrap().output.as_ref().unwrap().contains("🚨"));
+        assert!(
+            prog.program
+                .as_ref()
+                .unwrap()
+                .output
+                .as_ref()
+                .unwrap()
+                .contains("🚨")
+        );
         let ev = m.event.unwrap();
         assert_eq!(ev.service.as_deref(), Some("nginx"));
     }

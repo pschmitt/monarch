@@ -94,9 +94,13 @@ impl HostRow {
     }
 
     pub fn target(&self) -> Option<Target> {
-        let (username, password) = match self.override_username.as_deref().filter(|s| !s.is_empty()) {
+        let (username, password) = match self.override_username.as_deref().filter(|s| !s.is_empty())
+        {
             Some(u) => (Some(u.to_owned()), self.override_password.clone()),
-            None => (self.reported_username.clone(), self.reported_password.clone()),
+            None => (
+                self.reported_username.clone(),
+                self.reported_password.clone(),
+            ),
         };
         Some(Target {
             base_url: self.monit_url()?,
@@ -241,7 +245,7 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
 pub fn service_json(s: &ServiceRow, groups: &HashMap<String, Vec<String>>, events: i64) -> Value {
     let mut in_groups: Vec<&str> = groups
         .iter()
-        .filter(|(_, members)| members.iter().any(|m| *m == s.name))
+        .filter(|(_, members)| members.contains(&s.name))
         .map(|(g, _)| g.as_str())
         .collect();
     in_groups.sort();
@@ -274,19 +278,23 @@ pub async fn fetch_host(db: &SqlitePool, id: i64) -> Result<Option<HostRow>> {
 }
 
 pub async fn fetch_services(db: &SqlitePool, host_id: i64) -> Result<Vec<ServiceRow>> {
-    Ok(sqlx::query_as("SELECT * FROM services WHERE host_id = ? ORDER BY type DESC, name")
-        .bind(host_id)
-        .fetch_all(db)
-        .await?)
+    Ok(
+        sqlx::query_as("SELECT * FROM services WHERE host_id = ? ORDER BY type DESC, name")
+            .bind(host_id)
+            .fetch_all(db)
+            .await?,
+    )
 }
 
 pub async fn all_hosts(db: &SqlitePool) -> Result<Vec<(HostRow, Vec<ServiceRow>)>> {
-    let hosts: Vec<HostRow> = sqlx::query_as("SELECT * FROM hosts ORDER BY hostname COLLATE NOCASE")
-        .fetch_all(db)
-        .await?;
-    let services: Vec<ServiceRow> = sqlx::query_as("SELECT * FROM services ORDER BY type DESC, name")
-        .fetch_all(db)
-        .await?;
+    let hosts: Vec<HostRow> =
+        sqlx::query_as("SELECT * FROM hosts ORDER BY hostname COLLATE NOCASE")
+            .fetch_all(db)
+            .await?;
+    let services: Vec<ServiceRow> =
+        sqlx::query_as("SELECT * FROM services ORDER BY type DESC, name")
+            .fetch_all(db)
+            .await?;
     let mut by_host: HashMap<i64, Vec<ServiceRow>> = HashMap::new();
     for s in services {
         by_host.entry(s.host_id).or_default().push(s);
@@ -335,7 +343,8 @@ pub struct EventRow {
     pub acked_at: Option<i64>,
 }
 
-pub const EVENT_SELECT: &str = "SELECT e.id, e.host_id, COALESCE(NULLIF(h.display_name, ''), h.hostname) AS host,
+pub const EVENT_SELECT: &str =
+    "SELECT e.id, e.host_id, COALESCE(NULLIF(h.display_name, ''), h.hostname) AS host,
     e.service, e.service_type, e.event_type, e.state, e.action, e.message, e.created_at, e.source,
     e.acked_by, e.acked_at FROM events e LEFT JOIN hosts h ON h.id = e.host_id";
 

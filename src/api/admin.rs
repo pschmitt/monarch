@@ -38,7 +38,11 @@ pub struct NewUser {
     role: String,
 }
 
-pub async fn create_user(State(state): State<SharedState>, user: User, Json(b): Json<NewUser>) -> ApiResult<Json<User>> {
+pub async fn create_user(
+    State(state): State<SharedState>,
+    user: User,
+    Json(b): Json<NewUser>,
+) -> ApiResult<Json<User>> {
     user.require(Role::Admin)?;
     validate_parts(&b.username, &b.password)?;
     let role = Role::parse(&b.role).ok_or_else(|| ApiError::bad_request("invalid role"))?;
@@ -47,9 +51,14 @@ pub async fn create_user(State(state): State<SharedState>, user: User, Json(b): 
         .fetch_optional(&state.db)
         .await?;
     if exists.is_some() {
-        return Err(ApiError::new(StatusCode::CONFLICT, "username already taken"));
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "username already taken",
+        ));
     }
-    Ok(Json(auth::create_user(&state.db, b.username.trim(), &b.password, role).await?))
+    Ok(Json(
+        auth::create_user(&state.db, b.username.trim(), &b.password, role).await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -61,7 +70,9 @@ pub struct UserPatch {
 
 async fn set_password(state: &SharedState, id: i64, password: &str) -> ApiResult<()> {
     if password.len() < 8 {
-        return Err(ApiError::bad_request("password must be at least 8 characters"));
+        return Err(ApiError::bad_request(
+            "password must be at least 8 characters",
+        ));
     }
     let hash = {
         let p = password.to_owned();
@@ -118,19 +129,33 @@ pub async fn update_user(
     Ok(Json(fetch_user(&state, id).await?))
 }
 
-pub async fn update_me(State(state): State<SharedState>, user: User, Json(b): Json<UserPatch>) -> ApiResult<Json<User>> {
+pub async fn update_me(
+    State(state): State<SharedState>,
+    user: User,
+    Json(b): Json<UserPatch>,
+) -> ApiResult<Json<User>> {
     let Some(p) = &b.password else {
         return Err(ApiError::bad_request("password required"));
     };
     let current = b.current_password.as_deref().unwrap_or("");
-    if auth::check_credentials(&state.db, &user.username, current).await?.is_none() {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "current password is wrong"));
+    if auth::check_credentials(&state.db, &user.username, current)
+        .await?
+        .is_none()
+    {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "current password is wrong",
+        ));
     }
     set_password(&state, user.id, p).await?;
     Ok(Json(fetch_user(&state, user.id).await?))
 }
 
-pub async fn delete_user(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<StatusCode> {
+pub async fn delete_user(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<StatusCode> {
     user.require(Role::Admin)?;
     if id == user.id {
         return Err(ApiError::bad_request("you cannot delete yourself"));
@@ -139,7 +164,10 @@ pub async fn delete_user(State(state): State<SharedState>, user: User, Path(id):
     if target.role() == Role::Admin && admin_count(&state).await? <= 1 {
         return Err(ApiError::bad_request("cannot delete the last admin"));
     }
-    sqlx::query("DELETE FROM users WHERE id = ?").bind(id).execute(&state.db).await?;
+    sqlx::query("DELETE FROM users WHERE id = ?")
+        .bind(id)
+        .execute(&state.db)
+        .await?;
     state.collector_auth.lock().unwrap().clear();
     Ok(StatusCode::NO_CONTENT)
 }
@@ -192,17 +220,29 @@ pub struct ChannelBody {
 fn validate_filter(f: &Filter) -> ApiResult<()> {
     for re in [&f.hosts, &f.services].into_iter().flatten() {
         if !re.trim().is_empty() {
-            regex::Regex::new(re).map_err(|e| ApiError::bad_request(format!("invalid regex: {e}")))?;
+            regex::Regex::new(re)
+                .map_err(|e| ApiError::bad_request(format!("invalid regex: {e}")))?;
         }
     }
     Ok(())
 }
 
-pub async fn create_channel(State(state): State<SharedState>, user: User, Json(b): Json<ChannelBody>) -> ApiResult<Json<Value>> {
+pub async fn create_channel(
+    State(state): State<SharedState>,
+    user: User,
+    Json(b): Json<ChannelBody>,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Admin)?;
-    let name = b.name.as_deref().map(str::trim).filter(|n| !n.is_empty())
+    let name = b
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
         .ok_or_else(|| ApiError::bad_request("name required"))?;
-    let kind = b.kind.as_deref().filter(|k| notify::KINDS.contains(k))
+    let kind = b
+        .kind
+        .as_deref()
+        .filter(|k| notify::KINDS.contains(k))
         .ok_or_else(|| ApiError::bad_request("invalid kind"))?;
     let filter = b.filter.unwrap_or_default();
     validate_filter(&filter)?;
@@ -255,25 +295,38 @@ pub async fn update_channel(
         validate_filter(&f)?;
         c.filter = serde_json::to_string(&f).map_err(anyhow::Error::from)?;
     }
-    sqlx::query("UPDATE channels SET name = ?, kind = ?, config = ?, filter = ?, enabled = ? WHERE id = ?")
-        .bind(&c.name)
-        .bind(&c.kind)
-        .bind(&c.config)
-        .bind(&c.filter)
-        .bind(c.enabled)
-        .bind(id)
-        .execute(&state.db)
-        .await?;
+    sqlx::query(
+        "UPDATE channels SET name = ?, kind = ?, config = ?, filter = ?, enabled = ? WHERE id = ?",
+    )
+    .bind(&c.name)
+    .bind(&c.kind)
+    .bind(&c.config)
+    .bind(&c.filter)
+    .bind(c.enabled)
+    .bind(id)
+    .execute(&state.db)
+    .await?;
     Ok(Json(channel_json(&fetch_channel(&state, id).await?)))
 }
 
-pub async fn delete_channel(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<StatusCode> {
+pub async fn delete_channel(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<StatusCode> {
     user.require(Role::Admin)?;
-    sqlx::query("DELETE FROM channels WHERE id = ?").bind(id).execute(&state.db).await?;
+    sqlx::query("DELETE FROM channels WHERE id = ?")
+        .bind(id)
+        .execute(&state.db)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
-pub async fn test_channel(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<Json<Value>> {
+pub async fn test_channel(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Admin)?;
     let c = fetch_channel(&state, id).await?;
     let e = EventRow {
@@ -285,7 +338,10 @@ pub async fn test_channel(State(state): State<SharedState>, user: User, Path(id)
         event_type: 0x200000,
         state: 1,
         action: 1,
-        message: format!("This is a test notification sent by {} from Monarch.", user.username),
+        message: format!(
+            "This is a test notification sent by {} from Monarch.",
+            user.username
+        ),
         created_at: crate::state::now_f(),
         source: "monarch".into(),
         acked_by: None,
@@ -298,7 +354,11 @@ pub async fn test_channel(State(state): State<SharedState>, user: User, Path(id)
         Err(e) => (false, format!("{e:#}")),
     };
     sqlx::query("UPDATE channels SET last_status = ?, last_sent_at = ? WHERE id = ?")
-        .bind(if ok { "ok".to_owned() } else { format!("error: {message}") })
+        .bind(if ok {
+            "ok".to_owned()
+        } else {
+            format!("error: {message}")
+        })
         .bind(now())
         .bind(id)
         .execute(&state.db)
@@ -330,26 +390,35 @@ pub struct SettingsPatch {
     heartbeat_grace: Option<f64>,
 }
 
-pub async fn update_settings(State(state): State<SharedState>, user: User, Json(b): Json<SettingsPatch>) -> ApiResult<Json<Value>> {
+pub async fn update_settings(
+    State(state): State<SharedState>,
+    user: User,
+    Json(b): Json<SettingsPatch>,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Admin)?;
     {
         let mut s = state.settings.write().await;
         if let Some(u) = b.public_url {
             let u = u.trim().trim_end_matches('/').to_owned();
             if !(u.starts_with("http://") || u.starts_with("https://")) {
-                return Err(ApiError::bad_request("public_url must start with http:// or https://"));
+                return Err(ApiError::bad_request(
+                    "public_url must start with http:// or https://",
+                ));
             }
             s.public_url = u;
         }
         if let Some(r) = b.retention {
-            if r.raw_hours < 1 || r.rollup_5m_days < 1 || r.rollup_1h_days < 1 || r.events_days < 1 {
+            if r.raw_hours < 1 || r.rollup_5m_days < 1 || r.rollup_1h_days < 1 || r.events_days < 1
+            {
                 return Err(ApiError::bad_request("retention values must be positive"));
             }
             s.retention = r;
         }
         if let Some(g) = b.heartbeat_grace {
             if !(1.0..=100.0).contains(&g) {
-                return Err(ApiError::bad_request("heartbeat_grace must be between 1 and 100"));
+                return Err(ApiError::bad_request(
+                    "heartbeat_grace must be between 1 and 100",
+                ));
             }
             s.heartbeat_grace = g;
         }

@@ -39,5 +39,6 @@ pub async fn spa(uri: Uri) -> Response {
     if last.contains('.') && !last.ends_with(".csp") {
         return (StatusCode::NOT_FOUND, "not found").into_response();
     }
-    asset("index.html").unwrap_or_else(|| (StatusCode::NOT_FOUND, "web UI not built").into_response())
+    asset("index.html")
+        .unwrap_or_else(|| (StatusCode::NOT_FOUND, "web UI not built").into_response())
 }

@@ -24,7 +24,10 @@ mod web;
 use config::{Config, Settings};
 
 #[derive(Parser)]
-#[command(version, about = "Monarch – a modern central dashboard for Monit agents")]
+#[command(
+    version,
+    about = "Monarch – a modern central dashboard for Monit agents"
+)]
 struct Cli {
     /// Path to a TOML configuration file.
     #[arg(short, long, env = "MONARCH_CONFIG", global = true)]
@@ -61,7 +64,8 @@ fn read_password() -> Result<String> {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_env("MONARCH_LOG").unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
+            EnvFilter::try_from_env("MONARCH_LOG")
+                .unwrap_or_else(|_| EnvFilter::new("info,sqlx=warn")),
         )
         .init();
     let cli = Cli::parse();
@@ -102,22 +106,29 @@ fn api_validate(username: &str) -> Result<()> {
 }
 
 async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
-    let mut settings = db::load_settings(&pool).await?.unwrap_or_else(|| {
-        let mut s = Settings::default();
-        s.public_url = format!("http://{}", config.listen);
-        s
+    let mut settings = db::load_settings(&pool).await?.unwrap_or_else(|| Settings {
+        public_url: format!("http://{}", config.listen),
+        ..Settings::default()
     });
     if let Some(u) = &config.public_url {
         settings.public_url = u.trim_end_matches('/').to_owned();
     }
     db::save_settings(&pool, &settings).await?;
 
-    if let (Some(user), Some(file)) = (&config.initial_admin_user, &config.initial_admin_password_file)
-        && auth::user_count(&pool).await? == 0
+    if let (Some(user), Some(file)) = (
+        &config.initial_admin_user,
+        &config.initial_admin_password_file,
+    ) && auth::user_count(&pool).await? == 0
     {
-        let password = std::fs::read_to_string(file)
-            .with_context(|| format!("reading {}", file.display()))?;
-        auth::create_user(&pool, user, password.trim_end_matches(['\n', '\r']), auth::Role::Admin).await?;
+        let password =
+            std::fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?;
+        auth::create_user(
+            &pool,
+            user,
+            password.trim_end_matches(['\n', '\r']),
+            auth::Role::Admin,
+        )
+        .await?;
         tracing::info!(%user, "created initial admin user");
     }
 
@@ -141,10 +152,16 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(listen)
         .await
         .with_context(|| format!("binding {listen}"))?;
-    tracing::info!("monarch {} listening on http://{listen}", env!("CARGO_PKG_VERSION"));
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(shutdown())
-        .await?;
+    tracing::info!(
+        "monarch {} listening on http://{listen}",
+        env!("CARGO_PKG_VERSION")
+    );
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown())
+    .await?;
     Ok(())
 }
 

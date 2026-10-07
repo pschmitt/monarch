@@ -52,7 +52,9 @@ pub const ACTIONS: [&str; 8] = [
 ];
 
 pub fn action_name(a: i64) -> Option<&'static str> {
-    usize::try_from(a).ok().and_then(|i| ACTIONS.get(i).copied())
+    usize::try_from(a)
+        .ok()
+        .and_then(|i| ACTIONS.get(i).copied())
 }
 
 pub const USER_ACTIONS: [&str; 5] = ["start", "stop", "restart", "monitor", "unmonitor"];
@@ -61,35 +63,90 @@ pub const USER_ACTIONS: [&str; 5] = ["start", "stop", "restart", "monitor", "unm
 /// label, the recovery label and a short identifier.
 pub const EVENTS: &[(i64, &str, &str, &str)] = &[
     (0x1, "checksum", "Checksum failed", "Checksum succeeded"),
-    (0x2, "resource", "Resource limit matched", "Resource limit succeeded"),
+    (
+        0x2,
+        "resource",
+        "Resource limit matched",
+        "Resource limit succeeded",
+    ),
     (0x4, "timeout", "Timeout", "Timeout recovery"),
     (0x8, "timestamp", "Timestamp failed", "Timestamp succeeded"),
     (0x10, "size", "Size failed", "Size succeeded"),
-    (0x20, "connection", "Connection failed", "Connection succeeded"),
-    (0x40, "permission", "Permission failed", "Permission succeeded"),
+    (
+        0x20,
+        "connection",
+        "Connection failed",
+        "Connection succeeded",
+    ),
+    (
+        0x40,
+        "permission",
+        "Permission failed",
+        "Permission succeeded",
+    ),
     (0x80, "uid", "UID failed", "UID succeeded"),
     (0x100, "gid", "GID failed", "GID succeeded"),
     (0x200, "nonexist", "Does not exist", "Exists"),
     (0x400, "invalid", "Invalid type", "Type succeeded"),
     (0x800, "data", "Data access error", "Data access succeeded"),
     (0x1000, "exec", "Execution failed", "Execution succeeded"),
-    (0x2000, "fsflags", "Filesystem flags failed", "Filesystem flags succeeded"),
+    (
+        0x2000,
+        "fsflags",
+        "Filesystem flags failed",
+        "Filesystem flags succeeded",
+    ),
     (0x4000, "icmp", "Ping failed", "Ping succeeded"),
     (0x8000, "content", "Content failed", "Content succeeded"),
-    (0x10000, "instance", "Monit instance failed", "Monit instance changed"),
+    (
+        0x10000,
+        "instance",
+        "Monit instance failed",
+        "Monit instance changed",
+    ),
     (0x20000, "action", "Action done", "Action done"),
     (0x40000, "pid", "PID failed", "PID succeeded"),
     (0x80000, "ppid", "PPID failed", "PPID succeeded"),
-    (0x100000, "heartbeat", "Heartbeat failed", "Heartbeat succeeded"),
+    (
+        0x100000,
+        "heartbeat",
+        "Heartbeat failed",
+        "Heartbeat succeeded",
+    ),
     (0x200000, "status", "Status failed", "Status succeeded"),
     (0x400000, "uptime", "Uptime failed", "Uptime succeeded"),
     (0x800000, "link", "Link down", "Link up"),
     (0x1000000, "speed", "Speed failed", "Speed succeeded"),
-    (0x2000000, "saturation", "Saturation exceeded", "Saturation succeeded"),
-    (0x4000000, "bytein", "Download bytes exceeded", "Download bytes succeeded"),
-    (0x8000000, "byteout", "Upload bytes exceeded", "Upload bytes succeeded"),
-    (0x10000000, "packetin", "Download packets exceeded", "Download packets succeeded"),
-    (0x20000000, "packetout", "Upload packets exceeded", "Upload packets succeeded"),
+    (
+        0x2000000,
+        "saturation",
+        "Saturation exceeded",
+        "Saturation succeeded",
+    ),
+    (
+        0x4000000,
+        "bytein",
+        "Download bytes exceeded",
+        "Download bytes succeeded",
+    ),
+    (
+        0x8000000,
+        "byteout",
+        "Upload bytes exceeded",
+        "Upload bytes succeeded",
+    ),
+    (
+        0x10000000,
+        "packetin",
+        "Download packets exceeded",
+        "Download packets succeeded",
+    ),
+    (
+        0x20000000,
+        "packetout",
+        "Upload packets exceeded",
+        "Upload packets succeeded",
+    ),
     (0x40000000, "exist", "Exists", "Does not exist"),
 ];
 
@@ -282,14 +339,17 @@ fn io(s: &Service) -> Value {
 }
 
 fn timestamps(s: &Service) -> Value {
-    s.timestamps.as_ref().map_or(Value::Null, |t| {
-        json!({"access": int(&t.access), "change": int(&t.change), "modify": int(&t.modify)})
-    })
+    s.timestamps.as_ref().map_or(
+        Value::Null,
+        |t| json!({"access": int(&t.access), "change": int(&t.change), "modify": int(&t.modify)}),
+    )
 }
 
 fn system_cpu_total(c: &xml::SystemCpu) -> Option<f64> {
     // guest time is already accounted in user time on Linux
-    let parts = [&c.user, &c.system, &c.nice, &c.wait, &c.hardirq, &c.softirq, &c.steal];
+    let parts = [
+        &c.user, &c.system, &c.nice, &c.wait, &c.hardirq, &c.softirq, &c.steal,
+    ];
     let vals: Vec<f64> = parts.iter().filter_map(|p| num(p)).collect();
     if vals.is_empty() {
         None
@@ -303,9 +363,9 @@ pub fn service_data(s: &Service) -> Value {
     match s.type_id() {
         5 => {
             let sys = s.system.as_ref();
-            let load = sys.and_then(|s| s.load.as_ref()).map(|l| {
-                json!([num(&l.avg01), num(&l.avg05), num(&l.avg15)])
-            });
+            let load = sys
+                .and_then(|s| s.load.as_ref())
+                .map(|l| json!([num(&l.avg01), num(&l.avg05), num(&l.avg15)]));
             let cpu = sys.and_then(|s| s.cpu.as_ref()).map(|c| {
                 json!({
                     "user": num(&c.user), "system": num(&c.system), "nice": num(&c.nice),
@@ -383,7 +443,6 @@ pub fn service_data(s: &Service) -> Value {
                 let nt = |x: Option<&xml::NowTotal>| {
                     (x.and_then(|x| num(&x.now)), x.and_then(|x| num(&x.total)))
                 };
-                let d = d;
                 let (p, pt) = nt(d.and_then(|d| d.packets.as_ref()));
                 let (b, bt) = nt(d.and_then(|d| d.bytes.as_ref()));
                 let (e, et) = nt(d.and_then(|d| d.errors.as_ref()));
@@ -491,9 +550,13 @@ pub fn metrics(s: &Service) -> Vec<(&'static str, f64)> {
         }
         8 => {
             if let Some(l) = &s.link {
-                let now = |d: &Option<xml::Direction>, f: fn(&xml::Direction) -> &Option<xml::NowTotal>| {
-                    d.as_ref().and_then(|d| f(d).as_ref()).and_then(|x| num(&x.now))
-                };
+                let now =
+                    |d: &Option<xml::Direction>,
+                     f: fn(&xml::Direction) -> &Option<xml::NowTotal>| {
+                        d.as_ref()
+                            .and_then(|d| f(d).as_ref())
+                            .and_then(|x| num(&x.now))
+                    };
                 out.push(("rx_bps", now(&l.download, |d| &d.bytes)));
                 out.push(("tx_bps", now(&l.upload, |d| &d.bytes)));
                 out.push(("rx_pps", now(&l.download, |d| &d.packets)));

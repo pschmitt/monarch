@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result, bail};
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::header::ContentType};
+use lettre::{
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::header::ContentType,
+};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -14,7 +16,9 @@ use crate::{
     views::{self, EventRow},
 };
 
-pub const KINDS: [&str; 7] = ["webhook", "ntfy", "gotify", "slack", "discord", "telegram", "email"];
+pub const KINDS: [&str; 7] = [
+    "webhook", "ntfy", "gotify", "slack", "discord", "telegram", "email",
+];
 
 /// Config keys holding secrets; never sent back to the browser.
 pub const SECRET_KEYS: [&str; 3] = ["token", "smtp_url", "headers"];
@@ -64,7 +68,9 @@ impl ChannelRow {
 fn matches(re: &Option<String>, value: &str) -> bool {
     match re.as_deref().map(str::trim).filter(|r| !r.is_empty()) {
         None => true,
-        Some(r) => Regex::new(&format!("(?i){r}")).map(|re| re.is_match(value)).unwrap_or(false),
+        Some(r) => Regex::new(&format!("(?i){r}"))
+            .map(|re| re.is_match(value))
+            .unwrap_or(false),
     }
 }
 
@@ -136,10 +142,11 @@ pub fn dispatch(state: SharedState, e: EventRow) {
 
 async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
     if let Some(host_id) = e.host_id {
-        let muted: Option<(Option<i64>,)> = sqlx::query_as("SELECT muted_until FROM hosts WHERE id = ?")
-            .bind(host_id)
-            .fetch_optional(&state.db)
-            .await?;
+        let muted: Option<(Option<i64>,)> =
+            sqlx::query_as("SELECT muted_until FROM hosts WHERE id = ?")
+                .bind(host_id)
+                .fetch_optional(&state.db)
+                .await?;
         if let Some((Some(until),)) = muted
             && until > now()
         {
@@ -183,11 +190,16 @@ async fn check(res: reqwest::Response) -> Result<()> {
         return Ok(());
     }
     let body = res.text().await.unwrap_or_default();
-    bail!("HTTP {status}: {}", body.chars().take(200).collect::<String>())
+    bail!(
+        "HTTP {status}: {}",
+        body.chars().take(200).collect::<String>()
+    )
 }
 
 fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Result<()> {
@@ -195,9 +207,20 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
     let http = &state.http;
     match c.kind.as_str() {
         "webhook" => {
-            let method = conf.get("method").map(|m| m.to_uppercase()).unwrap_or_else(|| "POST".into());
-            let mut req = http.request(method.parse().unwrap_or(reqwest::Method::POST), cfg(&conf, "url")?);
-            for line in conf.get("headers").map(String::as_str).unwrap_or("").lines() {
+            let method = conf
+                .get("method")
+                .map(|m| m.to_uppercase())
+                .unwrap_or_else(|| "POST".into());
+            let mut req = http.request(
+                method.parse().unwrap_or(reqwest::Method::POST),
+                cfg(&conf, "url")?,
+            );
+            for line in conf
+                .get("headers")
+                .map(String::as_str)
+                .unwrap_or("")
+                .lines()
+            {
                 if let Some((k, v)) = line.split_once(':') {
                     req = req.header(k.trim(), v.trim());
                 }
@@ -211,7 +234,14 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
                 .header("Title", n.title.clone())
                 .header("Click", n.url.clone())
                 .header("Priority", if n.failed { "4" } else { "3" })
-                .header("Tags", if n.failed { "rotating_light" } else { "white_check_mark" });
+                .header(
+                    "Tags",
+                    if n.failed {
+                        "rotating_light"
+                    } else {
+                        "white_check_mark"
+                    },
+                );
             if let Ok(token) = cfg(&conf, "token") {
                 req = req.bearer_auth(token);
             }
@@ -246,7 +276,10 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
             check(http.post(cfg(&conf, "url")?).json(&body).send().await?).await
         }
         "telegram" => {
-            let url = format!("https://api.telegram.org/bot{}/sendMessage", cfg(&conf, "token")?);
+            let url = format!(
+                "https://api.telegram.org/bot{}/sendMessage",
+                cfg(&conf, "token")?
+            );
             let text = format!(
                 "<b><a href=\"{}\">{}</a></b>\n{}",
                 html_escape(&n.url),
@@ -261,11 +294,21 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
                 .context("invalid smtp_url")?
                 .build();
             let mut msg = Message::builder()
-                .from(cfg(&conf, "from")?.parse().context("invalid from address")?)
+                .from(
+                    cfg(&conf, "from")?
+                        .parse()
+                        .context("invalid from address")?,
+                )
                 .subject(&n.title)
                 .header(ContentType::TEXT_PLAIN);
-            for to in cfg(&conf, "to")?.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-                msg = msg.to(to.parse().with_context(|| format!("invalid address {to}"))?);
+            for to in cfg(&conf, "to")?
+                .split(',')
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
+                msg = msg.to(to
+                    .parse()
+                    .with_context(|| format!("invalid address {to}"))?);
             }
             let msg = msg.body(format!("{}\n\n{}\n", n.text, n.url))?;
             mailer.send(msg).await?;

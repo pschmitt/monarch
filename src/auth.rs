@@ -55,7 +55,10 @@ impl User {
     pub fn require(&self, min: Role) -> Result<(), ApiError> {
         let r = self.role();
         if r == Role::Collector || r < min {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "insufficient privileges"))
+            Err(ApiError::new(
+                StatusCode::FORBIDDEN,
+                "insufficient privileges",
+            ))
         } else {
             Ok(())
         }
@@ -72,12 +75,20 @@ pub fn hash_password(password: &str) -> anyhow::Result<String> {
 
 pub fn verify_password(password: &str, hash: &str) -> bool {
     PasswordHash::new(hash)
-        .map(|h| Argon2::default().verify_password(password.as_bytes(), &h).is_ok())
+        .map(|h| {
+            Argon2::default()
+                .verify_password(password.as_bytes(), &h)
+                .is_ok()
+        })
         .unwrap_or(false)
 }
 
 /// Verify credentials; returns the user on success.
-pub async fn check_credentials(db: &SqlitePool, username: &str, password: &str) -> anyhow::Result<Option<User>> {
+pub async fn check_credentials(
+    db: &SqlitePool,
+    username: &str,
+    password: &str,
+) -> anyhow::Result<Option<User>> {
     let row: Option<(i64, String)> =
         sqlx::query_as("SELECT id, password_hash FROM users WHERE username = ?")
             .bind(username)
@@ -101,10 +112,12 @@ pub async fn check_credentials(db: &SqlitePool, username: &str, password: &str) 
     if !ok {
         return Ok(None);
     }
-    Ok(sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(
+        sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
+            .bind(id)
+            .fetch_optional(db)
+            .await?,
+    )
 }
 
 fn token_hash(token: &str) -> String {
@@ -116,13 +129,15 @@ pub async fn create_session(state: &SharedState, user_id: i64) -> anyhow::Result
     rand::rng().fill_bytes(&mut raw);
     let token = hex::encode(raw);
     let ts = now();
-    sqlx::query("INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)")
-        .bind(token_hash(&token))
-        .bind(user_id)
-        .bind(ts)
-        .bind(ts + state.config.session_days * 86400)
-        .execute(&state.db)
-        .await?;
+    sqlx::query(
+        "INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+    )
+    .bind(token_hash(&token))
+    .bind(user_id)
+    .bind(ts)
+    .bind(ts + state.config.session_days * 86400)
+    .execute(&state.db)
+    .await?;
     sqlx::query("UPDATE users SET last_login = ? WHERE id = ?")
         .bind(ts)
         .bind(user_id)
@@ -170,7 +185,10 @@ pub fn session_token(headers: &HeaderMap) -> Option<String> {
         .map(|(_, v)| v.to_owned())
 }
 
-pub async fn user_from_headers(state: &SharedState, headers: &HeaderMap) -> anyhow::Result<Option<User>> {
+pub async fn user_from_headers(
+    state: &SharedState,
+    headers: &HeaderMap,
+) -> anyhow::Result<Option<User>> {
     let Some(token) = session_token(headers) else {
         return Ok(None);
     };
@@ -187,21 +205,34 @@ pub async fn user_from_headers(state: &SharedState, headers: &HeaderMap) -> anyh
 impl FromRequestParts<SharedState> for User {
     type Rejection = ApiError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &SharedState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &SharedState,
+    ) -> Result<Self, Self::Rejection> {
         match user_from_headers(state, &parts.headers).await? {
             Some(u) if u.role() != Role::Collector => Ok(u),
-            Some(_) => Err(ApiError::new(StatusCode::FORBIDDEN, "collector accounts cannot sign in")),
+            Some(_) => Err(ApiError::new(
+                StatusCode::FORBIDDEN,
+                "collector accounts cannot sign in",
+            )),
             None => Err(ApiError::new(StatusCode::UNAUTHORIZED, "not signed in")),
         }
     }
 }
 
 pub async fn user_count(db: &SqlitePool) -> anyhow::Result<i64> {
-    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(db).await?;
+    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+        .fetch_one(db)
+        .await?;
     Ok(n)
 }
 
-pub async fn create_user(db: &SqlitePool, username: &str, password: &str, role: Role) -> anyhow::Result<User> {
+pub async fn create_user(
+    db: &SqlitePool,
+    username: &str,
+    password: &str,
+    role: Role,
+) -> anyhow::Result<User> {
     let hash = {
         let password = password.to_owned();
         tokio::task::spawn_blocking(move || hash_password(&password)).await??
@@ -212,16 +243,20 @@ pub async fn create_user(db: &SqlitePool, username: &str, password: &str, role: 
         Role::Viewer => "viewer",
         Role::Collector => "collector",
     };
-    let id = sqlx::query("INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)")
-        .bind(username)
-        .bind(hash)
-        .bind(role)
-        .bind(now())
-        .execute(db)
-        .await?
-        .last_insert_rowid();
-    Ok(sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
-        .bind(id)
-        .fetch_one(db)
-        .await?)
+    let id = sqlx::query(
+        "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
+    )
+    .bind(username)
+    .bind(hash)
+    .bind(role)
+    .bind(now())
+    .execute(db)
+    .await?
+    .last_insert_rowid();
+    Ok(
+        sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
+            .bind(id)
+            .fetch_one(db)
+            .await?,
+    )
 }

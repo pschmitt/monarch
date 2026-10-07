@@ -19,7 +19,10 @@ pub struct Credentials {
     password: String,
 }
 
-pub async fn me(State(state): State<SharedState>, headers: HeaderMap) -> ApiResult<Json<serde_json::Value>> {
+pub async fn me(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<serde_json::Value>> {
     let user = auth::user_from_headers(&state, &headers)
         .await?
         .filter(|u| u.role() != Role::Collector);
@@ -41,7 +44,10 @@ pub async fn setup(
     Json(c): Json<Credentials>,
 ) -> ApiResult<Response> {
     if auth::user_count(&state.db).await? > 0 {
-        return Err(ApiError::new(StatusCode::CONFLICT, "setup already completed"));
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "setup already completed",
+        ));
     }
     validate(&c)?;
     let user = auth::create_user(&state.db, c.username.trim(), &c.password, Role::Admin).await?;
@@ -57,10 +63,14 @@ pub fn validate(c: &Credentials) -> ApiResult<()> {
 pub fn validate_parts(username: &str, password: &str) -> ApiResult<()> {
     let u = username.trim();
     if u.is_empty() || u.len() > 64 || u.contains(':') {
-        return Err(ApiError::bad_request("username must be 1-64 characters without ':'"));
+        return Err(ApiError::bad_request(
+            "username must be 1-64 characters without ':'",
+        ));
     }
     if password.len() < 8 {
-        return Err(ApiError::bad_request("password must be at least 8 characters"));
+        return Err(ApiError::bad_request(
+            "password must be at least 8 characters",
+        ));
     }
     Ok(())
 }
@@ -71,14 +81,18 @@ pub async fn login(
     Json(c): Json<Credentials>,
 ) -> ApiResult<Response> {
     match auth::check_credentials(&state.db, c.username.trim(), &c.password).await? {
-        Some(u) if u.role() == Role::Collector => {
-            Err(ApiError::new(StatusCode::FORBIDDEN, "collector accounts cannot sign in"))
-        }
+        Some(u) if u.role() == Role::Collector => Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "collector accounts cannot sign in",
+        )),
         Some(u) => {
             let token = auth::create_session(&state, u.id).await?;
             Ok(signed_in(&state, &headers, &token, u))
         }
-        None => Err(ApiError::new(StatusCode::UNAUTHORIZED, "invalid username or password")),
+        None => Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid username or password",
+        )),
     }
 }
 
@@ -86,5 +100,9 @@ pub async fn logout(State(state): State<SharedState>, headers: HeaderMap) -> Api
     if let Some(token) = auth::session_token(&headers) {
         auth::delete_session(&state.db, &token).await?;
     }
-    Ok((StatusCode::NO_CONTENT, [(header::SET_COOKIE, auth::clear_cookie())]).into_response())
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(header::SET_COOKIE, auth::clear_cookie())],
+    )
+        .into_response())
 }

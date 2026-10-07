@@ -25,7 +25,11 @@ pub struct EventQuery {
     before: Option<i64>,
 }
 
-pub async fn list(State(state): State<SharedState>, _user: User, Query(q): Query<EventQuery>) -> ApiResult<Json<Value>> {
+pub async fn list(
+    State(state): State<SharedState>,
+    _user: User,
+    Query(q): Query<EventQuery>,
+) -> ApiResult<Json<Value>> {
     let limit = q.limit.unwrap_or(100).clamp(1, 500);
     let mut sql = format!("{} WHERE 1 = 1", views::EVENT_SELECT);
     let mut binds: Vec<Value> = Vec::new();
@@ -38,7 +42,8 @@ pub async fn list(State(state): State<SharedState>, _user: User, Query(q): Query
         binds.push(json!(s));
     }
     if let Some(st) = q.state.as_deref().filter(|s| !s.is_empty()) {
-        let v = model::event_state_from_name(st).ok_or_else(|| ApiError::bad_request("invalid state"))?;
+        let v = model::event_state_from_name(st)
+            .ok_or_else(|| ApiError::bad_request("invalid state"))?;
         if v == 3 {
             sql.push_str(" AND e.state IN (3, 4)");
         } else {
@@ -80,7 +85,11 @@ pub async fn list(State(state): State<SharedState>, _user: User, Query(q): Query
     })))
 }
 
-pub async fn ack(State(state): State<SharedState>, user: User, Path(id): Path<i64>) -> ApiResult<Json<Value>> {
+pub async fn ack(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
     user.require(Role::Operator)?;
     sqlx::query("UPDATE events SET acked_by = ?, acked_at = ? WHERE id = ? AND acked_at IS NULL")
         .bind(&user.username)
@@ -99,16 +108,22 @@ pub struct AckMany {
     ids: Vec<i64>,
 }
 
-pub async fn ack_many(State(state): State<SharedState>, user: User, Json(body): Json<AckMany>) -> ApiResult<StatusCode> {
+pub async fn ack_many(
+    State(state): State<SharedState>,
+    user: User,
+    Json(body): Json<AckMany>,
+) -> ApiResult<StatusCode> {
     user.require(Role::Operator)?;
     let mut tx = state.db.begin().await?;
     for id in body.ids.iter().take(1000) {
-        sqlx::query("UPDATE events SET acked_by = ?, acked_at = ? WHERE id = ? AND acked_at IS NULL")
-            .bind(&user.username)
-            .bind(now())
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "UPDATE events SET acked_by = ?, acked_at = ? WHERE id = ? AND acked_at IS NULL",
+        )
+        .bind(&user.username)
+        .bind(now())
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
     }
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)

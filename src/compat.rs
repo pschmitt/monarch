@@ -25,7 +25,10 @@ pub fn router() -> Router<SharedState> {
         .route("/z_security_check", post(login))
         .route("/login/logout.csp", get(logout))
         .route("/status/hosts/detail", get(detail_redirect))
-        .route("/reports/events/", get(|| async { Redirect::to("/events") }));
+        .route(
+            "/reports/events/",
+            get(|| async { Redirect::to("/events") }),
+        );
     for prefix in ["/api/2", ""] {
         r = r
             .route(&format!("{prefix}/status/hosts/list"), get(hosts_list))
@@ -41,7 +44,11 @@ struct LoginForm {
     z_password: String,
 }
 
-async fn login(State(state): State<SharedState>, headers: HeaderMap, Form(f): Form<LoginForm>) -> ApiResult<Response> {
+async fn login(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Form(f): Form<LoginForm>,
+) -> ApiResult<Response> {
     match auth::check_credentials(&state.db, f.z_username.trim(), &f.z_password).await? {
         Some(u) if u.role() != Role::Collector => {
             let token = auth::create_session(&state, u.id).await?;
@@ -56,7 +63,11 @@ async fn logout(State(state): State<SharedState>, headers: HeaderMap) -> ApiResu
     if let Some(token) = auth::session_token(&headers) {
         auth::delete_session(&state.db, &token).await?;
     }
-    Ok(([(header::SET_COOKIE, auth::clear_cookie())], Redirect::to("/login")).into_response())
+    Ok((
+        [(header::SET_COOKIE, auth::clear_cookie())],
+        Redirect::to("/login"),
+    )
+        .into_response())
 }
 
 #[derive(Deserialize)]
@@ -70,7 +81,10 @@ async fn detail_redirect(Query(q): Query<IdQuery>) -> Redirect {
 
 /// Like M/Monit, unauthenticated API calls are redirected to the login page
 /// (clients detect the non-JSON answer and log in).
-async fn session_user(state: &SharedState, headers: &HeaderMap) -> ApiResult<Result<User, Response>> {
+async fn session_user(
+    state: &SharedState,
+    headers: &HeaderMap,
+) -> ApiResult<Result<User, Response>> {
     Ok(match auth::user_from_headers(state, headers).await? {
         Some(u) if u.role() != Role::Collector => Ok(u),
         _ => Err(Redirect::to("/login").into_response()),
@@ -110,9 +124,11 @@ async fn hosts_list(State(state): State<SharedState>, headers: HeaderMap) -> Api
         return Ok(r);
     }
     let hosts = views::all_hosts(&state.db).await?;
-    let events: Vec<(i64, i64)> = sqlx::query_as("SELECT host_id, COUNT(*) FROM events WHERE host_id IS NOT NULL GROUP BY host_id")
-        .fetch_all(&state.db)
-        .await?;
+    let events: Vec<(i64, i64)> = sqlx::query_as(
+        "SELECT host_id, COUNT(*) FROM events WHERE host_id IS NOT NULL GROUP BY host_id",
+    )
+    .fetch_all(&state.db)
+    .await?;
     let mut records: Vec<Value> = hosts
         .iter()
         .map(|(h, services)| {
@@ -253,7 +269,11 @@ fn statistics(s: &ServiceRow, d: &Value) -> Vec<(i64, String, Value)> {
     out
 }
 
-async fn hosts_get(State(state): State<SharedState>, headers: HeaderMap, Query(q): Query<IdQuery>) -> ApiResult<Response> {
+async fn hosts_get(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Query(q): Query<IdQuery>,
+) -> ApiResult<Response> {
     if let Err(r) = session_user(&state, &headers).await? {
         return Ok(r);
     }
@@ -275,7 +295,7 @@ async fn hosts_get(State(state): State<SharedState>, headers: HeaderMap, Query(q
             let d: Value = serde_json::from_str(&s.data).unwrap_or_default();
             let group = groups
                 .iter()
-                .find(|(_, m)| m.iter().any(|n| *n == s.name))
+                .find(|(_, m)| m.contains(&s.name))
                 .map(|(g, _)| g.clone());
             let stats: Vec<Value> = statistics(s, &d)
                 .into_iter()
@@ -331,7 +351,11 @@ struct ActionForm {
     action: String,
 }
 
-async fn action(State(state): State<SharedState>, headers: HeaderMap, Form(f): Form<ActionForm>) -> ApiResult<Response> {
+async fn action(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Form(f): Form<ActionForm>,
+) -> ApiResult<Response> {
     let user = match session_user(&state, &headers).await? {
         Ok(u) => u,
         Err(r) => return Ok(r),

@@ -20,7 +20,11 @@ pub struct MetricsQuery {
     to: Option<i64>,
 }
 
-pub async fn query(State(state): State<SharedState>, _user: User, Query(q): Query<MetricsQuery>) -> ApiResult<Json<Value>> {
+pub async fn query(
+    State(state): State<SharedState>,
+    _user: User,
+    Query(q): Query<MetricsQuery>,
+) -> ApiResult<Json<Value>> {
     let to = q.to.unwrap_or_else(now);
     let from = q.from.unwrap_or(to - 6 * 3600);
     if from >= to {
@@ -33,7 +37,13 @@ pub async fn query(State(state): State<SharedState>, _user: User, Query(q): Quer
         _ => ("rollup_1h", 3600),
     };
     let mut series = Vec::new();
-    for metric in q.metrics.split(',').map(str::trim).filter(|m| !m.is_empty()).take(16) {
+    for metric in q
+        .metrics
+        .split(',')
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+        .take(16)
+    {
         let points: Vec<Value> = if resolution == 0 {
             sqlx::query_as::<_, (i64, f64)>(
                 "SELECT s.ts, s.value FROM samples s JOIN series r ON r.id = s.series_id

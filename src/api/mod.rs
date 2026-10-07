@@ -69,7 +69,9 @@ pub fn router() -> Router<SharedState> {
         .route("/hosts", get(hosts::list))
         .route(
             "/hosts/{id}",
-            get(hosts::detail).patch(hosts::update).delete(hosts::remove),
+            get(hosts::detail)
+                .patch(hosts::update)
+                .delete(hosts::remove),
         )
         .route("/hosts/{id}/test", post(hosts::test))
         .route("/hosts/{id}/action", post(hosts::bulk_action))
@@ -86,12 +88,18 @@ pub fn router() -> Router<SharedState> {
             "/users/{id}",
             axum::routing::patch(admin::update_user).delete(admin::delete_user),
         )
-        .route("/channels", get(admin::channels).post(admin::create_channel))
+        .route(
+            "/channels",
+            get(admin::channels).post(admin::create_channel),
+        )
         .route(
             "/channels/{id}",
             axum::routing::patch(admin::update_channel).delete(admin::delete_channel),
         )
         .route("/channels/{id}/test", post(admin::test_channel))
-        .route("/settings", get(admin::settings).patch(admin::update_settings))
+        .route(
+            "/settings",
+            get(admin::settings).patch(admin::update_settings),
+        )
         .fallback(|| async { ApiError::not_found("endpoint") })
 }

@@ -30,9 +30,10 @@ pub async fn connect(path: &Path) -> Result<SqlitePool> {
 }
 
 pub async fn load_settings(db: &SqlitePool) -> Result<Option<Settings>> {
-    let row: Option<(String,)> = sqlx::query_as("SELECT value FROM settings WHERE key = 'settings'")
-        .fetch_optional(db)
-        .await?;
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT value FROM settings WHERE key = 'settings'")
+            .fetch_optional(db)
+            .await?;
     Ok(row.and_then(|(v,)| serde_json::from_str(&v).ok()))
 }
 
