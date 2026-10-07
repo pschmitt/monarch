@@ -22,6 +22,21 @@ pub struct Config {
     pub collector_allow_anonymous: bool,
     /// Session lifetime in days.
     pub session_days: i64,
+    /// Users that are created (or whose password and role are reset) on startup.
+    pub ensure_users: Vec<EnsureUser>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnsureUser {
+    pub username: String,
+    #[serde(default = "default_role")]
+    pub role: String,
+    pub password_file: PathBuf,
+}
+
+fn default_role() -> String {
+    "collector".into()
 }
 
 impl Default for Config {
@@ -34,6 +49,7 @@ impl Default for Config {
             initial_admin_password_file: None,
             collector_allow_anonymous: false,
             session_days: 30,
+            ensure_users: Vec::new(),
         }
     }
 }

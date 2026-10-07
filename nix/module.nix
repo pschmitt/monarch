@@ -14,6 +14,12 @@ let
         initial_admin_user = cfg.initialAdmin.user;
         initial_admin_password_file = "/run/credentials/monarch.service/initial-admin-password";
       }
+      // lib.optionalAttrs (cfg.ensureUsers != [ ]) {
+        ensure_users = lib.imap0 (i: u: {
+          inherit (u) username role;
+          password_file = "/run/credentials/monarch.service/user-${toString i}";
+        }) cfg.ensureUsers;
+      }
     )
   );
 in
@@ -74,6 +80,39 @@ in
       };
     };
 
+    ensureUsers = lib.mkOption {
+      description = ''
+        Accounts managed declaratively: created on startup, and their role and
+        password reset to the configured values. Handy for the `collector`
+        account Monit agents use.
+      '';
+      default = [ ];
+      type = lib.types.listOf (
+        lib.types.submodule {
+          options = {
+            username = lib.mkOption {
+              type = lib.types.str;
+              description = "Account name.";
+            };
+            role = lib.mkOption {
+              type = lib.types.enum [
+                "admin"
+                "operator"
+                "viewer"
+                "collector"
+              ];
+              default = "collector";
+              description = "Role of the account.";
+            };
+            passwordFile = lib.mkOption {
+              type = lib.types.path;
+              description = "File containing the account's password (at least 8 characters).";
+            };
+          };
+        }
+      );
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -96,9 +135,11 @@ in
         DynamicUser = true;
         StateDirectory = "monarch";
         StateDirectoryMode = "0700";
-        LoadCredential = lib.optional (
-          cfg.initialAdmin.passwordFile != null
-        ) "initial-admin-password:${cfg.initialAdmin.passwordFile}";
+        LoadCredential =
+          lib.optional (
+            cfg.initialAdmin.passwordFile != null
+          ) "initial-admin-password:${cfg.initialAdmin.passwordFile}"
+          ++ lib.imap0 (i: u: "user-${toString i}:${u.passwordFile}") cfg.ensureUsers;
         # Hardening
         CapabilityBoundingSet = "";
         LockPersonality = true;

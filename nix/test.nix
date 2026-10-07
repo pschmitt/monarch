@@ -12,13 +12,19 @@
         package = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
         settings.public_url = "http://machine:8080";
         initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
+        ensureUsers = [
+          {
+            username = "collector";
+            passwordFile = pkgs.writeText "collector-pw" "collectorpass";
+          }
+        ];
       };
 
       services.monit = {
         enable = true;
         config = ''
           set daemon 5
-          set mmonit http://admin:supersecret@127.0.0.1:8080/collector
+          set mmonit http://collector:collectorpass@127.0.0.1:8080/collector
           set httpd port 2812 address 127.0.0.1
             allow monit:monitpass
           check system $HOST

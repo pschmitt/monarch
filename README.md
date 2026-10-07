@@ -50,6 +50,10 @@ account.
             };
             # optional, otherwise the web UI asks for an admin account on first visit
             initialAdmin.passwordFile = "/run/secrets/monarch-admin";
+            # declaratively managed accounts, e.g. the one Monit agents report with
+            ensureUsers = [
+              { username = "monit"; role = "collector"; passwordFile = "/run/secrets/monarch-collector"; }
+            ];
           };
         }
       ];
@@ -93,6 +97,12 @@ collector_allow_anonymous = false
 session_days = 30
 initial_admin_user = "admin"
 initial_admin_password_file = "/run/secrets/monarch-admin"
+
+# created on startup; role and password are reset to these values
+[[ensure_users]]
+username = "monit"
+role = "collector"           # default
+password_file = "/run/secrets/monarch-collector"
 ```
 
 Environment overrides: `MONARCH_LISTEN`, `MONARCH_DATABASE`, `MONARCH_PUBLIC_URL`,

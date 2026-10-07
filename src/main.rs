@@ -132,6 +132,10 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
         tracing::info!(%user, "created initial admin user");
     }
 
+    for u in &config.ensure_users {
+        ensure_user(&pool, u).await?;
+    }
+
     let listen = config.listen;
     let state = state::AppState::new(pool, config, settings)?;
     tasks::spawn(state.clone());
@@ -185,4 +189,48 @@ async fn shutdown() {
     #[cfg(not(unix))]
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("shutting down");
+}
+
+fn read_secret(path: &std::path::Path) -> Result<String> {
+    let s = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    Ok(s.trim_end_matches(['\n', '\r']).to_owned())
+}
+
+/// Declaratively managed account: create it, or reset role and password.
+async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<()> {
+    let role = auth::Role::parse(&u.role)
+        .with_context(|| format!("invalid role {} for {}", u.role, u.username))?;
+    let password = read_secret(&u.password_file)?;
+    if password.len() < 8 {
+        bail!("password for {} must be at least 8 characters", u.username);
+    }
+    let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")
+        .bind(&u.username)
+        .fetch_optional(pool)
+        .await?;
+    match existing {
+        None => {
+            auth::create_user(pool, &u.username, &password, role).await?;
+            tracing::info!(user = %u.username, role = %u.role, "created managed user");
+        }
+        Some((id,)) => {
+            if auth::check_credentials(pool, &u.username, &password)
+                .await?
+                .is_none()
+            {
+                sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+                    .bind(auth::hash_password(&password)?)
+                    .bind(id)
+                    .execute(pool)
+                    .await?;
+                tracing::info!(user = %u.username, "updated password of managed user");
+            }
+            sqlx::query("UPDATE users SET role = ? WHERE id = ?")
+                .bind(&u.role)
+                .bind(id)
+                .execute(pool)
+                .await?;
+        }
+    }
+    Ok(())
 }
