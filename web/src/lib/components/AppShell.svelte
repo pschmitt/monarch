@@ -109,7 +109,7 @@
 <div class="flex min-h-dvh">
   <!-- desktop sidebar -->
   <aside
-    class="sticky top-0 hidden h-dvh shrink-0 border-r border-line bg-[color-mix(in_oklab,var(--bg)_70%,transparent)] backdrop-blur-xl transition-[width] duration-200 md:block {collapsed
+    class="sticky top-0 hidden h-dvh shrink-0 border-r border-line bg-[var(--glass)] backdrop-blur-xl transition-[width] duration-200 md:block {collapsed
       ? 'w-[72px]'
       : 'w-60'}"
   >
@@ -127,7 +127,7 @@
   {/if}
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="sticky top-0 z-30 border-b border-line bg-[color-mix(in_oklab,var(--bg)_72%,transparent)] backdrop-blur-xl">
+    <header class="sticky top-0 z-30 border-b border-line bg-[var(--glass)] backdrop-blur-xl">
       <div class="flex h-16 items-center gap-3 px-4 sm:px-6">
         <button class="btn btn-ghost btn-icon md:hidden" aria-label="Open navigation" onclick={() => (ui.mobileNav = true)}><MenuIcon size={18} /></button>
         <div class="md:hidden"><Logo size={26} /></div>

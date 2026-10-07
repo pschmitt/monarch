@@ -182,6 +182,8 @@ echo 'n3w-passw0rd' | monarch passwd alice
 
 ### Reverse proxy
 
+On NixOS, `services.monarch.nginx = { enable = true; domain = "monarch.example.com"; };` sets up an ACME-enabled nginx virtual host with the settings below.
+
 Monarch works behind nginx or similar. Forward `X-Forwarded-For` (used to find
 agents' addresses) and `X-Forwarded-Proto` (for secure cookies), and disable
 buffering for `/api/stream`:

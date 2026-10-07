@@ -33,6 +33,7 @@
   --chart-grid: rgb(255 255 255 / 0.05);
   --chart-axis: #6b7189;
   --scrim: rgb(3 4 8 / 0.66);
+  --glass: rgb(7 8 12 / 0.72);
   color-scheme: dark;
 }
 
@@ -47,7 +48,7 @@
   --line-strong: rgb(15 23 42 / 0.15);
   --fg: #141725;
   --fg-2: #4f566b;
-  --fg-3: #8a90a4;
+  --fg-3: #646b80;
   --accent: #6d5ae6;
   --accent-2: #0ea5c4;
   --ok: #059669;
@@ -59,8 +60,9 @@
   --glow-2: rgb(14 165 196 / 0.08);
   --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -18px rgb(15 23 42 / 0.22);
   --chart-grid: rgb(15 23 42 / 0.06);
-  --chart-axis: #8a90a4;
+  --chart-axis: #646b80;
   --scrim: rgb(20 23 37 / 0.35);
+  --glass: rgb(244 245 250 / 0.82);
   color-scheme: light;
 }
 
@@ -258,7 +260,7 @@
     padding: 0 0.75rem;
     border-radius: 10px;
     border: 1px solid var(--line-strong);
-    background: color-mix(in oklab, var(--bg) 60%, transparent);
+    background: var(--glass);
     color: var(--fg);
     font-size: 0.875rem;
     transition:

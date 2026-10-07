@@ -137,7 +137,7 @@
         <ChevronRight size={14} class="ml-auto transition-transform {showRaw ? 'rotate-90' : ''}" />
       </button>
       {#if showRaw}
-        <pre class="num max-h-[480px] overflow-auto border-t border-line bg-[color-mix(in_oklab,var(--bg)_70%,transparent)] p-5 text-[11.5px] leading-relaxed text-fg-2">{JSON.stringify({ ...svc, host: undefined, recent_events: undefined }, null, 2)}</pre>
+        <pre class="num max-h-[480px] overflow-auto border-t border-line bg-[var(--glass)] p-5 text-[11.5px] leading-relaxed text-fg-2">{JSON.stringify({ ...svc, host: undefined, recent_events: undefined }, null, 2)}</pre>
       {/if}
     </section>
   </div>

@@ -250,6 +250,23 @@ in
       );
     };
 
+    nginx = {
+      enable = lib.mkEnableOption "an nginx virtual host reverse-proxying Monarch";
+      domain = lib.mkOption {
+        type = lib.types.str;
+        example = "monarch.example.com";
+        description = ''
+          Name of the nginx virtual host. Further virtual host settings (e.g.
+          `acmeRoot`) can be set through `services.nginx.virtualHosts.<domain>`.
+        '';
+      };
+      enableACME = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Obtain a certificate from ACME and force HTTPS.";
+      };
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -326,6 +343,24 @@ in
           "~@privileged"
         ];
         UMask = "0077";
+      };
+    };
+
+    services.nginx.virtualHosts = lib.mkIf cfg.nginx.enable {
+      ${cfg.nginx.domain} = {
+        enableACME = lib.mkDefault cfg.nginx.enableACME;
+        forceSSL = lib.mkDefault cfg.nginx.enableACME;
+        locations."/" = {
+          proxyPass = "http://${cfg.settings.listen}";
+          recommendedProxySettings = true;
+          extraConfig = ''
+            # live updates (server-sent events)
+            proxy_buffering off;
+            proxy_read_timeout 1h;
+            # large monit status documents (program output)
+            client_max_body_size 32m;
+          '';
+        };
       };
     };
 

@@ -18,7 +18,7 @@
   }
 </script>
 
-<div class="overflow-hidden rounded-xl border border-line-strong bg-[color-mix(in_oklab,var(--bg)_80%,transparent)]">
+<div class="overflow-hidden rounded-xl border border-line-strong bg-[var(--glass)]">
   <div class="flex items-center justify-between border-b border-line px-3.5 py-2">
     <span class="num text-[11px] text-fg-3">{label}</span>
     <button class="btn btn-ghost btn-sm" onclick={copy} aria-label="Copy to clipboard">

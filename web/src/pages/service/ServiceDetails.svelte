@@ -185,7 +185,7 @@
         <SquareTerminal size={14} class="text-fg-3" />
         <h3 class="card-title">Output</h3>
       </div>
-      <pre class="num max-h-[420px] min-h-28 overflow-auto bg-[color-mix(in_oklab,var(--bg)_75%,transparent)] p-5 text-[12.5px] leading-relaxed whitespace-pre-wrap text-fg">{d.output || "(no output)"}</pre>
+      <pre class="num max-h-[420px] min-h-28 overflow-auto bg-[var(--glass)] p-5 text-[12.5px] leading-relaxed whitespace-pre-wrap text-fg">{d.output || "(no output)"}</pre>
     </section>
   </div>
 {:else if service.type === "file" || service.type === "directory" || service.type === "fifo"}
