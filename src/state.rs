@@ -7,7 +7,7 @@ use std::{
 use anyhow::Result;
 use serde_json::Value;
 use sqlx::SqlitePool;
-use tokio::sync::{RwLock, broadcast};
+use tokio::sync::{RwLock, broadcast, watch};
 
 use crate::config::{Config, Settings};
 
@@ -24,11 +24,14 @@ pub struct AppState {
     /// sha256(user:pass) -> verified at; avoids an argon2 run per collector post.
     pub collector_auth: Mutex<HashMap<[u8; 32], Instant>>,
     pub http: reqwest::Client,
+    /// Flipped to true on shutdown so long-lived streams end.
+    pub shutdown: watch::Sender<bool>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, config: Config, settings: Settings) -> Result<SharedState> {
         let (stream, _) = broadcast::channel(1024);
+        let (shutdown, _) = watch::channel(false);
         Ok(Arc::new(Self {
             db,
             config,
@@ -40,6 +43,7 @@ impl AppState {
                 .timeout(Duration::from_secs(20))
                 .user_agent(concat!("monarch/", env!("CARGO_PKG_VERSION")))
                 .build()?,
+            shutdown,
         }))
     }
 

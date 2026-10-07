@@ -147,7 +147,7 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
         .layer(RequestDecompressionLayer::new())
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(state.clone());
 
     let listener = tokio::net::TcpListener::bind(listen)
         .await
@@ -160,7 +160,14 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(shutdown())
+    .with_graceful_shutdown({
+        let state = state.clone();
+        async move {
+            shutdown().await;
+            // End SSE streams, otherwise graceful shutdown waits for them forever.
+            let _ = state.shutdown.send(true);
+        }
+    })
     .await?;
     Ok(())
 }

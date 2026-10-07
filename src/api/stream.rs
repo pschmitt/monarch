@@ -23,5 +23,10 @@ pub async fn stream(
         .map(|m| Ok(Event::default().data(m.as_ref())));
     let pings = IntervalStream::new(tokio::time::interval(Duration::from_secs(25)))
         .map(|_| Ok(Event::default().data(json!({"type": "ping", "ts": now()}).to_string())));
-    Sse::new(futures::stream::select(updates, pings)).keep_alive(KeepAlive::default())
+    let mut shutdown = state.shutdown.subscribe();
+    let stop = async move {
+        let _ = shutdown.wait_for(|v| *v).await;
+    };
+    Sse::new(futures::stream::select(updates, pings).take_until(stop))
+        .keep_alive(KeepAlive::default())
 }
