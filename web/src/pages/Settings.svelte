@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Bell, Info, Radio, SlidersHorizontal, Users } from "@lucide/svelte";
+  import { ArrowDownToLine, Bell, Info, Radio, SlidersHorizontal, Users } from "@lucide/svelte";
   import { can } from "../lib/state.svelte";
   import General from "./settings/General.svelte";
   import Collector from "./settings/Collector.svelte";
+  import Connections from "./settings/Connections.svelte";
   import UsersSection from "./settings/Users.svelte";
   import Notifications from "./settings/Notifications.svelte";
   import About from "./settings/About.svelte";
@@ -11,7 +12,8 @@
 
   const sections = [
     { id: "general", label: "General", icon: SlidersHorizontal, desc: "URL, retention, heartbeats" },
-    { id: "collector", label: "Collector", icon: Radio, desc: "Connect Monit agents" },
+    { id: "collector", label: "Collector", icon: Radio, desc: "Agents push to Monarch" },
+    { id: "connections", label: "Connections", icon: ArrowDownToLine, desc: "Monarch pulls from agents" },
     { id: "users", label: "Users", icon: Users, desc: "Accounts & roles" },
     { id: "notifications", label: "Notifications", icon: Bell, desc: "Channels & routing" },
     { id: "about", label: "About", icon: Info, desc: "Version & license" },
@@ -45,6 +47,7 @@
       </nav>
       <div class="min-w-0">
         {#if section === "collector"}<Collector />
+        {:else if section === "connections"}<Connections />
         {:else if section === "users"}<UsersSection />
         {:else if section === "notifications"}<Notifications />
         {:else if section === "about"}<About />

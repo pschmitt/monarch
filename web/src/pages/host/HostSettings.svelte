@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { BellOff, CircleCheck, CircleX, LoaderCircle, Plug, Save, Trash } from "@lucide/svelte";
+  import { ArrowDownToLine, BellOff, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
   import { api } from "../../lib/api";
-  import type { HostDetail } from "../../lib/types";
+  import type { HostDetail, Target } from "../../lib/types";
   import { hostName, toLocalInput } from "../../lib/format";
   import { confirm, toast, toastError } from "../../lib/state.svelte";
   import { router } from "../../lib/router.svelte";
   import Switch from "../../lib/components/Switch.svelte";
 
-  let { host, onsaved }: { host: HostDetail; onsaved: (h: HostDetail) => void } = $props();
+  let { host, target = null, onsaved }: { host: HostDetail; target?: Target | null; onsaved: (h: HostDetail) => void } = $props();
 
   // svelte-ignore state_referenced_locally
   const initial = host;
@@ -29,12 +29,13 @@
       const patch: Record<string, unknown> = {
         display_name,
         description,
-        override_url,
-        override_username,
-        tls_skip_verify,
         muted_until: muted_until ? Math.floor(new Date(muted_until).getTime() / 1000) : null,
       };
-      if (override_password) patch.override_password = override_password;
+      // Pulled hosts are reached through their connection; overrides only apply to push hosts.
+      if (host.source !== "pull") {
+        Object.assign(patch, { override_url, override_username, tls_skip_verify });
+        if (override_password) patch.override_password = override_password;
+      }
       const h = await api.updateHost(host.id, patch);
       override_password = "";
       onsaved(h);
@@ -104,53 +105,75 @@
       </div>
     </section>
 
-    <section class="card space-y-4 p-5 sm:p-6">
-      <div>
-        <h3 class="card-title">Monit HTTP interface</h3>
-        <p class="mt-1 text-xs text-fg-3">
-          Used to start, stop and restart services. By default Monarch uses the address and credentials Monit registers (<code class="num">set httpd</code> +
-          <code class="num">register credentials</code>).
-        </p>
-      </div>
-      <div class="grid gap-3 rounded-xl border border-line bg-surface-2/50 p-3 text-xs sm:grid-cols-3">
-        <div><div class="eyebrow">Reported httpd</div><div class="num mt-1 text-fg-2">{host.httpd ? `${host.httpd.ssl ? "https" : "http"}://${host.httpd.address ?? "?"}:${host.httpd.port ?? "?"}` : "not enabled"}</div></div>
-        <div><div class="eyebrow">Credentials</div><div class="mt-1 text-fg-2">{host.has_reported_credentials ? "registered by Monit" : "not registered"}</div></div>
-        <div><div class="eyebrow">Effective URL</div><div class="num mt-1 truncate text-fg-2">{host.monit_url ?? "—"}</div></div>
-      </div>
-      <div>
-        <label class="label" for="url">URL override</label>
-        <input id="url" class="input num" placeholder="https://host.example.com:2812" bind:value={override_url} />
-        <p class="hint">Leave empty to use the reported address.</p>
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label class="label" for="ou">Username override</label>
-          <input id="ou" class="input" autocomplete="off" bind:value={override_username} />
-        </div>
-        <div>
-          <label class="label" for="op">Password override</label>
-          <input id="op" class="input" type="password" autocomplete="new-password" placeholder={host.has_override_password ? "•••••••• (unchanged)" : ""} bind:value={override_password} />
-        </div>
-      </div>
-      <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-        <div>
-          <div class="text-[13px] font-medium text-fg">Skip TLS verification</div>
-          <div class="text-xs text-fg-3">Monit's httpd commonly uses a self-signed certificate.</div>
-        </div>
-        <Switch bind:checked={tls_skip_verify} label="Skip TLS verification" />
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
-        <button type="button" class="btn" onclick={runTest} disabled={testing}>
-          {#if testing}<LoaderCircle size={15} class="animate-spin" />{:else}<Plug size={15} />{/if} Test connection
-        </button>
-        {#if test}
-          <span class="tone-{test.ok ? 'ok' : 'bad'} flex items-center gap-1.5 text-xs text-tone animate-in">
-            {#if test.ok}<CircleCheck size={14} />{:else}<CircleX size={14} />{/if}
-            {test.message}{test.latency_ms !== null ? ` (${test.latency_ms.toFixed(0)} ms)` : ""}
+    {#if host.source === "pull"}
+      <section class="card space-y-4 p-5 sm:p-6">
+        <div class="flex items-start gap-3">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-line-strong bg-surface-2 text-accent">
+            {#if target?.ssh}<Terminal size={16} />{:else}<ArrowDownToLine size={16} />{/if}
           </span>
+          <div class="min-w-0">
+            <h3 class="card-title">Pulled by Monarch</h3>
+            <p class="mt-1 text-xs text-fg-3">This host is polled through a connection. Its URL, credentials and SSH tunnel are also used for service actions.</p>
+          </div>
+        </div>
+        {#if target}
+          <div class="grid gap-3 rounded-xl border border-line bg-surface-2/50 p-3 text-xs sm:grid-cols-3">
+            <div class="min-w-0"><div class="eyebrow">Monit URL</div><div class="num mt-1 truncate text-fg-2" title={target.url}>{target.url}</div></div>
+            <div class="min-w-0"><div class="eyebrow">Via</div><div class="num mt-1 truncate text-fg-2">{target.ssh ? `ssh ${target.ssh.destination}${target.ssh.port && target.ssh.port !== 22 ? `:${target.ssh.port}` : ""}` : "direct"}</div></div>
+            <div class="min-w-0"><div class="eyebrow">Last poll</div><div class="mt-1 truncate {target.last_status && target.last_status !== 'ok' ? 'text-bad' : 'text-fg-2'}" title={target.last_status ?? ""}>{target.last_status === "ok" ? `OK · every ${target.interval}s` : (target.last_status ?? "pending")}</div></div>
+          </div>
         {/if}
-      </div>
-    </section>
+        <a class="btn" href="/settings/connections"><Link size={14} /> Manage connection{target?.managed ? " (managed by config)" : ""}</a>
+      </section>
+    {:else}
+    <section class="card space-y-4 p-5 sm:p-6">
+        <div>
+          <h3 class="card-title">Monit HTTP interface</h3>
+          <p class="mt-1 text-xs text-fg-3">
+            Used to start, stop and restart services. By default Monarch uses the address and credentials Monit registers (<code class="num">set httpd</code> +
+            <code class="num">register credentials</code>).
+          </p>
+        </div>
+        <div class="grid gap-3 rounded-xl border border-line bg-surface-2/50 p-3 text-xs sm:grid-cols-3">
+          <div><div class="eyebrow">Reported httpd</div><div class="num mt-1 text-fg-2">{host.httpd ? `${host.httpd.ssl ? "https" : "http"}://${host.httpd.address ?? "?"}:${host.httpd.port ?? "?"}` : "not enabled"}</div></div>
+          <div><div class="eyebrow">Credentials</div><div class="mt-1 text-fg-2">{host.has_reported_credentials ? "registered by Monit" : "not registered"}</div></div>
+          <div><div class="eyebrow">Effective URL</div><div class="num mt-1 truncate text-fg-2">{host.monit_url ?? "—"}</div></div>
+        </div>
+        <div>
+          <label class="label" for="url">URL override</label>
+          <input id="url" class="input num" placeholder="https://host.example.com:2812" bind:value={override_url} />
+          <p class="hint">Leave empty to use the reported address.</p>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="label" for="ou">Username override</label>
+            <input id="ou" class="input" autocomplete="off" bind:value={override_username} />
+          </div>
+          <div>
+            <label class="label" for="op">Password override</label>
+            <input id="op" class="input" type="password" autocomplete="new-password" placeholder={host.has_override_password ? "•••••••• (unchanged)" : ""} bind:value={override_password} />
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+          <div>
+            <div class="text-[13px] font-medium text-fg">Skip TLS verification</div>
+            <div class="text-xs text-fg-3">Monit's httpd commonly uses a self-signed certificate.</div>
+          </div>
+          <Switch bind:checked={tls_skip_verify} label="Skip TLS verification" />
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" class="btn" onclick={runTest} disabled={testing}>
+            {#if testing}<LoaderCircle size={15} class="animate-spin" />{:else}<Plug size={15} />{/if} Test connection
+          </button>
+          {#if test}
+            <span class="tone-{test.ok ? 'ok' : 'bad'} flex items-center gap-1.5 text-xs text-tone animate-in">
+              {#if test.ok}<CircleCheck size={14} />{:else}<CircleX size={14} />{/if}
+              {test.message}{test.latency_ms !== null ? ` (${test.latency_ms.toFixed(0)} ms)` : ""}
+            </span>
+          {/if}
+        </div>
+      </section>
+    {/if}
 
     <div class="flex justify-end">
       <button class="btn btn-primary" disabled={saving}>{#if saving}<LoaderCircle size={15} class="animate-spin" />{:else}<Save size={15} />{/if} Save changes</button>

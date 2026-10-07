@@ -65,11 +65,10 @@ pub async fn collector(
     };
 
     let remote = client_ip(&headers).unwrap_or_else(|| peer.ip().to_string());
-    match ingest(&state, doc, &remote).await {
-        Ok(()) => StatusCode::OK.into_response(),
+    match ingest(&state, doc, &remote, None).await {
+        Ok(_) => StatusCode::OK.into_response(),
         Err(e) => {
             tracing::error!(%peer, "collector: ingest failed: {e:#}");
-            state.series.lock().unwrap().clear();
             (StatusCode::INTERNAL_SERVER_ERROR, "ingest failed").into_response()
         }
     }
@@ -146,6 +145,7 @@ fn percent_decode(s: &str) -> String {
 struct Existing {
     state: String,
     state_since: Option<i64>,
+    status: i64,
 }
 
 async fn series_id(
@@ -217,7 +217,42 @@ async fn record_sample(
     Ok(())
 }
 
-pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Result<()> {
+/// Store a status document. `target` is set for documents Monarch pulled
+/// itself: those carry no events, so events are derived from state changes.
+pub async fn ingest(
+    state: &SharedState,
+    doc: xml::Monit,
+    remote: &str,
+    target: Option<i64>,
+) -> Result<i64> {
+    let _guard = state.ingest_lock.lock().await;
+    // Series ids cached during a transaction that never commits (error, or the
+    // request future being dropped) would point at rows that do not exist.
+    let mut cache_guard = SeriesCacheGuard { state, armed: true };
+    let result = ingest_locked(state, doc, remote, target).await;
+    cache_guard.armed = result.is_err();
+    result
+}
+
+struct SeriesCacheGuard<'a> {
+    state: &'a SharedState,
+    armed: bool,
+}
+
+impl Drop for SeriesCacheGuard<'_> {
+    fn drop(&mut self) {
+        if self.armed {
+            self.state.series.lock().unwrap().clear();
+        }
+    }
+}
+
+async fn ingest_locked(
+    state: &SharedState,
+    doc: xml::Monit,
+    remote: &str,
+    target: Option<i64>,
+) -> Result<i64> {
     let srv = &doc.server;
     let monit_id = doc
         .id
@@ -312,19 +347,64 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
     .fetch_one(&mut *tx)
     .await?;
 
-    let existing: HashMap<String, Existing> = sqlx::query_as::<_, (String, String, Option<i64>)>(
-        "SELECT name, state, state_since FROM services WHERE host_id = ?",
-    )
-    .bind(host_id)
-    .fetch_all(&mut *tx)
-    .await?
-    .into_iter()
-    .map(|(name, state, state_since)| (name, Existing { state, state_since }))
-    .collect();
+    // Hosts that also push send real events; only derive events for pull-only hosts.
+    let pushing = match target {
+        None => {
+            sqlx::query("UPDATE hosts SET last_push = ? WHERE id = ?")
+                .bind(ts)
+                .bind(host_id)
+                .execute(&mut *tx)
+                .await?;
+            true
+        }
+        Some(_) => {
+            let (last_push, poll): (Option<i64>, i64) =
+                sqlx::query_as("SELECT last_push, poll FROM hosts WHERE id = ?")
+                    .bind(host_id)
+                    .fetch_one(&mut *tx)
+                    .await?;
+            last_push.is_some_and(|p| ts - p <= (poll * 3).max(180))
+        }
+    };
+
+    if let Some(t) = target {
+        sqlx::query("UPDATE hosts SET target_id = ? WHERE id = ?")
+            .bind(t)
+            .bind(host_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE targets SET host_id = ? WHERE id = ?")
+            .bind(host_id)
+            .bind(t)
+            .execute(&mut *tx)
+            .await?;
+    }
+
+    let existing: HashMap<String, Existing> =
+        sqlx::query_as::<_, (String, String, Option<i64>, i64)>(
+            "SELECT name, state, state_since, status FROM services WHERE host_id = ?",
+        )
+        .bind(host_id)
+        .fetch_all(&mut *tx)
+        .await?
+        .into_iter()
+        .map(|(name, state, state_since, status)| {
+            (
+                name,
+                Existing {
+                    state,
+                    state_since,
+                    status,
+                },
+            )
+        })
+        .collect();
 
     // Monit needs one cycle to compute deltas; its first report says 0% cpu.
     let warming_up = xml::int(&srv.uptime).unwrap_or(i64::MAX)
         <= xml::int(&srv.startdelay).unwrap_or(0) + xml::int(&srv.poll).unwrap_or(30);
+
+    let mut transitions: Vec<(String, i64, i64, i64, String)> = Vec::new();
 
     let services = doc
         .services
@@ -342,6 +422,30 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
         let svc_state = model::service_state(status, monitor, pending);
         let collected = xml::num(&s.collected_sec).unwrap_or(ts as f64)
             + xml::num(&s.collected_usec).unwrap_or(0.0) / 1e6;
+        if !pushing
+            && let Some(prev) = existing.get(&name)
+            && prev.state != svc_state
+            && (svc_state == "failed" || (prev.state == "failed" && svc_state == "ok"))
+        {
+            let failed = svc_state == "failed";
+            let bits = if failed {
+                status & !prev.status
+            } else {
+                prev.status
+            };
+            let bits = if bits == 0 {
+                status.max(prev.status)
+            } else {
+                bits
+            };
+            transitions.push((
+                name.clone(),
+                s.type_id(),
+                bits,
+                if failed { 1 } else { 0 },
+                model::status_text(s.type_id(), status, monitor, pending),
+            ));
+        }
         let since = match existing.get(&name) {
             Some(e) if e.state == svc_state => e.state_since.or(Some(ts)),
             _ => Some(ts),
@@ -451,6 +555,24 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
         }
     }
 
+    for (service, type_id, bits, ev_state, text) in transitions {
+        let id = sqlx::query(
+            "INSERT INTO events (host_id, service, service_type, event_type, state, action, message, created_at, source)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'monarch')",
+        )
+        .bind(host_id)
+        .bind(service)
+        .bind(type_id)
+        .bind(bits)
+        .bind(ev_state)
+        .bind(text)
+        .bind(ts as f64)
+        .execute(&mut *tx)
+        .await?
+        .last_insert_rowid();
+        new_events.push(id);
+    }
+
     tx.commit().await?;
 
     if let Some(summary) = views::host_summary_by_id(&state.db, host_id).await? {
@@ -460,7 +582,7 @@ pub async fn ingest(state: &SharedState, doc: xml::Monit, remote: &str) -> Resul
     if prev.is_none() {
         tracing::info!(host = %hostname, %remote, "new host registered");
     }
-    Ok(())
+    Ok(host_id)
 }
 
 fn status_is_measurable(state: &str) -> bool {

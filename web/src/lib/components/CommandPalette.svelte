@@ -7,6 +7,7 @@
     LogOut,
     Moon,
     PanelLeft,
+    Plus,
     Search,
     Server,
     Settings,
@@ -87,9 +88,11 @@
         { id: "p:users", group: "Pages", label: "Settings › Users", icon: Settings, run: nav("/settings/users") },
         { id: "p:notify", group: "Pages", label: "Settings › Notifications", icon: Settings, run: nav("/settings/notifications") },
         { id: "p:collector", group: "Pages", label: "Settings › Collector", icon: Settings, run: nav("/settings/collector") },
+        { id: "p:connections", group: "Pages", label: "Settings › Connections", icon: Settings, run: nav("/settings/connections") },
       );
     }
     const actions: Item[] = [
+      { id: "a:addhost", group: "Actions", label: "Add host", hint: "push snippet or pull connection", icon: Plus, run: () => (ui.addHost = true) },
       { id: "a:theme", group: "Actions", label: theme.value === "dark" ? "Switch to light theme" : "Switch to dark theme", icon: theme.value === "dark" ? Sun : Moon, run: toggleTheme },
       { id: "a:sidebar", group: "Actions", label: "Toggle sidebar", icon: PanelLeft, run: toggleSidebar },
       { id: "a:logout", group: "Actions", label: "Sign out", icon: LogOut, run: onlogout },

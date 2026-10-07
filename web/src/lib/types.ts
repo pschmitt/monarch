@@ -8,12 +8,17 @@ export interface User {
   role: Role;
   created_at: number;
   last_login: number | null;
+  auth_source: "local" | "oidc";
 }
 
 export interface Me {
   user: User | null;
   setup_required: boolean;
   version: string;
+  /** Single sign-on provider, when configured. */
+  oidc: { name: string } | null;
+  /** Whether username/password sign-in is offered. */
+  password_login: boolean;
 }
 
 export type ServiceType =
@@ -76,6 +81,8 @@ export interface HostSummary {
   failing: string[];
   muted_until: number | null;
   can_act: boolean;
+  source: "push" | "pull";
+  target_id: number | null;
 }
 
 // NOTE: API.md declares `HostDetail extends HostSummary` but redefines
@@ -241,6 +248,44 @@ export type StreamMessage =
   | { type: "host"; host: HostSummary }
   | { type: "host_removed"; id: number }
   | { type: "event"; event: MonarchEvent }
+  | { type: "target"; target: Target }
   | { type: "ping"; ts: number };
 
 export type ServiceAction = "start" | "stop" | "restart" | "monitor" | "unmonitor";
+
+export interface Target {
+  id: number;
+  name: string;
+  url: string;
+  username: string | null;
+  has_password: boolean;
+  ssh: { destination: string; port: number | null } | null;
+  interval: number;
+  tls_skip_verify: boolean;
+  enabled: boolean;
+  managed: boolean;
+  host_id: number | null;
+  last_status: string | null;
+  last_polled_at: number | null;
+  created_at: number;
+}
+
+export interface TargetInput {
+  name: string;
+  url: string;
+  username?: string | null;
+  password?: string | null;
+  ssh?: { destination: string; port?: number | null } | null;
+  interval?: number;
+  tls_skip_verify?: boolean;
+  enabled?: boolean;
+}
+
+export interface TargetTestResult {
+  ok: boolean;
+  message: string;
+  hostname: string | null;
+  monit_version: string | null;
+  services: number | null;
+  latency_ms: number | null;
+}

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Activity, ArrowRight, CircleCheckBig, Cpu, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
+  import { Activity, ArrowRight, Plus, CircleCheckBig, Cpu, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
   import { ago, compact, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
-  import { clock, fleet, hostList, toastError } from "../lib/state.svelte";
+  import { clock, fleet, hostList, toastError, ui } from "../lib/state.svelte";
   import { serviceHref } from "../lib/router.svelte";
   import Empty from "../lib/components/Empty.svelte";
   import EventRow from "../lib/components/EventRow.svelte";
@@ -217,7 +217,7 @@
         {:else if hosts.length === 0}
           <div class="card">
             <Empty icon={Sparkles} title="No hosts yet" body="Point a Monit agent at Monarch's collector and it will show up here within one poll cycle.">
-              <a class="btn btn-primary" href="/settings/collector">Show me how</a>
+              <button class="btn btn-primary" onclick={() => (ui.addHost = true)}><Plus size={15} /> Add a host</button>
             </Empty>
           </div>
         {:else}

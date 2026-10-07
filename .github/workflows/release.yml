@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.system }}
+    strategy:
+      matrix:
+        include:
+          - system: x86_64-linux
+            runner: ubuntu-latest
+            arch: amd64
+          - system: aarch64-linux
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - name: Static binary
+        run: |
+          nix build -L '.#monarch-static'
+          mkdir dist
+          tar -C result/bin -czf "dist/monarch-${GITHUB_REF_NAME}-${{ matrix.system }}.tar.gz" monarch
+          (cd dist && sha256sum *.tar.gz > "monarch-${GITHUB_REF_NAME}-${{ matrix.system }}.sha256")
+      - uses: actions/upload-artifact@v5
+        with:
+          name: dist-${{ matrix.system }}
+          path: dist/*
+      - name: Container image
+        run: |
+          nix build -L '.#image' -o image
+          echo "${{ secrets.GITHUB_TOKEN }}" | nix run nixpkgs#skopeo -- login ghcr.io -u "${{ github.actor }}" --password-stdin
+          nix run nixpkgs#skopeo -- copy "docker-archive:image" \
+            "docker://ghcr.io/${{ github.repository }}:${GITHUB_REF_NAME#v}-${{ matrix.arch }}"
+
+  manifest:
+    name: Multi-arch image manifest
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push manifest
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          img="ghcr.io/${{ github.repository }}"
+          v="${GITHUB_REF_NAME#v}"
+          for tag in "$v" latest; do
+            docker buildx imagetools create -t "$img:$tag" "$img:$v-amd64" "$img:$v-arm64"
+          done
+
+  release:
+    name: GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*

@@ -39,7 +39,9 @@ async fn heartbeat(state: &SharedState) -> Result<()> {
     let grace = state.settings.read().await.heartbeat_grace;
     let ts = now();
     let stale: Vec<(i64, String, i64, i64)> = sqlx::query_as(
-        "SELECT id, COALESCE(NULLIF(display_name, ''), hostname), last_seen, poll FROM hosts WHERE online = 1",
+        "SELECT h.id, COALESCE(NULLIF(h.display_name, ''), h.hostname), h.last_seen,
+                MAX(h.poll, COALESCE(t.interval, 0)) FROM hosts h
+         LEFT JOIN targets t ON t.id = h.target_id WHERE h.online = 1",
     )
     .fetch_all(&state.db)
     .await?;

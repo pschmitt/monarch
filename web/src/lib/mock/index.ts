@@ -12,6 +12,7 @@ import type {
   ServiceState,
   ServiceType,
   Settings,
+  Target,
   StreamMessage,
   User,
 } from "../types";
@@ -203,6 +204,9 @@ const SPECS: HostSpec[] = [
     mem: 30,
   },
 ];
+
+// Hosts polled by Monarch (pull mode): hostname -> target id.
+const PULL: Record<string, number> = { turris: 1, "rofl-14": 2 };
 
 interface MockHost {
   summary: HostSummary;
@@ -445,7 +449,9 @@ function buildFleet(): MockHost[] {
       sparkline: { cpu: spark(spec.load, spec.load * 0.4 + 2, spec.name + "c"), mem: spark(spec.mem, 1.5, spec.name + "m") },
       failing,
       muted_until: null,
-      can_act: spec.name !== "turris",
+      can_act: spec.name !== "rofl-14",
+      source: PULL[spec.name] ? "pull" : "push",
+      target_id: PULL[spec.name] ?? null,
     };
     const groups: Record<string, string[]> = {};
     for (const s of services) for (const g of s.groups) (groups[g] ??= []).push(s.name);
@@ -687,10 +693,10 @@ export function createMock(): MockTransport {
   const fleet = buildFleet();
   let events = buildEvents(fleet);
   let users: User[] = [
-    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120 },
-    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2 },
-    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60 },
-    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null },
+    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local" },
+    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc" },
+    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local" },
+    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local" },
   ];
   let channels: Channel[] = [
     {
@@ -727,6 +733,50 @@ export function createMock(): MockTransport {
       created_at: now() - 86400 * 4,
     },
   ];
+  const hostIdOf = (name: string) => fleet.find((h) => h.summary.hostname === name)?.summary.id ?? null;
+  let targets: Target[] = [
+    {
+      id: 1,
+      name: "turris",
+      url: "http://127.0.0.1:2812",
+      username: "admin",
+      has_password: true,
+      ssh: { destination: "root@turris.lan", port: 22 },
+      interval: 30,
+      tls_skip_verify: true,
+      enabled: true,
+      managed: true,
+      host_id: hostIdOf("turris"),
+      last_status: "ok",
+      last_polled_at: now() - 12,
+      created_at: now() - 86400 * 60,
+    },
+    {
+      id: 2,
+      name: "rofl-14",
+      url: "https://100.64.0.14:2812",
+      username: "monarch",
+      has_password: true,
+      ssh: null,
+      interval: 60,
+      tls_skip_verify: true,
+      enabled: true,
+      managed: false,
+      host_id: hostIdOf("rofl-14"),
+      last_status: "dial tcp 100.64.0.14:2812: connect: no route to host",
+      last_polled_at: now() - 41,
+      created_at: now() - 86400 * 20,
+    },
+  ];
+  const testTarget = (body: any) => {
+    const url: string = body.url ?? targets.find((t) => t.id === body.id)?.url ?? "";
+    if (body.id === 2 || /14|unreachable|bad/.test(url) || !url)
+      return { ok: false, message: `dial tcp ${url.replace(/^https?:\/\//, "") || "?"}: connect: no route to host`, hostname: null, monit_version: null, services: null, latency_ms: null };
+    if (body.username === "wrong") return { ok: false, message: "HTTP 401 Unauthorized — check the Monit httpd credentials", hostname: null, monit_version: null, services: null, latency_ms: null };
+    const name = body.name || (body.ssh?.destination ?? "").split("@").pop() || "monit-host";
+    return { ok: true, message: "ok", hostname: name, monit_version: "5.35.2", services: 18 + (name.length % 9), latency_ms: body.ssh ? 182.4 : 23.8 };
+  };
+
   let settings: Settings = {
     public_url: "https://monarch.brkn.lol",
     retention: { raw_hours: 48, rollup_5m_days: 30, rollup_1h_days: 400, events_days: 90 },
@@ -792,7 +842,17 @@ export function createMock(): MockTransport {
     const q = url.searchParams;
     let m: RegExpMatchArray | null;
 
-    if (p === "/api/auth/me") return delay({ user: me, setup_required: setupRequired && !me, version: "0.1.0-mock" }, 60);
+    if (p === "/api/auth/me")
+      return delay(
+        {
+          user: me,
+          setup_required: setupRequired && !me,
+          version: "0.1.0-mock",
+          oidc: new URLSearchParams(location.search).has("nosso") ? null : { name: "Authelia" },
+          password_login: !new URLSearchParams(location.search).has("ssoonly"),
+        },
+        60,
+      );
     if (p === "/api/auth/login" || p === "/api/auth/setup") {
       if (!body?.username || !body?.password) throw new Error("username and password required");
       if (p === "/api/auth/login" && body.password.length < 3) throw new Error("invalid username or password");
@@ -887,7 +947,7 @@ export function createMock(): MockTransport {
     }
     if (p === "/api/users") {
       if (method === "POST") {
-        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null };
+        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local" };
         users = [...users, u];
         return delay(u);
       }
@@ -935,6 +995,55 @@ export function createMock(): MockTransport {
       const c = channels.find((x) => x.id === +m![1])!;
       return delay(c.kind === "webhook" ? { ok: false, message: "HTTP 500: workflow inactive" } : { ok: true, message: "Test notification delivered" }, 800);
     }
+    if (p === "/api/targets/test") return delay(testTarget(body), 900);
+    if (p === "/api/targets") {
+      if (method === "POST") {
+        const res = testTarget(body);
+        const t: Target = {
+          id: Math.max(0, ...targets.map((x) => x.id)) + 1,
+          name: body.name,
+          url: body.url,
+          username: body.username ?? null,
+          has_password: !!body.password,
+          ssh: body.ssh ? { destination: body.ssh.destination, port: body.ssh.port ?? null } : null,
+          interval: body.interval ?? 30,
+          tls_skip_verify: body.tls_skip_verify ?? true,
+          enabled: body.enabled ?? true,
+          managed: false,
+          host_id: null,
+          last_status: res.ok ? "ok" : res.message,
+          last_polled_at: now(),
+          created_at: now(),
+        };
+        // Pretend the first poll links it to an existing host shortly after.
+        if (res.ok) setTimeout(() => (t.host_id = fleet.find((h) => h.summary.hostname === t.name)?.summary.id ?? fleet[0]?.summary.id ?? null), 1500);
+        targets = [...targets, t];
+        return delay(t, 500);
+      }
+      return delay(targets);
+    }
+    if ((m = p.match(/^\/api\/targets\/(\d+)\/poll$/))) {
+      const t = targets.find((x) => x.id === +m![1])!;
+      const res = testTarget({ ...t, id: t.id });
+      Object.assign(t, { last_status: res.ok ? "ok" : res.message, last_polled_at: now() });
+      return delay(t, 800);
+    }
+    if ((m = p.match(/^\/api\/targets\/(\d+)$/))) {
+      const t = targets.find((x) => x.id === +m![1]);
+      if (!t) throw Object.assign(new Error("target not found"), { status: 404 });
+      if (t.managed && method !== "GET") throw new Error("connection is managed by the configuration file");
+      if (method === "DELETE") {
+        targets = targets.filter((x) => x !== t);
+        return delay(undefined);
+      }
+      if (method === "PATCH") {
+        const { password, ...rest } = body ?? {};
+        Object.assign(t, rest);
+        if (password && password !== "********") t.has_password = true;
+        return delay(t);
+      }
+      return delay(t);
+    }
     if (p === "/api/settings") {
       if (method === "PATCH") {
         settings = { ...settings, ...body, retention: { ...settings.retention, ...(body.retention ?? {}) } };
@@ -960,6 +1069,12 @@ export function createMock(): MockTransport {
       s.sparkline.mem = [...s.sparkline.mem.slice(1), s.system.mem_percent ?? 0];
       Object.assign(h.detail, { last_seen: s.last_seen, system: s.system, sparkline: s.sparkline });
       onMessage({ type: "host", host: structuredClone(s) });
+      for (const tg of targets) {
+        if (tg.enabled && t - (tg.last_polled_at ?? 0) >= tg.interval) {
+          tg.last_polled_at = t;
+          onMessage({ type: "target", target: structuredClone(tg) });
+        }
+      }
       if (Math.random() < 0.12) {
         const svc = h.detail.services[Math.floor(Math.random() * h.detail.services.length)];
         const ev: MonarchEvent = {

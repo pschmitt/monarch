@@ -11,17 +11,20 @@
     Search,
     Server,
     Settings,
+    KeyRound,
     Sun,
     UserRound,
   } from "@lucide/svelte";
   import { isMock } from "../api";
   import { router } from "../router.svelte";
   import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
+  import ChangePassword from "./ChangePassword.svelte";
   import Logo from "./Logo.svelte";
   import Menu from "./Menu.svelte";
   import StatusDot from "./StatusDot.svelte";
 
   let { children, onlogout }: { children: Snippet; onlogout: () => void } = $props();
+  let pwOpen = $state(false);
 
   const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
   const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
@@ -149,7 +152,10 @@
           <Menu
             label="User menu"
             items={[
-              { label: `Signed in as ${session.me?.user?.username ?? "?"}`, icon: UserRound, disabled: true, onselect: () => {} },
+              { label: `Signed in as ${session.me?.user?.username ?? "?"}${session.me?.user?.auth_source === "oidc" ? " (SSO)" : ""}`, icon: UserRound, disabled: true, onselect: () => {} },
+              ...(session.me?.user?.auth_source === "oidc"
+                ? []
+                : [{ label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) }]),
               ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
               "sep" as const,
               { label: "Sign out", icon: LogOut, danger: true, onselect: onlogout },
@@ -170,3 +176,5 @@
     </main>
   </div>
 </div>
+
+<ChangePassword bind:open={pwOpen} />

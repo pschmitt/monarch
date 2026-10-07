@@ -1,42 +1,16 @@
 <script lang="ts">
-  import { KeyRound, Radio, Server, Zap } from "@lucide/svelte";
+  import { Radio, Server } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Settings } from "../../lib/types";
   import { fleet, toastError } from "../../lib/state.svelte";
   import CodeBlock from "../../lib/components/CodeBlock.svelte";
+  import CollectorSnippet from "../../lib/components/CollectorSnippet.svelte";
 
   let s = $state<Settings | null>(null);
-  let user = $state("monit");
-  let pass = $state("");
-  let httpdUser = $state("admin");
-  let httpdPass = $state("");
-
   $effect(() => {
     api.settings().then((v) => (s = v)).catch((e) => toastError(e, "Failed to load settings"));
   });
 
-  const url = $derived.by(() => {
-    if (!s) return "";
-    try {
-      const u = new URL(s.collector_url);
-      u.username = encodeURIComponent(user || "USER");
-      u.password = encodeURIComponent(pass || "PASSWORD");
-      return u.toString();
-    } catch {
-      return s.collector_url;
-    }
-  });
-
-  const snippet = $derived(
-    `# Report to Monarch
-set mmonit ${url}
-    with timeout 30 seconds
-
-# Let Monarch start/stop/restart services.
-# Monit registers the first "allow user:password" with Monarch.
-set httpd port 2812
-    allow ${httpdUser || "admin"}:${httpdPass || "SECRET"}`,
-  );
 </script>
 
 <div class="space-y-6">
@@ -62,26 +36,7 @@ set httpd port 2812
   </section>
 
   <section class="card space-y-5 p-5 sm:p-6">
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div class="space-y-3">
-        <div class="flex items-center gap-2 text-[13px] font-medium text-fg"><KeyRound size={14} class="text-accent" /> Collector credentials</div>
-        <p class="text-xs text-fg-3">Any Monarch user can post reports. A dedicated user with the <span class="font-medium text-fg-2">collector</span> role is recommended.</p>
-        <div class="grid grid-cols-2 gap-2">
-          <input class="input" placeholder="username" bind:value={user} aria-label="Collector username" />
-          <input class="input" type="password" placeholder="password" bind:value={pass} aria-label="Collector password" autocomplete="off" />
-        </div>
-      </div>
-      <div class="space-y-3">
-        <div class="flex items-center gap-2 text-[13px] font-medium text-fg"><Zap size={14} class="text-accent-2" /> Monit httpd credentials</div>
-        <p class="text-xs text-fg-3">Required for service actions. Monarch must be able to reach port 2812 on the agent.</p>
-        <div class="grid grid-cols-2 gap-2">
-          <input class="input" placeholder="username" bind:value={httpdUser} aria-label="httpd username" />
-          <input class="input" type="password" placeholder="password" bind:value={httpdPass} aria-label="httpd password" autocomplete="off" />
-        </div>
-      </div>
-    </div>
-    <p class="text-[11px] text-fg-3">These fields only fill in the snippet — nothing is saved or sent.</p>
-    <CodeBlock code={snippet} label="/etc/monitrc" />
+    {#if s}<CollectorSnippet collectorUrl={s.collector_url} />{/if}
     <div class="grid gap-3 text-xs text-fg-2 sm:grid-cols-3">
       <div class="rounded-xl border border-line p-3.5"><div class="mb-1 font-semibold text-fg">1 · Add the snippet</div>Paste it into monitrc (or an included file) on each host.</div>
       <div class="rounded-xl border border-line p-3.5"><div class="mb-1 font-semibold text-fg">2 · Reload Monit</div><code class="num">monit reload</code> or restart the service.</div>
@@ -98,8 +53,8 @@ set httpd port 2812
   enable = true;
   config = ''
     set daemon 60
-    set mmonit ${url}
-    set httpd port 2812 allow ${httpdUser || "admin"}:${httpdPass || "SECRET"}
+    set mmonit ${(s?.collector_url ?? "").replace("://", "://USER:PASSWORD@")}
+    set httpd port 2812 allow admin:SECRET
   '';
 };`}
     />

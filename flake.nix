@@ -15,10 +15,40 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
-      packages = forAllSystems (pkgs: {
-        monarch = pkgs.callPackage ./nix/package.nix { };
-        default = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
-      });
+      packages = forAllSystems (
+        pkgs:
+        let
+          web = pkgs.callPackage ./nix/web.nix { };
+          monarch = pkgs.callPackage ./nix/package.nix { inherit web; };
+        in
+        {
+          inherit monarch web;
+          default = monarch;
+        }
+        // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux rec {
+          # Fully static (musl) binary, used for release assets and the image.
+          monarch-static = pkgs.pkgsStatic.callPackage ./nix/package.nix { inherit web; };
+          image = pkgs.dockerTools.buildLayeredImage {
+            name = "ghcr.io/pschmitt/monarch";
+            tag = monarch-static.version;
+            contents = [
+              pkgs.cacert
+              pkgs.openssh
+            ];
+            extraCommands = "mkdir -p data tmp && chmod 1777 tmp";
+            config = {
+              Entrypoint = [ "${monarch-static}/bin/monarch" ];
+              Env = [
+                "MONARCH_LISTEN=0.0.0.0:8080"
+                "MONARCH_DATABASE=/data/monarch.db"
+                "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              ];
+              ExposedPorts."8080/tcp" = { };
+              Volumes."/data" = { };
+            };
+          };
+        }
+      );
 
       overlays.default = final: _prev: {
         monarch = final.callPackage ./nix/package.nix { };

@@ -14,6 +14,7 @@ mod events;
 mod hosts;
 mod metrics;
 mod stream;
+mod targets;
 
 pub use hosts::action_by_name as hosts_action;
 
@@ -65,6 +66,8 @@ pub fn router() -> Router<SharedState> {
         .route("/auth/setup", post(auth::setup))
         .route("/auth/login", post(auth::login))
         .route("/auth/logout", post(auth::logout))
+        .route("/auth/oidc/login", get(crate::oidc::login))
+        .route("/auth/oidc/callback", get(crate::oidc::callback))
         .route("/overview", get(hosts::overview))
         .route("/hosts", get(hosts::list))
         .route(
@@ -97,6 +100,13 @@ pub fn router() -> Router<SharedState> {
             axum::routing::patch(admin::update_channel).delete(admin::delete_channel),
         )
         .route("/channels/{id}/test", post(admin::test_channel))
+        .route("/targets", get(targets::list).post(targets::create))
+        .route("/targets/test", post(targets::test))
+        .route(
+            "/targets/{id}",
+            axum::routing::patch(targets::update).delete(targets::remove),
+        )
+        .route("/targets/{id}/poll", post(targets::poll_now))
         .route(
             "/settings",
             get(admin::settings).patch(admin::update_settings),

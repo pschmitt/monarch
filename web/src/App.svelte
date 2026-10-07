@@ -3,6 +3,7 @@
   import { router } from "./lib/router.svelte";
   import { refreshSession, session, startLive, stopLive, toastError } from "./lib/state.svelte";
   import AppShell from "./lib/components/AppShell.svelte";
+  import AddHostModal from "./lib/components/AddHostModal.svelte";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
@@ -111,6 +112,7 @@
     {/key}
   </AppShell>
   <CommandPalette onlogout={logout} />
+  <AddHostModal />
 {/if}
 
 <ConfirmDialog />

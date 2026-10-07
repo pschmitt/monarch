@@ -45,6 +45,8 @@ pub struct User {
     pub role: String,
     pub created_at: i64,
     pub last_login: Option<i64>,
+    /// "local" or "oidc"
+    pub auth_source: String,
 }
 
 impl User {
@@ -112,12 +114,12 @@ pub async fn check_credentials(
     if !ok {
         return Ok(None);
     }
-    Ok(
-        sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
-            .bind(id)
-            .fetch_optional(db)
-            .await?,
+    Ok(sqlx::query_as(
+        "SELECT id, username, role, created_at, last_login, auth_source FROM users WHERE id = ?",
     )
+    .bind(id)
+    .fetch_optional(db)
+    .await?)
 }
 
 fn token_hash(token: &str) -> String {
@@ -193,7 +195,7 @@ pub async fn user_from_headers(
         return Ok(None);
     };
     Ok(sqlx::query_as(
-        "SELECT u.id, u.username, u.role, u.created_at, u.last_login FROM sessions s
+        "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?",
     )
     .bind(token_hash(&token))
@@ -253,10 +255,10 @@ pub async fn create_user(
     .execute(db)
     .await?
     .last_insert_rowid();
-    Ok(
-        sqlx::query_as("SELECT id, username, role, created_at, last_login FROM users WHERE id = ?")
-            .bind(id)
-            .fetch_one(db)
-            .await?,
+    Ok(sqlx::query_as(
+        "SELECT id, username, role, created_at, last_login, auth_source FROM users WHERE id = ?",
     )
+    .bind(id)
+    .fetch_one(db)
+    .await?)
 }

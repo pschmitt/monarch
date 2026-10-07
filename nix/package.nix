@@ -1,34 +1,13 @@
 {
   lib,
-  buildNpmPackage,
   rustPlatform,
+  callPackage,
+  # The UI is architecture independent; pass it in to share it between builds.
+  web ? callPackage ./web.nix { },
 }:
-let
-  version = "0.1.0";
-
-  web = buildNpmPackage {
-    pname = "monarch-web";
-    inherit version;
-    src = lib.fileset.toSource {
-      root = ../web;
-      fileset = lib.fileset.difference ../web (
-        lib.fileset.unions [
-          (lib.fileset.maybeMissing ../web/node_modules)
-          (lib.fileset.maybeMissing ../web/dist)
-        ]
-      );
-    };
-    npmDepsHash = "sha256-6UrzsPaP5AhOziPz5TDs1Hj7/LcoiDukkfWwzjnVsmE=";
-    installPhase = ''
-      runHook preInstall
-      cp -r dist $out
-      runHook postInstall
-    '';
-  };
-in
 rustPlatform.buildRustPackage {
   pname = "monarch";
-  inherit version;
+  inherit (web) version;
 
   src = lib.fileset.toSource {
     root = ./..;

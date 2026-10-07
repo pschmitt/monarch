@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "nix": { "enabled": true },
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "packageRules": [
+    { "matchManagers": ["cargo"], "matchUpdateTypes": ["minor", "patch"], "groupName": "rust dependencies" },
+    { "matchManagers": ["npm"], "matchUpdateTypes": ["minor", "patch"], "groupName": "web dependencies" },
+    { "matchManagers": ["github-actions"], "groupName": "github actions" }
+  ]
+}

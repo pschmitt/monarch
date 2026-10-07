@@ -12,6 +12,9 @@ import type {
   ServiceDetail,
   Settings,
   StreamMessage,
+  Target,
+  TargetInput,
+  TargetTestResult,
   User,
 } from "./types";
 
@@ -131,6 +134,13 @@ export const api = {
   updateChannel: (id: number, c: Partial<Channel>) => request<Channel>("PATCH", `/api/channels/${id}`, c),
   deleteChannel: (id: number) => request<void>("DELETE", `/api/channels/${id}`),
   testChannel: (id: number) => request<{ ok: boolean; message: string }>("POST", `/api/channels/${id}/test`),
+
+  targets: () => request<Target[]>("GET", "/api/targets"),
+  createTarget: (t: TargetInput) => request<Target>("POST", "/api/targets", t),
+  updateTarget: (id: number, t: Partial<TargetInput>) => request<Target>("PATCH", `/api/targets/${id}`, t),
+  deleteTarget: (id: number) => request<void>("DELETE", `/api/targets/${id}`),
+  testTarget: (t: TargetInput | { id: number }) => request<TargetTestResult>("POST", "/api/targets/test", t),
+  pollTarget: (id: number) => request<Target>("POST", `/api/targets/${id}/poll`),
 
   settings: () => request<Settings>("GET", "/api/settings"),
   updateSettings: (s: Partial<Settings>) => request<Settings>("PATCH", "/api/settings", s),

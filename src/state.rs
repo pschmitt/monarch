@@ -26,6 +26,9 @@ pub struct AppState {
     pub http: reqwest::Client,
     /// Flipped to true on shutdown so long-lived streams end.
     pub shutdown: watch::Sender<bool>,
+    /// Serializes ingestion (SQLite has a single writer anyway); avoids lock
+    /// upgrade conflicts between concurrent push and pull reports.
+    pub ingest_lock: tokio::sync::Mutex<()>,
 }
 
 impl AppState {
@@ -44,6 +47,7 @@ impl AppState {
                 .user_agent(concat!("monarch/", env!("CARGO_PKG_VERSION")))
                 .build()?,
             shutdown,
+            ingest_lock: tokio::sync::Mutex::new(()),
         }))
     }
 

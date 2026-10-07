@@ -45,6 +45,8 @@ pub struct HostRow {
     pub last_seen: i64,
     pub online: i64,
     pub muted_until: Option<i64>,
+    pub target_id: Option<i64>,
+    pub last_push: Option<i64>,
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -107,7 +109,14 @@ impl HostRow {
             username,
             password,
             tls_skip_verify: self.tls_skip_verify != 0,
+            ssh: None,
         })
+    }
+
+    /// Whether the agent itself reports to the collector (and sends events).
+    pub fn recently_pushed(&self) -> bool {
+        self.last_push
+            .is_some_and(|p| crate::state::now() - p <= (self.poll * 3).max(180))
     }
 
     pub fn hostgroups(&self) -> Vec<String> {
@@ -238,7 +247,9 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
         "sparkline": {"cpu": cpu, "mem": mem},
         "failing": failing,
         "muted_until": h.muted_until,
-        "can_act": h.monit_url().is_some(),
+        "can_act": h.monit_url().is_some() || h.target_id.is_some(),
+        "source": if h.target_id.is_some() && !h.recently_pushed() { "pull" } else { "push" },
+        "target_id": h.target_id,
     }))
 }
 
@@ -372,4 +383,87 @@ pub async fn fetch_event(db: &SqlitePool, id: i64) -> Result<Option<EventRow>> {
         .bind(id)
         .fetch_optional(db)
         .await?)
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct TargetRow {
+    pub id: i64,
+    pub name: String,
+    pub url: String,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub ssh_destination: Option<String>,
+    pub ssh_port: Option<i64>,
+    pub interval: i64,
+    pub tls_skip_verify: i64,
+    pub enabled: i64,
+    pub managed: i64,
+    pub host_id: Option<i64>,
+    pub last_status: Option<String>,
+    pub last_polled_at: Option<i64>,
+    pub created_at: i64,
+}
+
+impl TargetRow {
+    pub fn client_target(&self, config: &crate::config::Config) -> Target {
+        Target {
+            base_url: self.url.trim_end_matches('/').to_owned(),
+            username: self.username.clone().filter(|u| !u.is_empty()),
+            password: self.password.clone(),
+            tls_skip_verify: self.tls_skip_verify != 0,
+            ssh: self
+                .ssh_destination
+                .clone()
+                .filter(|d| !d.is_empty())
+                .map(|destination| crate::monit::client::Ssh {
+                    destination,
+                    port: self.ssh_port,
+                    binary: config.ssh_binary.clone(),
+                    identity_file: config.ssh_identity_file.clone(),
+                    known_hosts_file: Some(config.known_hosts_file()),
+                }),
+        }
+    }
+
+    pub fn json(&self) -> Value {
+        json!({
+            "id": self.id,
+            "name": self.name,
+            "url": self.url,
+            "username": self.username,
+            "has_password": self.password.as_deref().is_some_and(|p| !p.is_empty()),
+            "ssh": self.ssh_destination.as_deref().filter(|d| !d.is_empty())
+                .map(|d| json!({"destination": d, "port": self.ssh_port})),
+            "interval": self.interval,
+            "tls_skip_verify": self.tls_skip_verify != 0,
+            "enabled": self.enabled != 0,
+            "managed": self.managed != 0,
+            "host_id": self.host_id,
+            "last_status": self.last_status,
+            "last_polled_at": self.last_polled_at,
+            "created_at": self.created_at,
+        })
+    }
+}
+
+pub async fn fetch_target(db: &SqlitePool, id: i64) -> Result<Option<TargetRow>> {
+    Ok(sqlx::query_as("SELECT * FROM targets WHERE id = ?")
+        .bind(id)
+        .fetch_optional(db)
+        .await?)
+}
+
+/// How to reach a host's Monit HTTP interface for actions: through its pull
+/// connection when it has one, otherwise via what the agent announced.
+pub async fn action_target(
+    db: &SqlitePool,
+    config: &crate::config::Config,
+    h: &HostRow,
+) -> Result<Option<Target>> {
+    if let Some(tid) = h.target_id
+        && let Some(t) = fetch_target(db, tid).await?
+    {
+        return Ok(Some(t.client_target(config)));
+    }
+    Ok(h.target())
 }

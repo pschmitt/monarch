@@ -1,5 +1,5 @@
 import { api, openStream, type StreamStatus } from "./api";
-import type { HostSummary, Me, MonarchEvent, Role, StreamMessage } from "./types";
+import type { HostSummary, Me, MonarchEvent, Role, StreamMessage, Target } from "./types";
 import { hostName } from "./format";
 
 // ---------------------------------------------------------------- session
@@ -10,7 +10,7 @@ export async function refreshSession() {
   try {
     session.me = await api.me();
   } catch {
-    session.me = { user: null, setup_required: false, version: "?" };
+    session.me = { user: null, setup_required: false, version: "?", oidc: null, password_login: true };
   } finally {
     session.loading = false;
   }
@@ -127,6 +127,13 @@ export function onLiveEvent(fn: (e: MonarchEvent) => void): () => void {
   return () => eventListeners.delete(fn);
 }
 
+const targetListeners = new Set<(t: Target) => void>();
+/** Subscribe to live connection (pull target) updates sent after each poll. */
+export function onLiveTarget(fn: (t: Target) => void): () => void {
+  targetListeners.add(fn);
+  return () => targetListeners.delete(fn);
+}
+
 function handle(msg: StreamMessage) {
   switch (msg.type) {
     case "host":
@@ -153,6 +160,9 @@ function handle(msg: StreamMessage) {
       for (const fn of eventListeners) fn(ev);
       break;
     }
+    case "target":
+      for (const fn of targetListeners) fn(msg.target);
+      return;
     case "ping":
       return;
   }
@@ -192,6 +202,7 @@ export const ui = $state({
   sidebarCollapsed: loadBool("monarch.sidebar", false),
   mobileNav: false,
   palette: false,
+  addHost: false,
 });
 export function toggleSidebar() {
   ui.sidebarCollapsed = !ui.sidebarCollapsed;

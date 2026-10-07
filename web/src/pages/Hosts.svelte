@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { ArrowDown, ArrowUp, LayoutGrid, List, Search, ServerOff } from "@lucide/svelte";
+  import { ArrowDown, ArrowDownToLine, ArrowUp, LayoutGrid, List, Plus, Search, ServerOff } from "@lucide/svelte";
   import type { HostSummary } from "../lib/types";
   import { ago, duration, hostName, hostStateLabel, hostTone, osLabel, pct } from "../lib/format";
   import { fuzzy } from "../lib/fuzzy";
-  import { clock, fleet } from "../lib/state.svelte";
+  import { clock, fleet, ui } from "../lib/state.svelte";
   import { router, hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -107,8 +107,9 @@
   <div class="flex flex-wrap items-end justify-between gap-4">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight text-fg">Hosts</h1>
-      <p class="mt-1 text-[13px] text-fg-3">Every Monit agent reporting to this Monarch instance.</p>
+      <p class="mt-1 text-[13px] text-fg-3">Every Monit agent reporting to — or polled by — this Monarch instance.</p>
     </div>
+    <button class="btn btn-primary" onclick={() => (ui.addHost = true)}><Plus size={15} /> Add host</button>
   </div>
 
   <div class="flex flex-wrap items-center gap-2">
@@ -143,7 +144,7 @@
   {:else if rows.length === 0}
     <div class="card">
       <Empty icon={ServerOff} title={counts.all ? "No hosts match" : "No hosts yet"} body={counts.all ? "Try a different filter." : "Point a Monit agent at the collector to get started."}>
-        {#if !counts.all}<a class="btn btn-primary" href="/settings/collector">Collector setup</a>{/if}
+        {#if !counts.all}<button class="btn btn-primary" onclick={() => (ui.addHost = true)}><Plus size={15} /> Add your first host</button>{/if}
       </Empty>
     </div>
   {:else if view === "grid"}
@@ -172,7 +173,7 @@
                 <a href={hostHref(h.id)} class="flex items-center gap-3" onclick={(e) => e.stopPropagation()}>
                   <StatusDot tone={hostTone(h.state)} pulse={h.state !== "ok"} />
                   <div class="min-w-0">
-                    <div class="truncate font-semibold text-fg">{hostName(h)}</div>
+                    <div class="flex items-center gap-1.5 truncate font-semibold text-fg">{hostName(h)}{#if h.source === "pull"}<span title="Polled by Monarch" class="text-fg-3"><ArrowDownToLine size={12} /></span>{/if}</div>
                     <div class="truncate text-[11px] text-fg-3">{osLabel(h.os)}{h.hostgroups.length ? ` · ${h.hostgroups.join(", ")}` : ""}</div>
                   </div>
                 </a>

@@ -112,7 +112,12 @@
                 <div class="flex items-center gap-3">
                   <span class="bg-accent-gradient flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white uppercase">{u.username.slice(0, 2)}</span>
                   <div>
-                    <div class="font-medium text-fg">{u.username}</div>
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-medium text-fg">{u.username}</span>
+                      {#if u.auth_source === "oidc"}
+                        <span class="inline-flex items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-px text-[10px] font-semibold text-accent" title="Signs in via {session.me?.oidc?.name ?? 'single sign-on'}"><KeyRound size={10} /> SSO</span>
+                      {/if}
+                    </div>
                     {#if u.id === session.me?.user?.id}<div class="text-[11px] text-accent">you</div>{/if}
                   </div>
                 </div>
@@ -127,6 +132,7 @@
                 >
                   {#each roles as r (r.id)}<option value={r.id}>{r.label}</option>{/each}
                 </select>
+                {#if u.auth_source === "oidc"}<div class="mt-1 text-[10px] text-fg-3">re-synced from IdP groups at sign-in</div>{/if}
               </td>
               <td class="num text-xs text-fg-2" title={datetime(u.last_login)}>{u.last_login ? ago(u.last_login, clock.now) : "never"}</td>
               <td class="num text-xs text-fg-3">{datetime(u.created_at).split(",")[0]}</td>
@@ -134,7 +140,16 @@
                 <Menu
                   label="Actions for {u.username}"
                   items={[
-                    { label: "Set password", icon: KeyRound, onselect: () => { pwUser = u; newPw = ""; pwOpen = true; } },
+                    {
+                      label: u.auth_source === "oidc" ? "Password managed by SSO" : "Set password",
+                      icon: KeyRound,
+                      disabled: u.auth_source === "oidc",
+                      onselect: () => {
+                        pwUser = u;
+                        newPw = "";
+                        pwOpen = true;
+                      },
+                    },
                     "sep",
                     { label: "Delete user", icon: Trash, danger: true, disabled: u.id === session.me?.user?.id, onselect: () => remove(u) },
                   ]}

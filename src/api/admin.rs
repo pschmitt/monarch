@@ -20,7 +20,7 @@ use crate::{
 
 // ---------------------------------------------------------------- users
 
-const USER_COLS: &str = "SELECT id, username, role, created_at, last_login FROM users";
+const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source FROM users";
 
 pub async fn users(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<User>>> {
     user.require(Role::Admin)?;
@@ -137,6 +137,11 @@ pub async fn update_me(
     let Some(p) = &b.password else {
         return Err(ApiError::bad_request("password required"));
     };
+    if user.auth_source == "oidc" {
+        return Err(ApiError::bad_request(
+            "single sign-on accounts have no local password",
+        ));
+    }
     let current = b.current_password.as_deref().unwrap_or("");
     if auth::check_credentials(&state.db, &user.username, current)
         .await?

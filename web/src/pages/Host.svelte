@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, ServerCrash, Tag } from "@lucide/svelte";
+  import { ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, ServerCrash, Tag, Terminal } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
-  import type { HostDetail, ServiceCounts } from "../lib/types";
+  import type { HostDetail, ServiceCounts, Target } from "../lib/types";
   import { ago, datetime, duration, hostName, hostStateLabel, hostTone, kb } from "../lib/format";
-  import { clock, fleet, toastError } from "../lib/state.svelte";
+  import { clock, fleet, onLiveTarget, toastError } from "../lib/state.svelte";
   import { hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -20,6 +20,26 @@
   let host = $state<HostDetail | null>(null);
   let notFound = $state(false);
   let refreshing = $state(false);
+  let target = $state<Target | null>(null);
+
+  $effect(() =>
+    onLiveTarget((t) => {
+      if (t.id === host?.target_id) target = t;
+    }),
+  );
+
+  // Connection details are admin-only; others just see "pulled by Monarch".
+  $effect(() => {
+    const tid = host?.target_id;
+    if (!tid || !can("admin")) {
+      target = null;
+      return;
+    }
+    api
+      .targets()
+      .then((ts) => (target = ts.find((t) => t.id === tid) ?? null))
+      .catch(() => (target = null));
+  });
 
   async function load() {
     refreshing = true;
@@ -99,6 +119,19 @@
             <h1 class="truncate text-2xl font-semibold tracking-tight text-fg sm:text-[28px]">{hostName(host)}</h1>
             <Badge tone={hostTone(hstate)}>{hostStateLabel[hstate]}</Badge>
             {#if muted}<Badge tone="muted"><BellOff size={12} /> muted until {datetime(host.muted_until)}</Badge>{/if}
+            {#if host.source === "pull"}
+              <a
+                href={can("admin") ? "/settings/connections" : undefined}
+                class="inline-flex h-6 items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2.5 text-xs text-fg-2 hover:text-fg"
+                title={target ? `Polled from ${target.url}${target.ssh ? ` via ssh ${target.ssh.destination}` : ""}` : "Polled by Monarch"}
+              >
+                {#if target?.ssh}<Terminal size={12} class="text-accent" /> Pulled via SSH <span class="num">{target.ssh.destination}</span>{:else}<ArrowDownToLine size={12} class="text-accent" /> Pulled by Monarch{/if}
+              </a>
+            {:else}
+              <span class="inline-flex h-6 items-center gap-1.5 rounded-full border border-line px-2.5 text-xs text-fg-3" title="Monit reports via set mmonit">
+                <ArrowUpFromLine size={12} /> Pushes to Monarch
+              </span>
+            {/if}
           </div>
           {#if host.display_name && host.display_name !== host.hostname}<div class="num mt-1 text-xs text-fg-3">{host.hostname}</div>{/if}
           {#if host.description}<p class="mt-2 max-w-2xl text-[13px] text-fg-2">{host.description}</p>{/if}
@@ -117,7 +150,7 @@
           <div class="text-right">
             <div class="eyebrow">Last report</div>
             <div class="num mt-0.5 text-sm font-medium {host.online ? 'text-fg' : 'text-bad'}" title={datetime(lastSeen)}>{ago(lastSeen, clock.now)}</div>
-            <div class="num text-[11px] text-fg-3">every {host.poll}s · Monit {host.monit_version ?? "?"}</div>
+            <div class="num text-[11px] text-fg-3">{host.source === "pull" && target ? `polled every ${target.interval}s` : `every ${host.poll}s`} · Monit {host.monit_version ?? "?"}</div>
           </div>
           <button class="btn btn-icon" onclick={load} aria-label="Refresh" disabled={refreshing}><RefreshCw size={15} class={refreshing ? "animate-spin" : ""} /></button>
         </div>
@@ -140,7 +173,7 @@
     {:else if tab === "events"}
       <EventsList host={host.id} />
     {:else if tab === "settings" && can("admin")}
-      <HostSettings {host} onsaved={(h) => (host = h)} />
+      <HostSettings {host} {target} onsaved={(h) => (host = h)} />
     {:else}
       <HostOverview {host} />
     {/if}

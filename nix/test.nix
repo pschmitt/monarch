@@ -4,35 +4,59 @@
 
   nodes.machine =
     { pkgs, ... }:
+    let
+      # test-only key pair for the SSH pull connection
+      sshKey = pkgs.runCommand "monarch-test-ssh-key" { nativeBuildInputs = [ pkgs.openssh ]; } ''
+        mkdir $out
+        ssh-keygen -q -t ed25519 -N "" -C monarch-test -f $out/id_ed25519
+      '';
+    in
     {
       imports = [ ./module.nix ];
 
-      services.monarch = {
-        enable = true;
-        package = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
-        settings.public_url = "http://machine:8080";
-        initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
-        ensureUsers = [
-          {
-            username = "collector";
-            passwordFile = pkgs.writeText "collector-pw" "collectorpass";
-          }
-        ];
-      };
+      users.users.root.openssh.authorizedKeys.keyFiles = [ "${sshKey}/id_ed25519.pub" ];
 
-      services.monit = {
-        enable = true;
-        config = ''
-          set daemon 5
-          set mmonit http://collector:collectorpass@127.0.0.1:8080/collector
-          set httpd port 2812 address 127.0.0.1
-            allow monit:monitpass
-          check system $HOST
-          check process monarch matching "monarch"
-          check filesystem root with path /
-          check program hello with path "${pkgs.coreutils}/bin/echo hello"
-            if status != 0 then alert
-        '';
+      services = {
+        openssh.enable = true;
+
+        monarch = {
+          enable = true;
+          package = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
+          settings.public_url = "http://machine:8080";
+          initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
+          ssh.privateKeyFile = "${sshKey}/id_ed25519";
+          targets = [
+            {
+              name = "self-via-ssh";
+              url = "http://127.0.0.1:2812";
+              username = "monit";
+              passwordFile = pkgs.writeText "monit-pw" "monitpass";
+              ssh.destination = "root@127.0.0.1";
+              interval = 5;
+            }
+          ];
+          ensureUsers = [
+            {
+              username = "collector";
+              passwordFile = pkgs.writeText "collector-pw" "collectorpass";
+            }
+          ];
+        };
+
+        monit = {
+          enable = true;
+          config = ''
+            set daemon 5
+            set mmonit http://collector:collectorpass@127.0.0.1:8080/collector
+            set httpd port 2812 address 127.0.0.1
+              allow monit:monitpass
+            check system $HOST
+            check process monarch matching "monarch"
+            check filesystem root with path /
+            check program hello with path "${pkgs.coreutils}/bin/echo hello"
+              if status != 0 then alert
+          '';
+        };
       };
 
       environment.systemPackages = [
@@ -75,6 +99,19 @@
         "curl -sf -b /tmp/cj 'http://127.0.0.1:8080/api/metrics?host=1&service=machine&metrics=cpu,load1' | jq -e '.series[0].points | length > 0'",
         timeout=30,
     )
+
+    # Pull mode through SSH works from within the hardened unit.
+    machine.wait_for_unit("sshd.service")
+    machine.wait_until_succeeds(
+        "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/targets | jq -e '.[0].last_status == \"ok\" and .[0].managed'",
+        timeout=60,
+    )
+    machine.succeed(
+        "curl -sf -b /tmp/cj -X POST http://127.0.0.1:8080/api/targets/1/poll | jq -e '.host_id == 1'"
+    )
+
+    # Concurrent push and pull reports never fail to ingest.
+    machine.fail("journalctl -u monarch.service | grep -q 'ingest failed\\|poll failed'")
 
     # The web UI is served.
     machine.succeed("curl -sf http://127.0.0.1:8080/ | grep -qi monarch")

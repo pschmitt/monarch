@@ -15,14 +15,16 @@ Roles: `admin` (everything), `operator` (read + service actions + ack events),
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| GET | `/api/auth/me` | – | `{"user": User \| null, "setup_required": bool, "version": "0.1.0"}` (never 401) |
+| GET | `/api/auth/me` | – | `{"user": User \| null, "setup_required": bool, "version": "0.1.0", "oidc": {"name": string} \| null, "password_login": bool}` (never 401) |
 | POST | `/api/auth/setup` | `{"username","password"}` | `User` – only allowed while no user exists; logs in |
 | POST | `/api/auth/login` | `{"username","password"}` | `User` + cookie |
 | POST | `/api/auth/logout` | – | `204` |
+| GET | `/api/auth/oidc/login?next=/path` | – | redirect to the identity provider (single sign-on, when `oidc` is set) |
+| GET | `/api/auth/oidc/callback` | – | provider redirects back here; on success sets the cookie and redirects to `next`, on failure to `/login?sso_error=<message>` |
 
 ```ts
 type Role = "admin" | "operator" | "viewer" | "collector";
-interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null }
+interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null; auth_source: "local" | "oidc" }
 ```
 
 ## Overview
@@ -272,6 +274,43 @@ Config keys per kind:
 
 Endpoints: `GET /api/channels`, `POST /api/channels`, `PATCH /api/channels/:id`,
 `DELETE /api/channels/:id`, `POST /api/channels/:id/test` → `{"ok": bool, "message": string}`.
+
+## Connections (pull mode, admin)
+
+Besides agents pushing to `/collector`, Monarch can **pull** from a Monit
+agent's HTTP interface (`GET <url>/_status2?format=xml&level=full`), directly
+or tunnelled through SSH (`ssh -W host:port <destination>`, so the agent's
+httpd may listen on localhost only). Service actions for pulled hosts use the
+same path. Since pulled documents contain no events, Monarch derives events
+from state changes between polls.
+
+```ts
+interface Target {
+  id: number;
+  name: string;                 // label, e.g. "rofl-10"
+  url: string;                  // monit httpd base URL as seen from the SSH host (or from Monarch when direct), e.g. "http://127.0.0.1:2812"
+  username: string | null;      // monit httpd credentials
+  has_password: boolean;
+  ssh: { destination: string; port: number | null } | null; // e.g. {"destination": "root@rofl-10.example.com", "port": 22}
+  interval: number;             // seconds between polls (default 30, min 5)
+  tls_skip_verify: boolean;
+  enabled: boolean;
+  managed: boolean;             // declared in the config file / NixOS module – read only in the UI
+  host_id: number | null;       // host created from this connection once polled
+  last_status: string | null;   // "ok" or an error message
+  last_polled_at: number | null;
+  created_at: number;
+}
+```
+
+- `GET /api/targets` → `Target[]`
+- `POST /api/targets` body `{"name","url","username"?,"password"?,"ssh"?: {"destination","port"?} | null,"interval"?,"tls_skip_verify"?,"enabled"?}` → `Target` (polled immediately)
+- `PATCH /api/targets/:id` same fields, partial; `"password": "********"` or omitted keeps the stored one → `Target`
+- `DELETE /api/targets/:id` → `204` (the host and its history stay; delete the host separately)
+- `POST /api/targets/test` body like `POST /api/targets` (or `{"id": n}` to test a stored one) → `{"ok": bool, "message": string, "hostname": string | null, "monit_version": string | null, "services": number | null, "latency_ms": number | null}` – fetches once without storing anything
+- `POST /api/targets/:id/poll` → `Target` – poll now
+
+`HostSummary` gains `"source": "push" | "pull"` and `"target_id": number | null`.
 
 ## Settings
 

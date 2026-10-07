@@ -29,6 +29,8 @@ pub async fn me(
     Ok(Json(json!({
         "user": user,
         "setup_required": auth::user_count(&state.db).await? == 0,
+        "oidc": state.config.oidc.as_ref().map(|o| json!({"name": o.display_name})),
+        "password_login": !state.config.disable_password_login,
         "version": env!("CARGO_PKG_VERSION"),
     })))
 }
@@ -80,6 +82,12 @@ pub async fn login(
     headers: HeaderMap,
     Json(c): Json<Credentials>,
 ) -> ApiResult<Response> {
+    if state.config.disable_password_login {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "password sign-in is disabled, use single sign-on",
+        ));
+    }
     match auth::check_credentials(&state.db, c.username.trim(), &c.password).await? {
         Some(u) if u.role() == Role::Collector => Err(ApiError::new(
             StatusCode::FORBIDDEN,

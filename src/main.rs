@@ -16,6 +16,8 @@ mod config;
 mod db;
 mod monit;
 mod notify;
+mod oidc;
+mod pull;
 mod state;
 mod tasks;
 mod views;
@@ -138,7 +140,9 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
 
     let listen = config.listen;
     let state = state::AppState::new(pool, config, settings)?;
+    pull::sync_managed(&state).await?;
     tasks::spawn(state.clone());
+    pull::spawn(state.clone());
 
     let app = Router::new()
         .route(
@@ -198,23 +202,28 @@ fn read_secret(path: &std::path::Path) -> Result<String> {
 
 /// Declaratively managed account: create it, or reset role and password.
 async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<()> {
+    let username = match (&u.username, &u.username_file) {
+        (Some(n), _) => n.clone(),
+        (None, Some(f)) => read_secret(f)?,
+        (None, None) => bail!("ensure_users entries need username or username_file"),
+    };
     let role = auth::Role::parse(&u.role)
-        .with_context(|| format!("invalid role {} for {}", u.role, u.username))?;
+        .with_context(|| format!("invalid role {} for {username}", u.role))?;
     let password = read_secret(&u.password_file)?;
     if password.len() < 8 {
-        bail!("password for {} must be at least 8 characters", u.username);
+        bail!("password for {username} must be at least 8 characters");
     }
     let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")
-        .bind(&u.username)
+        .bind(&username)
         .fetch_optional(pool)
         .await?;
     match existing {
         None => {
-            auth::create_user(pool, &u.username, &password, role).await?;
-            tracing::info!(user = %u.username, role = %u.role, "created managed user");
+            auth::create_user(pool, &username, &password, role).await?;
+            tracing::info!(user = %username, role = %u.role, "created managed user");
         }
         Some((id,)) => {
-            if auth::check_credentials(pool, &u.username, &password)
+            if auth::check_credentials(pool, &username, &password)
                 .await?
                 .is_none()
             {
@@ -223,7 +232,7 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
                     .bind(id)
                     .execute(pool)
                     .await?;
-                tracing::info!(user = %u.username, "updated password of managed user");
+                tracing::info!(user = %username, "updated password of managed user");
             }
             sqlx::query("UPDATE users SET role = ? WHERE id = ?")
                 .bind(&u.role)

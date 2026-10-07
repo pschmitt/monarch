@@ -288,7 +288,7 @@ pub async fn test(
 ) -> ApiResult<Json<Value>> {
     user.require(Role::Operator)?;
     let h = load_host(&state, id).await?;
-    let Some(target) = h.target() else {
+    let Some(target) = views::action_target(&state.db, &state.config, &h).await? else {
         return Ok(Json(json!({
             "ok": false, "latency_ms": null,
             "message": "No Monit HTTP interface known. Enable `set httpd` in monitrc or set a URL override.",
@@ -296,7 +296,7 @@ pub async fn test(
     };
     Ok(Json(match client::probe(&target).await {
         Ok(d) => json!({"ok": true, "latency_ms": d.as_secs_f64() * 1000.0,
-                        "message": format!("Connected to {}", target.base_url)}),
+                        "message": format!("Connected to {}", target.describe())}),
         Err(e) => json!({"ok": false, "latency_ms": null, "message": format!("{e:#}")}),
     }))
 }
@@ -322,7 +322,7 @@ async fn run_action(
     if services.is_empty() {
         return Err(ApiError::bad_request("no services given"));
     }
-    let Some(target) = h.target() else {
+    let Some(target) = views::action_target(&state.db, &state.config, h).await? else {
         return Err(ApiError::new(
             StatusCode::CONFLICT,
             "No Monit HTTP interface known for this host. Enable `set httpd` in monitrc or set a URL override.",

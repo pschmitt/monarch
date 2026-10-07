@@ -1,4 +1,9 @@
-# 👑 Monarch
+<p align="center"><img src="docs/logo.svg" alt="Monarch" width="320"></p>
+
+<p align="center">
+  <a href="https://github.com/pschmitt/monarch/actions/workflows/ci.yml"><img src="https://github.com/pschmitt/monarch/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
+</p>
 
 **A modern, open source central dashboard for [Monit](https://mmonit.com/monit/) agents.**
 
@@ -8,18 +13,31 @@ history charts, events, notifications and remote service control. No license
 keys, no host limits.
 
 - **Speaks Monit's native protocol**: agents report via `set mmonit …/collector`, so no agent changes are needed
+- **Or pulls**: add hosts from the UI (or declaratively) and Monarch polls their Monit HTTP interface,
+  directly or **tunnelled through SSH**, so `set httpd` can stay bound to localhost
 - **Live dashboard**: hosts, services and events update in real time (Server-Sent Events)
 - **History**: CPU, memory, load, filesystem, network, process and response-time metrics with automatic
   downsampling (raw → 5 min → 1 h)
 - **Remote control**: start, stop, restart, monitor and unmonitor services through the agent's Monit HTTP interface
 - **Events**: full event log with search, filters and acknowledgements; offline detection when an agent goes silent
 - **Notifications**: webhook, ntfy, Gotify, Slack, Discord, Telegram and e-mail, with per-channel host/service/state filters
-- **Users and roles**: admin, operator, viewer and collector-only accounts
+- **Users and roles**: admin, operator, viewer and collector-only accounts, plus **single sign-on via OpenID
+  Connect** (Authelia, Authentik, Keycloak, …) with roles mapped from groups
 - **M/Monit-compatible API subset**: tools written for M/Monit (for example the
   [Home Assistant M/Monit integration](https://github.com/pschmitt/homeassistant-mmonit)) keep working
 - **A single binary**: Rust (axum + SQLite) with the Svelte UI embedded, and a NixOS module
 
 ## Quick start
+
+### Binaries and container image
+
+Static Linux binaries (x86_64, aarch64) are attached to each
+[release](https://github.com/pschmitt/monarch/releases), and a multi-arch image
+is published as `ghcr.io/pschmitt/monarch`:
+
+```sh
+docker run -p 8080:8080 -v monarch:/data ghcr.io/pschmitt/monarch
+```
 
 ### Nix
 
@@ -84,6 +102,49 @@ For service actions, Monarch connects to the address Monit announces for its
 HTTP interface (or to the address the report came from when Monit listens on
 all interfaces). Override the URL and credentials per host in the host's
 settings if the agent is behind NAT.
+
+### Pull mode (Monarch polls the agent)
+
+*Hosts → Add host → Monarch pulls from agent*, or declaratively:
+
+```nix
+services.monarch = {
+  ssh.privateKeyFile = "/run/secrets/monarch-ssh-key";
+  targets = [
+    {
+      name = "router";
+      url = "http://127.0.0.1:2812";        # as seen from the SSH host
+      username = "monit";
+      passwordFile = "/run/secrets/monit-httpd";
+      ssh.destination = "root@router.lan";
+      interval = 30;
+    }
+  ];
+};
+```
+
+Pulled status documents carry no events, so Monarch derives them from state
+changes between polls. Actions use the same connection.
+
+### Single sign-on (OIDC)
+
+Register a confidential client with the redirect URI
+`https://<public_url>/api/auth/oidc/callback`, then:
+
+```nix
+services.monarch = {
+  oidc.clientSecretFile = "/run/secrets/monarch-oidc-secret";
+  settings.oidc = {
+    issuer = "https://auth.example.com";
+    client_id = "monarch";
+    display_name = "Authelia";
+    admin_groups = [ "admins" ];
+    operator_groups = [ "ops" ];
+    default_role = "viewer";   # or "none" to deny everyone else
+  };
+  # settings.disable_password_login = true;
+};
+```
 
 ## Configuration
 

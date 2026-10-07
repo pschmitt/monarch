@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { ArrowRight, Eye, EyeOff, LoaderCircle, ShieldCheck } from "@lucide/svelte";
+  import { ArrowRight, Eye, EyeOff, KeyRound, LoaderCircle, ShieldCheck, TriangleAlert, X } from "@lucide/svelte";
   import { api, isMock } from "../lib/api";
   import { refreshSession, session } from "../lib/state.svelte";
+  import { router } from "../lib/router.svelte";
   import Logo from "../lib/components/Logo.svelte";
 
   let { setup = false }: { setup?: boolean } = $props();
@@ -13,6 +14,15 @@
   let show = $state(false);
   let busy = $state(false);
   let error = $state<string | null>(null);
+
+  const oidc = $derived(setup ? null : (session.me?.oidc ?? null));
+  const passwordLogin = $derived(setup || (session.me?.password_login ?? true));
+  const ssoError = $derived(router.route.query.get("sso_error"));
+  const ssoHref = $derived.by(() => {
+    const next = router.route.query.get("next");
+    return `/api/auth/oidc/login?next=${encodeURIComponent(next && next.startsWith("/") ? next : "/")}`;
+  });
+  let redirecting = $state(false);
 
   const mismatch = $derived(setup && confirm.length > 0 && confirm !== password);
   const weak = $derived(setup && password.length > 0 && password.length < 8);
@@ -27,7 +37,7 @@
     busy = true;
     try {
       const user = setup ? await api.setup(username, password) : await api.login(username, password);
-      session.me = { user, setup_required: false, version: session.me?.version ?? "" };
+      session.me = { user, setup_required: false, version: session.me?.version ?? "", oidc: session.me?.oidc ?? null, password_login: session.me?.password_login ?? true };
       refreshSession();
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
@@ -59,50 +69,92 @@
       </p>
     </div>
 
-    <form class="card space-y-4 p-6" onsubmit={submit}>
-      <div>
-        <label class="label" for="u">Username</label>
-        <!-- svelte-ignore a11y_autofocus -->
-        <input id="u" class="input" autocomplete="username" bind:value={username} required autofocus={!setup} />
-      </div>
-      <div>
-        <label class="label" for="p">Password</label>
-        <div class="relative">
-          <input
-            id="p"
-            class="input pr-10"
-            type={show ? "text" : "password"}
-            autocomplete={setup ? "new-password" : "current-password"}
-            bind:value={password}
-            required
-          />
-          <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-fg-3 hover:text-fg" onclick={() => (show = !show)} aria-label={show ? "Hide password" : "Show password"}>
-            {#if show}<EyeOff size={16} />{:else}<Eye size={16} />{/if}
+    <div class="card space-y-4 p-6">
+      {#if ssoError}
+        <div class="tone-bad flex items-start gap-2.5 rounded-xl border border-tone-soft bg-tone-soft px-3 py-2.5 text-[13px] animate-in" role="alert">
+          <TriangleAlert size={16} class="mt-0.5 shrink-0 text-tone" />
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold text-tone">Single sign-on failed</div>
+            <div class="mt-0.5 break-words text-fg-2">{ssoError}</div>
+          </div>
+          <button class="text-fg-3 hover:text-fg" aria-label="Dismiss" onclick={() => router.setQuery({ sso_error: null })}><X size={14} /></button>
+        </div>
+      {/if}
+
+      {#if oidc}
+        <a
+          href={ssoHref}
+          data-external
+          class="btn btn-primary h-11 w-full text-[14px]"
+          onclick={async (e) => {
+            redirecting = true;
+            if (isMock) {
+              // No identity provider in demo mode: pretend the round-trip succeeded.
+              e.preventDefault();
+              const user = await api.login("anika", "sso");
+              session.me = { ...session.me!, user };
+            }
+          }}
+        >
+          {#if redirecting}<LoaderCircle size={17} class="animate-spin" />{:else}<KeyRound size={17} />{/if}
+          Continue with {oidc.name}
+        </a>
+        {#if passwordLogin}
+          <div class="flex items-center gap-3 py-1 text-[11px] font-medium tracking-wider text-fg-3 uppercase">
+            <span class="h-px flex-1 bg-[var(--line)]"></span>or<span class="h-px flex-1 bg-[var(--line)]"></span>
+          </div>
+        {/if}
+      {/if}
+
+      {#if passwordLogin}
+        <form class="space-y-4" onsubmit={submit}>
+          <div>
+            <label class="label" for="u">Username</label>
+            <!-- svelte-ignore a11y_autofocus -->
+            <input id="u" class="input" autocomplete="username" bind:value={username} required autofocus={!setup && !oidc} />
+          </div>
+          <div>
+            <label class="label" for="p">Password</label>
+            <div class="relative">
+              <input
+                id="p"
+                class="input pr-10"
+                type={show ? "text" : "password"}
+                autocomplete={setup ? "new-password" : "current-password"}
+                bind:value={password}
+                required
+              />
+              <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-fg-3 hover:text-fg" onclick={() => (show = !show)} aria-label={show ? "Hide password" : "Show password"}>
+                {#if show}<EyeOff size={16} />{:else}<Eye size={16} />{/if}
+              </button>
+            </div>
+            {#if weak}<p class="hint text-warn">At least 8 characters, please.</p>{/if}
+          </div>
+          {#if setup}
+            <div>
+              <label class="label" for="c">Confirm password</label>
+              <input id="c" class="input" type={show ? "text" : "password"} autocomplete="new-password" bind:value={confirm} required />
+              {#if mismatch}<p class="hint text-bad">Passwords don't match.</p>{/if}
+            </div>
+          {/if}
+
+          {#if error}
+            <div class="tone-bad rounded-xl border border-tone-soft bg-tone-soft px-3 py-2 text-[13px] text-tone animate-in">{error}</div>
+          {/if}
+
+          <button class="btn {oidc ? '' : 'btn-primary'} h-10 w-full" disabled={busy}>
+            {#if busy}<LoaderCircle size={16} class="animate-spin" />{/if}
+            {setup ? "Create account" : "Sign in"}
+            {#if !busy}<ArrowRight size={16} />{/if}
           </button>
-        </div>
-        {#if weak}<p class="hint text-warn">At least 8 characters, please.</p>{/if}
-      </div>
-      {#if setup}
-        <div>
-          <label class="label" for="c">Confirm password</label>
-          <input id="c" class="input" type={show ? "text" : "password"} autocomplete="new-password" bind:value={confirm} required />
-          {#if mismatch}<p class="hint text-bad">Passwords don't match.</p>{/if}
-        </div>
+          {#if isMock && !setup && passwordLogin}
+            <p class="text-center text-[11px] text-fg-3">Demo mode — any username and password (3+ chars) works.</p>
+          {/if}
+        </form>
+      {:else if !oidc}
+        <p class="text-center text-[13px] text-fg-3">Password sign-in is disabled and no single sign-on provider is configured.</p>
       {/if}
-
-      {#if error}
-        <div class="tone-bad rounded-xl border border-tone-soft bg-tone-soft px-3 py-2 text-[13px] text-tone animate-in">{error}</div>
-      {/if}
-
-      <button class="btn btn-primary h-10 w-full" disabled={busy}>
-        {#if busy}<LoaderCircle size={16} class="animate-spin" />{/if}
-        {setup ? "Create account" : "Sign in"}
-        {#if !busy}<ArrowRight size={16} />{/if}
-      </button>
-      {#if isMock && !setup}
-        <p class="text-center text-[11px] text-fg-3">Demo mode — any username and password (3+ chars) works.</p>
-      {/if}
-    </form>
+    </div>
 
     <p class="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-fg-3">
       <ShieldCheck size={13} /> Free software · GPL-3.0 · no license keys, no limits
