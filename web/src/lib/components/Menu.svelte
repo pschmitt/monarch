@@ -18,22 +18,51 @@
   }: { items: (MenuItem | "sep")[]; align?: "left" | "right"; trigger: Snippet; label?: string } = $props();
   let open = $state(false);
   let root: HTMLDivElement;
+  let button: HTMLButtonElement;
+  let panel = $state<HTMLDivElement>();
+  let pos = $state({ top: 0, left: 0 });
+
+  // The panel lives on <body> so cards with overflow/backdrop-filter cannot clip it.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
+
+  function place() {
+    if (!button || !panel) return;
+    const r = button.getBoundingClientRect();
+    const w = panel.offsetWidth;
+    const h = panel.offsetHeight;
+    let left = align === "right" ? r.right - w : r.left;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+    pos = { top, left };
+  }
+
+  $effect(() => {
+    if (open && panel) place();
+  });
 
   function onwin(e: MouseEvent) {
-    if (open && root && !root.contains(e.target as Node)) open = false;
+    const t = e.target as Node;
+    if (open && root && !root.contains(t) && !panel?.contains(t)) open = false;
   }
 </script>
 
-<svelte:window onclick={onwin} onkeydown={(e) => e.key === "Escape" && (open = false)} />
+<svelte:window onclick={onwin} onkeydown={(e) => e.key === "Escape" && (open = false)} onresize={() => (open = false)} />
 
 <div class="relative inline-block" bind:this={root}>
-  <button class="btn btn-ghost btn-sm btn-icon" aria-haspopup="menu" aria-expanded={open} aria-label={label} onclick={() => (open = !open)}>
+  <button bind:this={button} class="btn btn-ghost btn-sm btn-icon" aria-haspopup="menu" aria-expanded={open} aria-label={label} onclick={() => (open = !open)}>
     {@render trigger()}
   </button>
   {#if open}
     <div
+      use:portal
+      bind:this={panel}
       role="menu"
-      class="absolute z-40 mt-1.5 min-w-44 overflow-hidden rounded-xl border border-line-strong bg-surface-solid p-1 shadow-2xl animate-in {align === 'right' ? 'right-0' : 'left-0'}"
+      style="position: fixed; top: {pos.top}px; left: {pos.left}px"
+      class="z-[60] min-w-44 overflow-hidden rounded-xl border border-line-strong bg-surface-solid p-1 shadow-2xl animate-in"
     >
       {#each items as item, i (i)}
         {#if item === "sep"}

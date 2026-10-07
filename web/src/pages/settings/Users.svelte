@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Ellipsis, KeyRound, LoaderCircle, Plus, Trash, UserPlus, Users } from "@lucide/svelte";
+  import { Ellipsis, KeyRound, LoaderCircle, Pencil, Plus, Trash, UserPlus, Users } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Role, User } from "../../lib/types";
   import { ago, datetime } from "../../lib/format";
-  import { clock, confirm, session, toast, toastError } from "../../lib/state.svelte";
+  import { clock, confirm, refreshSession, session, toast, toastError } from "../../lib/state.svelte";
   import Empty from "../../lib/components/Empty.svelte";
   import Menu from "../../lib/components/Menu.svelte";
   import Modal from "../../lib/components/Modal.svelte";
@@ -14,6 +14,9 @@
   let pwOpen = $state(false);
   let form = $state({ username: "", password: "", role: "viewer" as Role });
   let newPw = $state("");
+  let nameUser = $state<User | null>(null);
+  let nameOpen = $state(false);
+  let newName = $state("");
   let busy = $state(false);
 
   const roles: { id: Role; label: string; desc: string }[] = [
@@ -72,6 +75,23 @@
       newPw = "";
     } catch (err) {
       toastError(err, "Could not update password");
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function rename(e: SubmitEvent) {
+    e.preventDefault();
+    if (!nameUser) return;
+    busy = true;
+    try {
+      await api.updateUser(nameUser.id, { username: newName.trim() });
+      toast("ok", `${nameUser.username} is now ${newName.trim()}`);
+      nameOpen = false;
+      if (nameUser.id === session.me?.user?.id) await refreshSession();
+      load();
+    } catch (err) {
+      toastError(err, "Could not rename user");
     } finally {
       busy = false;
     }
@@ -150,6 +170,16 @@
                         pwOpen = true;
                       },
                     },
+                    {
+                      label: u.auth_source === "oidc" ? "Name managed by SSO" : "Change username",
+                      icon: Pencil,
+                      disabled: u.auth_source === "oidc",
+                      onselect: () => {
+                        nameUser = u;
+                        newName = u.username;
+                        nameOpen = true;
+                      },
+                    },
                     "sep",
                     { label: "Delete user", icon: Trash, danger: true, disabled: u.id === session.me?.user?.id, onselect: () => remove(u) },
                   ]}
@@ -205,5 +235,17 @@
   {#snippet footer()}
     <button class="btn btn-ghost" onclick={() => (pwOpen = false)}>Cancel</button>
     <button class="btn btn-primary" form="set-pw" disabled={busy}>Update password</button>
+  {/snippet}
+</Modal>
+
+<Modal bind:open={nameOpen} title="Change username of {nameUser?.username ?? ''}" width="max-w-sm">
+  <form id="rename" onsubmit={rename}>
+    <label class="label" for="rn">New username</label>
+    <input id="rn" class="input" bind:value={newName} required maxlength="64" autocomplete="off" />
+    <p class="hint">Monit agents reporting with this account must be updated to the new name.</p>
+  </form>
+  {#snippet footer()}
+    <button class="btn btn-ghost" onclick={() => (nameOpen = false)}>Cancel</button>
+    <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || newName.trim() === nameUser?.username}>Rename</button>
   {/snippet}
 </Modal>

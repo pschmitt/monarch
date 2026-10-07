@@ -63,6 +63,7 @@ pub async fn create_user(
 
 #[derive(Deserialize)]
 pub struct UserPatch {
+    username: Option<String>,
     password: Option<String>,
     role: Option<String>,
     current_password: Option<String>,
@@ -104,6 +105,43 @@ async fn fetch_user(state: &SharedState, id: i64) -> ApiResult<User> {
         .ok_or_else(|| ApiError::not_found("user"))
 }
 
+async fn rename_user(state: &SharedState, target: &User, new_name: &str) -> ApiResult<()> {
+    let name = new_name.trim();
+    if name.is_empty() || name.contains(':') || name.len() > 64 {
+        return Err(ApiError::bad_request(
+            "username must be 1-64 characters and must not contain ':'",
+        ));
+    }
+    if target.auth_source == "oidc" {
+        return Err(ApiError::bad_request(
+            "the username of a single sign-on account comes from the identity provider",
+        ));
+    }
+    if name == target.username {
+        return Ok(());
+    }
+    let taken: Option<(i64,)> =
+        sqlx::query_as("SELECT id FROM users WHERE username = ? AND id != ?")
+            .bind(name)
+            .bind(target.id)
+            .fetch_optional(&state.db)
+            .await?;
+    if taken.is_some() {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "username already taken",
+        ));
+    }
+    sqlx::query("UPDATE users SET username = ? WHERE id = ?")
+        .bind(name)
+        .bind(target.id)
+        .execute(&state.db)
+        .await?;
+    // Collector credentials are cached by username.
+    state.collector_auth.lock().unwrap().clear();
+    Ok(())
+}
+
 pub async fn update_user(
     State(state): State<SharedState>,
     user: User,
@@ -123,6 +161,9 @@ pub async fn update_user(
             .execute(&state.db)
             .await?;
     }
+    if let Some(n) = &b.username {
+        rename_user(&state, &target, n).await?;
+    }
     if let Some(p) = &b.password {
         set_password(&state, id, p).await?;
     }
@@ -134,25 +175,37 @@ pub async fn update_me(
     user: User,
     Json(b): Json<UserPatch>,
 ) -> ApiResult<Json<User>> {
-    let Some(p) = &b.password else {
-        return Err(ApiError::bad_request("password required"));
-    };
-    if user.auth_source == "oidc" {
-        return Err(ApiError::bad_request(
-            "single sign-on accounts have no local password",
-        ));
+    if b.password.is_none() && b.username.is_none() {
+        return Err(ApiError::bad_request("nothing to change"));
     }
-    let current = b.current_password.as_deref().unwrap_or("");
-    if auth::check_credentials(&state.db, &user.username, current)
-        .await?
-        .is_none()
-    {
-        return Err(ApiError::new(
-            StatusCode::FORBIDDEN,
-            "current password is wrong",
-        ));
+    if let Some(p) = &b.password {
+        if user.auth_source == "oidc" {
+            return Err(ApiError::bad_request(
+                "single sign-on accounts have no local password",
+            ));
+        }
+        let current = b.current_password.as_deref().unwrap_or("");
+        if auth::check_credentials(&state.db, &user.username, current)
+            .await?
+            .is_none()
+        {
+            return Err(ApiError::new(
+                StatusCode::FORBIDDEN,
+                "current password is wrong",
+            ));
+        }
+        if p.len() < 8 {
+            return Err(ApiError::bad_request(
+                "password must be at least 8 characters",
+            ));
+        }
     }
-    set_password(&state, user.id, p).await?;
+    if let Some(n) = &b.username {
+        rename_user(&state, &user, n).await?;
+    }
+    if let Some(p) = &b.password {
+        set_password(&state, user.id, p).await?;
+    }
     Ok(Json(fetch_user(&state, user.id).await?))
 }
 

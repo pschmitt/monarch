@@ -75,6 +75,14 @@
     login = "curl -sf -c /tmp/cj -H 'content-type: application/json' -d '{\"username\":\"admin\",\"password\":\"supersecret\"}' http://127.0.0.1:8080/api/auth/login"
     machine.succeed(login)
 
+    # Users can be renamed (by an admin, or themselves); duplicates are refused.
+    api = "curl -s -b /tmp/cj -H 'content-type: application/json' "
+    alice = json.loads(machine.succeed(api + "-d '{\"username\":\"alice\",\"password\":\"alicepass1\",\"role\":\"viewer\"}' http://127.0.0.1:8080/api/users"))["id"]
+    machine.succeed(api + f"-X PATCH -d '{{\"username\":\"alicia\"}}' http://127.0.0.1:8080/api/users/{alice} | jq -e '.username == \"alicia\"'")
+    assert machine.succeed(api + f"-o /dev/null -w '%{{http_code}}' -X PATCH -d '{{\"username\":\"ADMIN\"}}' http://127.0.0.1:8080/api/users/{alice}") == "409"
+    machine.succeed("curl -sf -c /tmp/cj2 -H 'content-type: application/json' -d '{\"username\":\"alicia\",\"password\":\"alicepass1\"}' http://127.0.0.1:8080/api/auth/login")
+    machine.succeed("curl -sf -b /tmp/cj2 -H 'content-type: application/json' -X PATCH -d '{\"username\":\"ali\"}' http://127.0.0.1:8080/api/users/me | jq -e '.username == \"ali\"'")
+
     # The monit agent registers itself and reports all of its services.
     machine.wait_until_succeeds(
         "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts | jq -e 'length == 1 and .[0].services.total == 4'",

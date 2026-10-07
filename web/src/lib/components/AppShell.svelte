@@ -8,6 +8,7 @@
     LogOut,
     Menu as MenuIcon,
     Moon,
+    Pencil,
     Search,
     Server,
     Settings,
@@ -19,12 +20,14 @@
   import { router } from "../router.svelte";
   import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import ChangePassword from "./ChangePassword.svelte";
+  import ChangeUsername from "./ChangeUsername.svelte";
   import Logo from "./Logo.svelte";
   import Menu from "./Menu.svelte";
   import StatusDot from "./StatusDot.svelte";
 
   let { children, onlogout }: { children: Snippet; onlogout: () => void } = $props();
   let pwOpen = $state(false);
+  let nameOpen = $state(false);
 
   const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
   const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
@@ -155,7 +158,10 @@
               { label: `Signed in as ${session.me?.user?.username ?? "?"}${session.me?.user?.auth_source === "oidc" ? " (SSO)" : ""}`, icon: UserRound, disabled: true, onselect: () => {} },
               ...(session.me?.user?.auth_source === "oidc"
                 ? []
-                : [{ label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) }]),
+                : [
+                    { label: "Change username", icon: Pencil, onselect: () => (nameOpen = true) },
+                    { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
+                  ]),
               ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
               "sep" as const,
               { label: "Sign out", icon: LogOut, danger: true, onselect: onlogout },
@@ -178,3 +184,4 @@
 </div>
 
 <ChangePassword bind:open={pwOpen} />
+<ChangeUsername bind:open={nameOpen} />

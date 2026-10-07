@@ -248,7 +248,7 @@ type StreamMessage =
 
 - `GET /api/users` → `User[]`
 - `POST /api/users` `{"username","password","role"}` → `User`
-- `PATCH /api/users/:id` `{"password"?, "role"?}` → `User` (users may change their own password via `PATCH /api/users/me {"password","current_password"}`)
+- `PATCH /api/users/:id` `{"username"?, "password"?, "role"?}` → `User` (users may change their own username and password via `PATCH /api/users/me {"username"?, "password"?, "current_password"?}`; `current_password` is required with `password`; usernames of SSO accounts cannot be changed)
 - `DELETE /api/users/:id` → `204`
 
 ## Notification channels (admin)
