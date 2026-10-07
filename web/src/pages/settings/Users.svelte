@@ -134,7 +134,7 @@
                   <div>
                     <div class="flex items-center gap-1.5">
                       <span class="font-medium text-fg">{u.username}</span>
-                      {#if u.auth_source === "oidc"}
+                      {#if u.sso}
                         <span class="inline-flex items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-px text-[10px] font-semibold text-accent" title="Signs in via {session.me?.oidc?.name ?? 'single sign-on'}"><KeyRound size={10} /> SSO</span>
                       {/if}
                     </div>
@@ -171,9 +171,9 @@
                       },
                     },
                     {
-                      label: u.auth_source === "oidc" ? "Name managed by SSO" : "Change username",
+                      label: u.sso ? "Name managed by SSO" : "Change username",
                       icon: Pencil,
-                      disabled: u.auth_source === "oidc",
+                      disabled: u.sso,
                       onselect: () => {
                         nameUser = u;
                         newName = u.username;

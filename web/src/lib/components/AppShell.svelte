@@ -157,11 +157,11 @@
           <Menu
             label="User menu"
             items={[
-              { label: `Signed in as ${session.me?.user?.username ?? "?"}${session.me?.user?.auth_source === "oidc" ? " (SSO)" : ""}`, icon: UserRound, disabled: true, onselect: () => {} },
+              { label: `Signed in as ${session.me?.user?.username ?? "?"}${session.me?.user?.sso ? " (SSO)" : ""}`, icon: UserRound, disabled: true, onselect: () => {} },
               ...(session.me?.user?.auth_source === "oidc"
                 ? []
                 : [
-                    { label: "Change username", icon: Pencil, onselect: () => (nameOpen = true) },
+                    ...(session.me?.user?.sso ? [] : [{ label: "Change username", icon: Pencil, onselect: () => (nameOpen = true) }]),
                     { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
                   ]),
               { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },

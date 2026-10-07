@@ -20,7 +20,7 @@ use crate::{
 
 // ---------------------------------------------------------------- users
 
-const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source FROM users";
+const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users";
 
 pub async fn users(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<User>>> {
     user.require(Role::Admin)?;
@@ -112,7 +112,7 @@ async fn rename_user(state: &SharedState, target: &User, new_name: &str) -> ApiR
             "username must be 1-64 characters and must not contain ':'",
         ));
     }
-    if target.auth_source == "oidc" {
+    if target.sso {
         return Err(ApiError::bad_request(
             "the username of a single sign-on account comes from the identity provider",
         ));

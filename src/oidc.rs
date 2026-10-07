@@ -395,7 +395,7 @@ async fn upsert_user(
         }
     };
     Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source FROM users WHERE id = ?",
+        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users WHERE id = ?",
     )
     .bind(id)
     .fetch_one(db)

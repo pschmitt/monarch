@@ -9,6 +9,8 @@ export interface User {
   created_at: number;
   last_login: number | null;
   auth_source: "local" | "oidc";
+  /** Has a single sign-on identity (SSO account, or a local one linked to it). */
+  sso: boolean;
 }
 
 export interface Me {

@@ -693,10 +693,10 @@ export function createMock(): MockTransport {
   const fleet = buildFleet();
   let events = buildEvents(fleet);
   let users: User[] = [
-    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local" },
-    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc" },
-    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local" },
-    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local" },
+    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false },
+    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true },
+    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false },
+    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false },
   ];
   let channels: Channel[] = [
     {
@@ -947,7 +947,7 @@ export function createMock(): MockTransport {
     }
     if (p === "/api/users") {
       if (method === "POST") {
-        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local" };
+        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local", sso: false };
         users = [...users, u];
         return delay(u);
       }

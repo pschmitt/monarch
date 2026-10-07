@@ -24,7 +24,7 @@ Roles: `admin` (everything), `operator` (read + service actions + ack events),
 
 ```ts
 type Role = "admin" | "operator" | "viewer" | "collector";
-interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null; auth_source: "local" | "oidc" }
+interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null; auth_source: "local" | "oidc"; sso: boolean }
 ```
 
 ## Overview
