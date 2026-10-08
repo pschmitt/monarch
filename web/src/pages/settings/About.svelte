@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { Code, ExternalLink, Heart, Plug, Scale } from "@lucide/svelte";
+  import { Code, Download, ExternalLink, Heart, Plug, Scale } from "@lucide/svelte";
   import { session } from "../../lib/state.svelte";
   import Logo from "../../lib/components/Logo.svelte";
+  import { installApp, pwa } from "../../lib/pwa.svelte";
 </script>
 
 <div class="space-y-6">
@@ -16,7 +17,11 @@
         <div class="mt-4 flex flex-wrap gap-2">
           <a class="btn btn-sm" href="https://github.com/pschmitt/monarch" target="_blank" rel="noreferrer"><Code size={14} /> GitHub</a>
           <a class="btn btn-sm hover:text-bad" href="https://github.com/sponsors/pschmitt" target="_blank" rel="noreferrer"><Heart size={14} class="text-bad" /> Sponsor</a>
+          {#if pwa.canInstall}
+            <button class="btn btn-primary btn-sm" onclick={installApp}><Download size={14} /> Install app</button>
+          {/if}
         </div>
+        {#if pwa.installed}<p class="mt-3 text-xs text-fg-3">Running as an installed app.</p>{/if}
       </div>
     </div>
   </section>
