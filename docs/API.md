@@ -254,17 +254,20 @@ type StreamMessage =
 - `POST /api/tokens` `{"name", "expires_days"?}` → the token info plus `token` (shown once)
 - `DELETE /api/tokens/:id` → `204`
 
+Users also have an optional `email` (`PATCH /api/users/:id` or `/me` with `{"email": ""}` clears it;
+SSO accounts get theirs from the identity provider).
+
 API tokens (`mnr_…`) authenticate every endpoint as their owner (same role) via
 `Authorization: Bearer <token>`. They can only be managed from a browser session.
 
 ## Notification channels (admin)
 
 ```ts
-type ChannelKind = "webhook" | "ntfy" | "gotify" | "slack" | "discord" | "telegram" | "email";
+type ChannelKind = "webhook" | "ntfy" | "gotify" | "slack" | "discord" | "telegram" | "email" | "apprise" | "webpush" | "exec";
 interface Channel {
   id: number; name: string; kind: ChannelKind; enabled: boolean;
   config: Record<string, string>;   // secrets are returned as "********"
-  filter: { hosts: string | null; services: string | null; states: EventState[]; include_heartbeat: boolean }; // hosts/services are regexes
+  filter: { hosts: string | null; services: string | null; states: EventState[]; include_heartbeat: boolean; events: string[] }; // hosts/services are regexes
   last_status: string | null; last_sent_at: number | null; created_at: number;
 }
 ```
@@ -276,7 +279,13 @@ Config keys per kind:
 - gotify: `url`, `token`
 - slack / discord: `url` (incoming webhook)
 - telegram: `token`, `chat_id`
-- email: `smtp_url` (`smtps://user:pass@host:465`), `from`, `to` (comma separated)
+- email: `smtp_url` (`smtps://user:pass@host:465`), `from`, `to` (comma separated) and/or `to_roles` (comma separated roles; mails every user of those roles that has an email)
+- apprise: `apprise_url` (an Apprise API notify URL), optional `tag`
+- webpush: optional `users` (comma separated usernames); browsers enrol with `POST /api/push/subscriptions`
+- exec: `command` (run with `/bin/sh -c` on the server; needs `allow_exec_channels`). Event in `MONARCH_*` env vars and JSON on stdin
+
+`filter.events` limits a channel to event kinds (`GET /api/events/kinds`); empty = all. Kinds in
+`settings.disabled_events` (`PATCH /api/settings`) never notify.
 
 Endpoints: `GET /api/channels`, `POST /api/channels`, `PATCH /api/channels/:id`,
 `DELETE /api/channels/:id`, `POST /api/channels/:id/test` → `{"ok": bool, "message": string}`.

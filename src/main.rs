@@ -18,6 +18,7 @@ mod monit;
 mod notify;
 mod oidc;
 mod pull;
+mod push;
 mod state;
 mod tasks;
 mod views;
@@ -213,13 +214,26 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
     if password.len() < 8 {
         bail!("password for {username} must be at least 8 characters");
     }
+    let email = match (&u.email, &u.email_file) {
+        (Some(e), _) => Some(e.trim().to_owned()),
+        (None, Some(f)) => Some(read_secret(f)?.trim().to_owned()),
+        (None, None) => None,
+    }
+    .filter(|e| !e.is_empty());
     let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(pool)
         .await?;
     match existing {
         None => {
-            auth::create_user(pool, &username, &password, role).await?;
+            let user = auth::create_user(pool, &username, &password, role).await?;
+            if let Some(e) = &email {
+                sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+                    .bind(e)
+                    .bind(user.id)
+                    .execute(pool)
+                    .await?;
+            }
             tracing::info!(user = %username, role = %u.role, "created managed user");
         }
         Some((id,)) => {
@@ -239,6 +253,14 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
                 .bind(id)
                 .execute(pool)
                 .await?;
+            // Only managed when configured: an unset email leaves what the user chose.
+            if let Some(e) = &email {
+                sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+                    .bind(e)
+                    .bind(id)
+                    .execute(pool)
+                    .await?;
+            }
         }
     }
     Ok(())

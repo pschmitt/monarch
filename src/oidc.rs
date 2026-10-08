@@ -322,7 +322,12 @@ async fn finish(
     let Some(role) = role_for(cfg, &groups) else {
         bail!("your account is not allowed to use Monarch");
     };
-    let user = upsert_user(state, cfg, &subject, &username, role).await?;
+    let email = claims["email"]
+        .as_str()
+        .map(str::trim)
+        .filter(|e| !e.is_empty())
+        .map(str::to_owned);
+    let user = upsert_user(state, cfg, &subject, &username, email.as_deref(), role).await?;
     Ok((user, next))
 }
 
@@ -331,6 +336,7 @@ async fn upsert_user(
     cfg: &OidcConfig,
     subject: &str,
     username: &str,
+    email: Option<&str>,
     role: Role,
 ) -> Result<User> {
     let db = &state.db;
@@ -360,6 +366,17 @@ async fn upsert_user(
                     .execute(db)
                     .await?;
             }
+            if let Some(e) = email {
+                // The IdP is authoritative for SSO accounts; a linked local account
+                // keeps an address it already has.
+                sqlx::query(
+                    "UPDATE users SET email = ? WHERE id = ? AND (auth_source = 'oidc' OR email IS NULL)",
+                )
+                .bind(e)
+                .bind(id)
+                .execute(db)
+                .await?;
+            }
             id
         }
         (None, Some((id,))) => {
@@ -369,6 +386,13 @@ async fn upsert_user(
                 .execute(db)
                 .await?;
             tracing::info!(%username, "linked single sign-on identity to the local account");
+            if let Some(e) = email {
+                sqlx::query("UPDATE users SET email = ? WHERE id = ? AND email IS NULL")
+                    .bind(e)
+                    .bind(id)
+                    .execute(db)
+                    .await?;
+            }
             id
         }
         (None, None) => {
@@ -382,20 +406,21 @@ async fn upsert_user(
                 name = format!("{username}-sso");
             }
             sqlx::query(
-                "INSERT INTO users (username, password_hash, role, created_at, auth_source, oidc_subject)
-                 VALUES (?, '!', ?, ?, 'oidc', ?)",
+                "INSERT INTO users (username, password_hash, role, created_at, auth_source, oidc_subject, email)
+                 VALUES (?, '!', ?, ?, 'oidc', ?, ?)",
             )
             .bind(&name)
             .bind(role_str(role))
             .bind(now())
             .bind(subject)
+            .bind(email)
             .execute(db)
             .await?
             .last_insert_rowid()
         }
     };
     Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users WHERE id = ?",
+        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
     )
     .bind(id)
     .fetch_one(db)

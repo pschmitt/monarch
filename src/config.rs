@@ -36,6 +36,9 @@ pub struct Config {
     pub oidc: Option<OidcConfig>,
     /// Only allow OIDC sign-in in the UI (collector credentials still work).
     pub disable_password_login: bool,
+    /// Allow admins to create "exec" notification channels, which run a command
+    /// on the server. Off by default: it turns an admin login into code execution.
+    pub allow_exec_channels: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -118,6 +121,9 @@ pub struct EnsureUser {
     #[serde(default = "default_role")]
     pub role: String,
     pub password_file: PathBuf,
+    pub email: Option<String>,
+    /// Alternative to `email`, e.g. when the address is kept in a secret store.
+    pub email_file: Option<PathBuf>,
 }
 
 fn default_role() -> String {
@@ -141,6 +147,7 @@ impl Default for Config {
             targets: Vec::new(),
             oidc: None,
             disable_password_login: false,
+            allow_exec_channels: false,
         }
     }
 }
@@ -192,6 +199,8 @@ pub struct Settings {
     pub retention: Retention,
     /// Multiples of a host's poll interval without report before it is offline.
     pub heartbeat_grace: f64,
+    /// Event kinds (see `GET /api/events/kinds`) that never trigger notifications.
+    pub disabled_events: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -220,6 +229,7 @@ impl Default for Settings {
             public_url: "http://localhost:8080".into(),
             retention: Retention::default(),
             heartbeat_grace: 3.0,
+            disabled_events: Vec::new(),
         }
     }
 }

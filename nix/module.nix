@@ -47,7 +47,9 @@ let
         ensure_users = lib.imap0 (
           i: u:
           lib.filterAttrs (_: v: v != null) {
-            inherit (u) username role;
+            inherit (u) username role email;
+            email_file =
+              if u.emailFile != null then "/run/credentials/monarch.service/user-${toString i}-email" else null;
             username_file =
               if u.usernameFile != null then "/run/credentials/monarch.service/user-${toString i}-name" else null;
             password_file = "/run/credentials/monarch.service/user-${toString i}";
@@ -147,6 +149,16 @@ in
             passwordFile = lib.mkOption {
               type = lib.types.path;
               description = "File containing the account's password (at least 8 characters).";
+            };
+            email = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Email address of the account (used for notifications addressed to roles).";
+            };
+            emailFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              description = "File containing the email address (instead of `email`).";
             };
           };
         }
@@ -250,6 +262,15 @@ in
       );
     };
 
+    path = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ ];
+      description = ''
+        Extra packages on the service's PATH, for the commands of "exec"
+        notification channels (which need `settings.allow_exec_channels`).
+      '';
+    };
+
     nginx = {
       enable = lib.mkEnableOption "an nginx virtual host reverse-proxying Monarch";
       domain = lib.mkOption {
@@ -286,6 +307,7 @@ in
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
       wantedBy = [ "multi-user.target" ];
+      inherit (cfg) path;
       environment.MONARCH_CONFIG = configFile;
       serviceConfig = {
         ExecStart = lib.getExe cfg.package;
@@ -302,6 +324,11 @@ in
           ++ lib.concatLists (
             lib.imap0 (
               i: u: lib.optional (u.usernameFile != null) "user-${toString i}-name:${u.usernameFile}"
+            ) cfg.ensureUsers
+          )
+          ++ lib.concatLists (
+            lib.imap0 (
+              i: u: lib.optional (u.emailFile != null) "user-${toString i}-email:${u.emailFile}"
             ) cfg.ensureUsers
           )
           ++ lib.optional (cfg.ssh.privateKeyFile != null) "ssh-key:${cfg.ssh.privateKeyFile}"

@@ -49,6 +49,7 @@ pub struct User {
     pub auth_source: String,
     /// Has a single sign-on identity (SSO-created, or a local account linked to one).
     pub sso: bool,
+    pub email: Option<String>,
 }
 
 impl User {
@@ -117,7 +118,7 @@ pub async fn check_credentials(
         return Ok(None);
     }
     Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users WHERE id = ?",
+        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
     )
     .bind(id)
     .fetch_optional(db)
@@ -222,7 +223,7 @@ pub async fn user_from_headers(
         let ts = now();
         let hash = token_hash(token);
         let user: Option<User> = sqlx::query_as(
-            "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso FROM api_tokens t
+            "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso, u.email FROM api_tokens t
              JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > ?)",
         )
         .bind(&hash)
@@ -243,7 +244,7 @@ pub async fn user_from_headers(
         return Ok(None);
     };
     Ok(sqlx::query_as(
-        "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso FROM sessions s
+        "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso, u.email FROM sessions s
          JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?",
     )
     .bind(token_hash(&token))
@@ -304,7 +305,7 @@ pub async fn create_user(
     .await?
     .last_insert_rowid();
     Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users WHERE id = ?",
+        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
     )
     .bind(id)
     .fetch_one(db)

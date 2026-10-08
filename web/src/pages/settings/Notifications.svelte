@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { BellRing, Hash, LoaderCircle, Mail, MessageCircle, Pencil, Plus, Send, Trash, Webhook } from "@lucide/svelte";
+  import { BellRing, Globe, Hash, LoaderCircle, Mail, MessageCircle, Pencil, Plus, Send, Terminal, Trash, Webhook, Workflow } from "@lucide/svelte";
   import { api } from "../../lib/api";
-  import type { Channel, ChannelKind, EventState } from "../../lib/types";
+  import type { Channel, ChannelKind, EventKind, EventState } from "../../lib/types";
   import { ago, eventStateLabel, eventTone } from "../../lib/format";
   import { clock, confirm, toast, toastError } from "../../lib/state.svelte";
+  import BrowserPush from "../../lib/components/BrowserPush.svelte";
   import Empty from "../../lib/components/Empty.svelte";
+  import EventToggles from "../../lib/components/EventToggles.svelte";
   import Modal from "../../lib/components/Modal.svelte";
   import StatusDot from "../../lib/components/StatusDot.svelte";
   import Switch from "../../lib/components/Switch.svelte";
@@ -52,6 +54,33 @@
         { key: "smtp_url", label: "SMTP URL", placeholder: "smtps://user:pass@smtp.example.com:465", secret: true },
         { key: "from", label: "From", placeholder: "monarch@example.com" },
         { key: "to", label: "To", placeholder: "ops@example.com, oncall@example.com", hint: "Comma separated" },
+        { key: "to_roles", label: "To users with role", placeholder: "admin, operator", hint: "Optional: also mails every user of these roles that has an email address" },
+      ],
+    },
+    apprise: {
+      label: "Apprise",
+      icon: Workflow,
+      fields: [
+        { key: "apprise_url", label: "Apprise API URL", placeholder: "https://apprise.example.com/notify/monarch", secret: true, hint: "Reaches 100+ services (Matrix, Teams, Pushover, SMS, …) through an Apprise API server" },
+        { key: "tag", label: "Tag", placeholder: "all", hint: "Optional" },
+      ],
+    },
+    webpush: {
+      label: "Browser push",
+      icon: Globe,
+      fields: [{ key: "users", label: "Only these users", placeholder: "everyone who enabled notifications", hint: "Optional, comma separated usernames. Browsers are enrolled with “Notifications on this device” above." }],
+    },
+    exec: {
+      label: "Command",
+      icon: Terminal,
+      fields: [
+        {
+          key: "command",
+          label: "Shell command",
+          placeholder: 'notify-send "$MONARCH_TITLE" "$MONARCH_TEXT"',
+          multiline: true,
+          hint: "Runs on the Monarch server (admins only, and only when the server enables allow_exec_channels). The event is in MONARCH_TITLE, MONARCH_TEXT, MONARCH_URL, MONARCH_FAILED, MONARCH_HOST, MONARCH_SERVICE, MONARCH_KIND, MONARCH_EVENT_JSON, and as JSON on stdin.",
+        },
       ],
     },
     webhook: {
@@ -73,6 +102,10 @@
   let draft = $state<{ name: string; kind: ChannelKind; enabled: boolean; config: Record<string, string>; filter: Channel["filter"] }>(blank());
   let busy = $state(false);
   let testing = $state<number | null>(null);
+  let eventKinds = $state<EventKind[]>([]);
+  $effect(() => {
+    api.eventKinds().then((k) => (eventKinds = k)).catch(() => {});
+  });
 
   function blank() {
     return {
@@ -80,7 +113,7 @@
       kind: "ntfy" as ChannelKind,
       enabled: true,
       config: {} as Record<string, string>,
-      filter: { hosts: null, services: null, states: ["failed", "succeeded"] as EventState[], include_heartbeat: true },
+      filter: { hosts: null, services: null, states: ["failed", "succeeded"] as EventState[], include_heartbeat: true, events: [] as string[] },
     };
   }
 
@@ -100,7 +133,7 @@
     const config = { ...(c?.config ?? {}) };
     // Masked secrets are shown as empty inputs with an "unchanged" placeholder.
     if (c) for (const f of KINDS[c.kind].fields) if (f.secret && config[f.key] === MASK) config[f.key] = "";
-    draft = c ? { name: c.name, kind: c.kind, enabled: c.enabled, config, filter: { ...c.filter, states: [...c.filter.states] } } : blank();
+    draft = c ? { name: c.name, kind: c.kind, enabled: c.enabled, config, filter: { ...c.filter, states: [...c.filter.states], events: [...(c.filter.events ?? [])] } } : blank();
     open = true;
   }
 
@@ -157,13 +190,19 @@
     }
   }
 
+  function toggleEvent(kind: string) {
+    draft.filter.events = draft.filter.events.includes(kind) ? draft.filter.events.filter((x) => x !== kind) : [...draft.filter.events, kind];
+  }
+
   function toggleState(s: EventState) {
     draft.filter.states = draft.filter.states.includes(s) ? draft.filter.states.filter((x) => x !== s) : [...draft.filter.states, s];
   }
 </script>
 
 <div class="space-y-4">
-  <div class="flex items-center justify-between gap-4">
+  <EventToggles />
+  <BrowserPush />
+  <div class="flex items-center justify-between gap-4 pt-2">
     <div>
       <h2 class="card-title">Notification channels</h2>
       <p class="mt-0.5 text-xs text-fg-3">Where Monarch sends alerts when services fail, recover, or hosts stop reporting.</p>
@@ -175,7 +214,7 @@
     <div class="grid gap-3 md:grid-cols-2">{#each Array(2) as _, i (i)}<div class="skeleton h-36 rounded-2xl"></div>{/each}</div>
   {:else if channels.length === 0}
     <div class="card">
-      <Empty icon={BellRing} title="No channels yet" body="Add ntfy, Slack, Discord, Telegram, Gotify, email or a generic webhook.">
+      <Empty icon={BellRing} title="No channels yet" body="Add email, browser push, ntfy, Slack, Discord, Telegram, Gotify, Apprise, a command or a generic webhook.">
         <button class="btn btn-primary" onclick={() => edit(null)}><Plus size={14} /> Add channel</button>
       </Empty>
     </div>
@@ -222,7 +261,7 @@
     {#if !editing}
       <div>
         <span class="label">Type</span>
-        <div class="grid grid-cols-4 gap-2 sm:grid-cols-7">
+        <div class="grid grid-cols-4 gap-2 sm:grid-cols-5">
           {#each Object.entries(KINDS) as [k, K] (k)}
             <button
               type="button"
@@ -275,6 +314,21 @@
           <label class="label" for="fs">Services (regex)</label>
           <input id="fs" class="input num text-xs" placeholder="any service" bind:value={draft.filter.services} />
         </div>
+      </div>
+      <div>
+        <span class="label">Event types</span>
+        <div class="flex flex-wrap gap-1.5">
+          {#each eventKinds as k (k.kind)}
+            <button
+              type="button"
+              class="rounded-md border px-2 py-1 text-[11px] transition-colors {draft.filter.events.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
+              aria-pressed={draft.filter.events.includes(k.kind)}
+              title="{k.failed} / {k.succeeded}"
+              onclick={() => toggleEvent(k.kind)}>{k.failed.replace(/ failed$| exceeded$/, "")}</button
+            >
+          {/each}
+        </div>
+        <p class="hint">{draft.filter.events.length ? "Only the selected kinds." : "All kinds (except those muted above)."}</p>
       </div>
       <label class="flex items-center justify-between gap-4 text-[13px] text-fg-2">
         Notify when hosts stop reporting (heartbeat)

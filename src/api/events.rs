@@ -85,6 +85,16 @@ pub async fn list(
     })))
 }
 
+/// The event kinds that can be toggled for notifications.
+pub async fn kinds(_user: User) -> Json<Value> {
+    Json(Value::Array(
+        crate::monit::model::EVENTS
+            .iter()
+            .map(|(_, kind, failed, ok)| json!({"kind": kind, "failed": failed, "succeeded": ok}))
+            .collect(),
+    ))
+}
+
 pub async fn ack(
     State(state): State<SharedState>,
     user: User,

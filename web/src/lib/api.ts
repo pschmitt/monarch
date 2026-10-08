@@ -1,6 +1,7 @@
 import type {
   ApiToken,
   Channel,
+  EventKind,
   EventsResponse,
   HostDetail,
   HostSummary,
@@ -8,6 +9,7 @@ import type {
   MetricsResponse,
   MonarchEvent,
   Overview,
+  PushSubscriptionInfo,
   Role,
   ServiceAction,
   ServiceDetail,
@@ -126,9 +128,17 @@ export const api = {
   ackEvents: (ids: number[]) => request<void>("POST", "/api/events/ack", { ids }),
 
   users: () => request<User[]>("GET", "/api/users"),
-  createUser: (u: { username: string; password: string; role: Role }) => request<User>("POST", "/api/users", u),
+  createUser: (u: { username: string; password: string; role: Role; email?: string }) => request<User>("POST", "/api/users", u),
   updateUser: (id: number | "me", patch: Record<string, unknown>) => request<User>("PATCH", `/api/users/${id}`, patch),
   deleteUser: (id: number) => request<void>("DELETE", `/api/users/${id}`),
+
+  eventKinds: () => request<EventKind[]>("GET", "/api/events/kinds"),
+  pushKey: () => request<{ public_key: string }>("GET", "/api/push/key"),
+  pushSubscriptions: () => request<PushSubscriptionInfo[]>("GET", "/api/push/subscriptions"),
+  pushSubscribe: (s: { endpoint: string; keys: { p256dh: string; auth: string }; user_agent?: string }) =>
+    request<{ id: number }>("POST", "/api/push/subscriptions", s),
+  pushUnsubscribe: (id: number) => request<void>("DELETE", `/api/push/subscriptions/${id}`),
+  pushTest: () => request<{ ok: boolean; sent: number; errors: string[] }>("POST", "/api/push/test"),
 
   tokens: () => request<ApiToken[]>("GET", "/api/tokens"),
   createToken: (name: string, expires_days: number | null) =>

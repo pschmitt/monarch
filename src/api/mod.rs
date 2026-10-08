@@ -83,11 +83,22 @@ pub fn router() -> Router<SharedState> {
         .route("/hosts/{id}/services/{name}/action", post(hosts::action))
         .route("/metrics", get(metrics::query))
         .route("/events", get(events::list))
+        .route("/events/kinds", get(events::kinds))
         .route("/events/ack", post(events::ack_many))
         .route("/events/{id}/ack", post(events::ack))
         .route("/stream", get(stream::stream))
         .route("/users", get(admin::users).post(admin::create_user))
         .route("/users/me", axum::routing::patch(admin::update_me))
+        .route("/push/key", get(crate::push::key))
+        .route(
+            "/push/subscriptions",
+            get(crate::push::list).post(crate::push::subscribe),
+        )
+        .route(
+            "/push/subscriptions/{id}",
+            axum::routing::delete(crate::push::unsubscribe),
+        )
+        .route("/push/test", post(crate::push::test))
         .route("/tokens", get(tokens::list).post(tokens::create))
         .route("/tokens/{id}", axum::routing::delete(tokens::revoke))
         .route(

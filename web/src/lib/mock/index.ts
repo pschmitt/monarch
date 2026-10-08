@@ -693,10 +693,10 @@ export function createMock(): MockTransport {
   const fleet = buildFleet();
   let events = buildEvents(fleet);
   let users: User[] = [
-    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false },
-    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true },
-    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false },
-    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false },
+    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false, email: null },
+    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true, email: null },
+    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false, email: null },
+    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false, email: null },
   ];
   let channels: Channel[] = [
     {
@@ -705,7 +705,7 @@ export function createMock(): MockTransport {
       kind: "ntfy",
       enabled: true,
       config: { url: "https://ntfy.brkn.lol/monarch", token: "********" },
-      filter: { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true },
+      filter: { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: [] },
       last_status: "ok",
       last_sent_at: now() - 3600,
       created_at: now() - 86400 * 30,
@@ -716,7 +716,7 @@ export function createMock(): MockTransport {
       kind: "email",
       enabled: false,
       config: { smtp_url: "********", from: "monarch@brkn.lol", to: "ops@brkn.lol" },
-      filter: { hosts: "^(rofl|oci)-", services: null, states: ["failed"], include_heartbeat: true },
+      filter: { hosts: "^(rofl|oci)-", services: null, states: ["failed"], include_heartbeat: true, events: [] },
       last_status: null,
       last_sent_at: null,
       created_at: now() - 86400 * 12,
@@ -727,7 +727,7 @@ export function createMock(): MockTransport {
       kind: "webhook",
       enabled: true,
       config: { url: "https://n8n.brkn.lol/webhook/monarch", method: "POST", headers: "X-Token: ********" },
-      filter: { hosts: null, services: "backup|reboot", states: ["failed", "succeeded", "changed"], include_heartbeat: false },
+      filter: { hosts: null, services: "backup|reboot", states: ["failed", "succeeded", "changed"], include_heartbeat: false, events: [] },
       last_status: "HTTP 500: workflow inactive",
       last_sent_at: now() - 86400,
       created_at: now() - 86400 * 4,
@@ -781,6 +781,7 @@ export function createMock(): MockTransport {
     public_url: "https://monarch.brkn.lol",
     retention: { raw_hours: 48, rollup_5m_days: 30, rollup_1h_days: 400, events_days: 90 },
     heartbeat_grace: 3,
+    disabled_events: [] as string[],
     collector_url: "https://monarch.brkn.lol/collector",
   };
   let me: User | null = users[0];
@@ -941,13 +942,21 @@ export function createMock(): MockTransport {
       e.acked_at = now();
       return delay(e);
     }
+    if (p === "/api/events/kinds") {
+      return delay(
+        ["exist", "status", "uptime", "heartbeat", "instance", "icmp", "content", "link"].map((kind) => ({ kind, failed: `${kind} failed`, succeeded: `${kind} succeeded` })),
+      );
+    }
+    if (p === "/api/push/key") return delay({ public_key: "BOr1mock" });
+    if (p === "/api/push/subscriptions") return delay(method === "POST" ? { id: 1 } : []);
+    if (p === "/api/push/test") return delay({ ok: true, sent: 1, errors: [] as string[] });
     if (p === "/api/events/ack") {
       for (const e of events) if (body.ids.includes(e.id)) Object.assign(e, { acked_by: me.username, acked_at: now() });
       return delay(undefined);
     }
     if (p === "/api/users") {
       if (method === "POST") {
-        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local", sso: false };
+        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local", sso: false, email: null };
         users = [...users, u];
         return delay(u);
       }
@@ -971,7 +980,7 @@ export function createMock(): MockTransport {
           kind: body.kind,
           enabled: body.enabled ?? true,
           config: body.config ?? {},
-          filter: body.filter ?? { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true },
+          filter: body.filter ?? { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: [] },
           last_status: null,
           last_sent_at: null,
           created_at: now(),

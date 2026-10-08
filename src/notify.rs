@@ -1,4 +1,5 @@
-//! Alert notifications (webhook, ntfy, gotify, slack, discord, telegram, email).
+//! Alert notifications (webhook, ntfy, gotify, slack, discord, telegram, email,
+//! apprise, browser push, command).
 
 use std::collections::HashMap;
 
@@ -16,12 +17,13 @@ use crate::{
     views::{self, EventRow},
 };
 
-pub const KINDS: [&str; 7] = [
-    "webhook", "ntfy", "gotify", "slack", "discord", "telegram", "email",
+pub const KINDS: [&str; 10] = [
+    "webhook", "ntfy", "gotify", "slack", "discord", "telegram", "email", "apprise", "webpush",
+    "exec",
 ];
 
 /// Config keys holding secrets; never sent back to the browser.
-pub const SECRET_KEYS: [&str; 3] = ["token", "smtp_url", "headers"];
+pub const SECRET_KEYS: [&str; 4] = ["token", "smtp_url", "headers", "apprise_url"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -30,6 +32,8 @@ pub struct Filter {
     pub services: Option<String>,
     pub states: Vec<String>,
     pub include_heartbeat: bool,
+    /// Event kinds to notify about (see `model::EVENTS`); empty = all.
+    pub events: Vec<String>,
 }
 
 impl Default for Filter {
@@ -39,6 +43,7 @@ impl Default for Filter {
             services: None,
             states: vec!["failed".into(), "succeeded".into()],
             include_heartbeat: true,
+            events: Vec::new(),
         }
     }
 }
@@ -81,6 +86,14 @@ impl Filter {
         }
         let state = crate::monit::model::event_state_name(e.state);
         if !self.states.is_empty() && !self.states.iter().any(|s| s == state) {
+            return false;
+        }
+        if !self.events.is_empty()
+            && !self
+                .events
+                .iter()
+                .any(|k| k == crate::monit::model::event_kind(e.event_type))
+        {
             return false;
         }
         matches(&self.hosts, e.host.as_deref().unwrap_or(""))
@@ -153,6 +166,17 @@ async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
             return Ok(());
         }
     }
+    let kind = crate::monit::model::event_kind(e.event_type);
+    if state
+        .settings
+        .read()
+        .await
+        .disabled_events
+        .iter()
+        .any(|k| k == kind)
+    {
+        return Ok(());
+    }
     let channels: Vec<ChannelRow> = sqlx::query_as("SELECT * FROM channels WHERE enabled = 1")
         .fetch_all(&state.db)
         .await?;
@@ -200,6 +224,48 @@ fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
+}
+
+/// Run a user-configured command; the notification is passed in the environment
+/// (MONARCH_*) and as JSON on stdin.
+async fn run_command(command: &str, n: &Notification) -> Result<()> {
+    use std::{process::Stdio, time::Duration};
+    use tokio::{io::AsyncWriteExt, process::Command};
+
+    let field = |k: &str| n.event[k].as_str().unwrap_or("").to_owned();
+    let mut child = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(command)
+        .env("MONARCH_TITLE", &n.title)
+        .env("MONARCH_TEXT", &n.text)
+        .env("MONARCH_URL", &n.url)
+        .env("MONARCH_FAILED", if n.failed { "1" } else { "" })
+        .env("MONARCH_HOST", field("host"))
+        .env("MONARCH_SERVICE", field("service"))
+        .env("MONARCH_KIND", field("kind"))
+        .env("MONARCH_EVENT_JSON", n.event.to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .context("starting /bin/sh")?;
+    if let Some(mut stdin) = child.stdin.take() {
+        // The command may not read stdin; a closed pipe is fine.
+        let _ = stdin.write_all(n.event.to_string().as_bytes()).await;
+    }
+    let out = tokio::time::timeout(Duration::from_secs(30), child.wait_with_output())
+        .await
+        .context("command timed out after 30s")??;
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        bail!(
+            "{}: {}",
+            out.status,
+            err.trim().chars().take(200).collect::<String>()
+        );
+    }
+    Ok(())
 }
 
 pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Result<()> {
@@ -301,11 +367,41 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
                 )
                 .subject(&n.title)
                 .header(ContentType::TEXT_PLAIN);
-            for to in cfg(&conf, "to")?
+            let mut recipients: Vec<String> = conf
+                .get("to")
+                .map(String::as_str)
+                .unwrap_or("")
                 .split(',')
-                .map(str::trim)
+                .map(|s| s.trim().to_owned())
                 .filter(|s| !s.is_empty())
-            {
+                .collect();
+            // Also everyone with one of the listed roles who has an email address.
+            let roles: Vec<String> = conf
+                .get("to_roles")
+                .map(String::as_str)
+                .unwrap_or("")
+                .split(',')
+                .map(|s| s.trim().to_lowercase())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if !roles.is_empty() {
+                let rows: Vec<(String,)> = sqlx::query_as(
+                    "SELECT email FROM users WHERE email IS NOT NULL AND email != ''
+                       AND role IN (SELECT value FROM json_each(?))",
+                )
+                .bind(serde_json::to_string(&roles)?)
+                .fetch_all(&state.db)
+                .await?;
+                recipients.extend(rows.into_iter().map(|(e,)| e));
+            }
+            recipients.sort();
+            recipients.dedup();
+            if recipients.is_empty() {
+                bail!(
+                    "no recipients: set `to` or `to_roles` (and give those users an email address)"
+                );
+            }
+            for to in &recipients {
                 msg = msg.to(to
                     .parse()
                     .with_context(|| format!("invalid address {to}"))?);
@@ -313,6 +409,33 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
             let msg = msg.body(format!("{}\n\n{}\n", n.text, n.url))?;
             mailer.send(msg).await?;
             Ok(())
+        }
+        "apprise" => {
+            let mut body = json!({
+                "title": n.title,
+                "body": format!("{}\n{}", n.text, n.url),
+                "type": if n.failed { "failure" } else { "success" },
+                "format": "text",
+            });
+            if let Ok(tag) = cfg(&conf, "tag") {
+                body["tag"] = json!(tag);
+            }
+            check(
+                http.post(cfg(&conf, "apprise_url")?)
+                    .json(&body)
+                    .send()
+                    .await?,
+            )
+            .await
+        }
+        "webpush" => {
+            crate::push::send_channel(state, n, conf.get("users").map(String::as_str)).await
+        }
+        "exec" => {
+            if !state.config.allow_exec_channels {
+                bail!("exec channels are disabled (set allow_exec_channels)");
+            }
+            run_command(cfg(&conf, "command")?, n).await
         }
         other => bail!("unknown channel kind {other}"),
     }

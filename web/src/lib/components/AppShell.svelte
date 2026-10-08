@@ -161,7 +161,7 @@
               ...(session.me?.user?.auth_source === "oidc"
                 ? []
                 : [
-                    ...(session.me?.user?.sso ? [] : [{ label: "Change username", icon: Pencil, onselect: () => (nameOpen = true) }]),
+                    ...(session.me?.user?.sso ? [] : [{ label: "Edit profile", icon: Pencil, onselect: () => (nameOpen = true) }]),
                     { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
                   ]),
               { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },

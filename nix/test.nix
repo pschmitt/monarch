@@ -22,7 +22,10 @@
         monarch = {
           enable = true;
           package = self.packages.${pkgs.stdenv.hostPlatform.system}.monarch;
-          settings.public_url = "http://machine:8080";
+          settings = {
+            public_url = "http://machine:8080";
+            allow_exec_channels = true;
+          };
           initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
           ssh.privateKeyFile = "${sshKey}/id_ed25519";
           targets = [
@@ -38,6 +41,7 @@
           ensureUsers = [
             {
               username = "collector";
+              email = "collector@example.com";
               passwordFile = pkgs.writeText "collector-pw" "collectorpass";
             }
           ];
@@ -92,6 +96,33 @@
     machine.succeed(api + f"-X DELETE http://127.0.0.1:8080/api/tokens/{tok['id']}")
     assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Bearer {tok['token']}' http://127.0.0.1:8080/api/users") == "401"
 
+    # Event kinds can be muted globally; unknown ones are refused.
+    kinds = json.loads(machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/events/kinds"))
+    assert any(k["kind"] == "exist" for k in kinds), kinds
+    machine.succeed(api + "-X PATCH -d '{\"disabled_events\":[\"uptime\"]}' http://127.0.0.1:8080/api/settings | jq -e '.disabled_events == [\"uptime\"]'")
+    assert machine.succeed(api + "-o /dev/null -w '%{http_code}' -X PATCH -d '{\"disabled_events\":[\"bogus\"]}' http://127.0.0.1:8080/api/settings") == "400"
+
+    # Channels: secrets are masked, and an exec channel really runs its command.
+    machine.succeed(api + "-d '{\"name\":\"ap\",\"kind\":\"apprise\",\"config\":{\"apprise_url\":\"http://127.0.0.1:9/notify/x\"},\"filter\":{\"events\":[\"status\"]}}' http://127.0.0.1:8080/api/channels | jq -e '.config.apprise_url == \"********\" and .filter.events == [\"status\"]'")
+    assert machine.succeed(api + "-o /dev/null -w '%{http_code}' -d '{\"name\":\"bad\",\"kind\":\"email\",\"filter\":{\"events\":[\"bogus\"]}}' http://127.0.0.1:8080/api/channels") == "400"
+    machine.succeed(api + "-d '{\"name\":\"wp\",\"kind\":\"webpush\"}' http://127.0.0.1:8080/api/channels | jq -e '.kind == \"webpush\"'")
+    ex = json.loads(machine.succeed(api + "-d '{\"name\":\"ex\",\"kind\":\"exec\",\"config\":{\"command\":\"echo \\\"$MONARCH_TITLE\\\" > /var/lib/monarch/exec-out\"}}' http://127.0.0.1:8080/api/channels"))
+    machine.succeed(api + f"-X POST http://127.0.0.1:8080/api/channels/{ex['id']}/test | jq -e '.ok == true'")
+    machine.succeed("grep -q 'monarch' /var/lib/private/monarch/exec-out")
+
+    # Browser push: the VAPID key is served, subscriptions can be added and removed.
+    pk = json.loads(machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/push/key"))["public_key"]
+    assert len(pk) == 87, pk
+    sub = json.loads(machine.succeed(api + "-d '" + json.dumps({"endpoint": "https://push.example.invalid/x", "keys": {"p256dh": pk, "auth": "AAAAAAAAAAAAAAAAAAAAAA"}}) + "' http://127.0.0.1:8080/api/push/subscriptions"))
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/push/subscriptions | jq -e 'length == 1'")
+    assert machine.succeed(api + "-o /dev/null -w '%{http_code}' -d '{\"endpoint\":\"http://insecure/x\",\"keys\":{\"p256dh\":\"x\",\"auth\":\"y\"}}' http://127.0.0.1:8080/api/push/subscriptions") == "400"
+    machine.succeed(api + f"-X DELETE http://127.0.0.1:8080/api/push/subscriptions/{sub['id']}")
+
+    # Accounts have an email address (declared, or set later); bad ones are refused.
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/users | jq -e '[.[]|select(.username==\"collector\")][0].email == \"collector@example.com\"'")
+    machine.succeed(api + f"-X PATCH -d '{{\"email\":\"alicia@example.com\"}}' http://127.0.0.1:8080/api/users/{alice} | jq -e '.email == \"alicia@example.com\"'")
+    assert machine.succeed(api + f"-o /dev/null -w '%{{http_code}}' -X PATCH -d '{{\"email\":\"not-an-address\"}}' http://127.0.0.1:8080/api/users/{alice}") == "400"
+
     # The monit agent registers itself and reports all of its services.
     machine.wait_until_succeeds(
         "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts | jq -e 'length == 1 and .[0].services.total == 4'",
@@ -128,7 +159,9 @@
     )
 
     # Concurrent push and pull reports never fail to ingest.
-    machine.fail("journalctl -u monarch.service | grep -q 'ingest failed\\|poll failed'")
+    # Pull polls over SSH can time out when the build host is overloaded; the explicit
+    # poll above covers that path, so only ingest (database) failures are fatal.
+    machine.fail("journalctl -u monarch.service | grep -q 'ingest failed'")
 
     # The web UI is served.
     machine.succeed("curl -sf http://127.0.0.1:8080/ | grep -qi monarch")

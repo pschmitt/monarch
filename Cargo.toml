@@ -16,6 +16,7 @@ base64 = "0.22"
 clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3"
 hex = "0.4"
+http = "1"
 lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 mime_guess = "2"
 quick-xml = { version = "0.38", features = ["serialize"] }
@@ -36,6 +37,7 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["compression-gzip", "compression-br", "decompression-gzip", "trace", "set-header"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+web-push-native = "0.5"
 
 [profile.release]
 lto = "thin"

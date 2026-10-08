@@ -20,7 +20,7 @@ use crate::{
 
 // ---------------------------------------------------------------- users
 
-const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso FROM users";
+const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users";
 
 pub async fn users(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<User>>> {
     user.require(Role::Admin)?;
@@ -36,6 +36,7 @@ pub struct NewUser {
     username: String,
     password: String,
     role: String,
+    email: Option<String>,
 }
 
 pub async fn create_user(
@@ -56,14 +57,23 @@ pub async fn create_user(
             "username already taken",
         ));
     }
-    Ok(Json(
-        auth::create_user(&state.db, b.username.trim(), &b.password, role).await?,
-    ))
+    let email = normalize_email(b.email.as_deref())?;
+    let created = auth::create_user(&state.db, b.username.trim(), &b.password, role).await?;
+    if let Some(e) = &email {
+        sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+            .bind(e)
+            .bind(created.id)
+            .execute(&state.db)
+            .await?;
+    }
+    Ok(Json(fetch_user(&state, created.id).await?))
 }
 
 #[derive(Deserialize)]
 pub struct UserPatch {
     username: Option<String>,
+    /// An empty string clears the address.
+    email: Option<String>,
     password: Option<String>,
     role: Option<String>,
     current_password: Option<String>,
@@ -103,6 +113,36 @@ async fn fetch_user(state: &SharedState, id: i64) -> ApiResult<User> {
         .fetch_optional(&state.db)
         .await?
         .ok_or_else(|| ApiError::not_found("user"))
+}
+
+/// `None`/empty clears; otherwise a plausible address.
+fn normalize_email(email: Option<&str>) -> ApiResult<Option<String>> {
+    let e = email.map(str::trim).unwrap_or("");
+    if e.is_empty() {
+        return Ok(None);
+    }
+    let ok = e.len() <= 254
+        && e.split_once('@')
+            .is_some_and(|(l, d)| !l.is_empty() && d.contains('.') && !d.starts_with('.'))
+        && !e.contains(char::is_whitespace);
+    if !ok {
+        return Err(ApiError::bad_request("invalid email address"));
+    }
+    Ok(Some(e.to_owned()))
+}
+
+async fn set_email(state: &SharedState, target: &User, email: &str) -> ApiResult<()> {
+    if target.sso {
+        return Err(ApiError::bad_request(
+            "the email address of a single sign-on account comes from the identity provider",
+        ));
+    }
+    sqlx::query("UPDATE users SET email = ? WHERE id = ?")
+        .bind(normalize_email(Some(email))?)
+        .bind(target.id)
+        .execute(&state.db)
+        .await?;
+    Ok(())
 }
 
 async fn rename_user(state: &SharedState, target: &User, new_name: &str) -> ApiResult<()> {
@@ -164,6 +204,9 @@ pub async fn update_user(
     if let Some(n) = &b.username {
         rename_user(&state, &target, n).await?;
     }
+    if let Some(e) = &b.email {
+        set_email(&state, &target, e).await?;
+    }
     if let Some(p) = &b.password {
         set_password(&state, id, p).await?;
     }
@@ -175,7 +218,7 @@ pub async fn update_me(
     user: User,
     Json(b): Json<UserPatch>,
 ) -> ApiResult<Json<User>> {
-    if b.password.is_none() && b.username.is_none() {
+    if b.password.is_none() && b.username.is_none() && b.email.is_none() {
         return Err(ApiError::bad_request("nothing to change"));
     }
     if let Some(p) = &b.password {
@@ -202,6 +245,9 @@ pub async fn update_me(
     }
     if let Some(n) = &b.username {
         rename_user(&state, &user, n).await?;
+    }
+    if let Some(e) = &b.email {
+        set_email(&state, &user, e).await?;
     }
     if let Some(p) = &b.password {
         set_password(&state, user.id, p).await?;
@@ -275,7 +321,29 @@ pub struct ChannelBody {
     filter: Option<Filter>,
 }
 
+fn validate_event_kinds(kinds: &[String]) -> ApiResult<()> {
+    for k in kinds {
+        if !crate::monit::model::EVENTS.iter().any(|e| e.1 == k) {
+            return Err(ApiError::bad_request(format!("unknown event kind {k}")));
+        }
+    }
+    Ok(())
+}
+
+fn validate_kind(state: &SharedState, kind: &str) -> ApiResult<()> {
+    if !notify::KINDS.contains(&kind) {
+        return Err(ApiError::bad_request("invalid kind"));
+    }
+    if kind == "exec" && !state.config.allow_exec_channels {
+        return Err(ApiError::bad_request(
+            "exec channels are disabled; the server must set allow_exec_channels",
+        ));
+    }
+    Ok(())
+}
+
 fn validate_filter(f: &Filter) -> ApiResult<()> {
+    validate_event_kinds(&f.events)?;
     for re in [&f.hosts, &f.services].into_iter().flatten() {
         if !re.trim().is_empty() {
             regex::Regex::new(re)
@@ -300,8 +368,8 @@ pub async fn create_channel(
     let kind = b
         .kind
         .as_deref()
-        .filter(|k| notify::KINDS.contains(k))
         .ok_or_else(|| ApiError::bad_request("invalid kind"))?;
+    validate_kind(&state, kind)?;
     let filter = b.filter.unwrap_or_default();
     validate_filter(&filter)?;
     let id = sqlx::query("INSERT INTO channels (name, kind, config, filter, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?)")
@@ -329,9 +397,7 @@ pub async fn update_channel(
         c.name = n.to_owned();
     }
     if let Some(k) = b.kind {
-        if !notify::KINDS.contains(&k.as_str()) {
-            return Err(ApiError::bad_request("invalid kind"));
-        }
+        validate_kind(&state, &k)?;
         c.kind = k;
     }
     if let Some(e) = b.enabled {
@@ -432,6 +498,7 @@ async fn settings_json(state: &SharedState) -> Value {
         "public_url": s.public_url,
         "retention": s.retention,
         "heartbeat_grace": s.heartbeat_grace,
+        "disabled_events": s.disabled_events,
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -446,6 +513,7 @@ pub struct SettingsPatch {
     public_url: Option<String>,
     retention: Option<Retention>,
     heartbeat_grace: Option<f64>,
+    disabled_events: Option<Vec<String>>,
 }
 
 pub async fn update_settings(
@@ -479,6 +547,12 @@ pub async fn update_settings(
                 ));
             }
             s.heartbeat_grace = g;
+        }
+        if let Some(mut kinds) = b.disabled_events {
+            validate_event_kinds(&kinds)?;
+            kinds.sort();
+            kinds.dedup();
+            s.disabled_events = kinds;
         }
         db::save_settings(&state.db, &s).await?;
     }

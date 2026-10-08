@@ -12,11 +12,12 @@
   let addOpen = $state(false);
   let pwUser = $state<User | null>(null);
   let pwOpen = $state(false);
-  let form = $state({ username: "", password: "", role: "viewer" as Role });
+  let form = $state({ username: "", password: "", role: "viewer" as Role, email: "" });
   let newPw = $state("");
   let nameUser = $state<User | null>(null);
   let nameOpen = $state(false);
   let newName = $state("");
+  let newEmail = $state("");
   let busy = $state(false);
 
   const roles: { id: Role; label: string; desc: string }[] = [
@@ -42,10 +43,10 @@
     e.preventDefault();
     busy = true;
     try {
-      await api.createUser(form);
+      await api.createUser({ ...form, email: form.email.trim() || undefined });
       toast("ok", `User ${form.username} created`);
       addOpen = false;
-      form = { username: "", password: "", role: "viewer" };
+      form = { username: "", password: "", role: "viewer", email: "" };
       load();
     } catch (err) {
       toastError(err, "Could not create user");
@@ -85,8 +86,11 @@
     if (!nameUser) return;
     busy = true;
     try {
-      await api.updateUser(nameUser.id, { username: newName.trim() });
-      toast("ok", `${nameUser.username} is now ${newName.trim()}`);
+      const patch: Record<string, string> = {};
+      if (newName.trim() !== nameUser.username) patch.username = newName.trim();
+      if (newEmail.trim() !== (nameUser.email ?? "")) patch.email = newEmail.trim();
+      await api.updateUser(nameUser.id, patch);
+      toast("ok", `${newName.trim()} updated`);
       nameOpen = false;
       if (nameUser.id === session.me?.user?.id) await refreshSession();
       load();
@@ -138,6 +142,7 @@
                         <span class="inline-flex items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-px text-[10px] font-semibold text-accent" title="Signs in via {session.me?.oidc?.name ?? 'single sign-on'}"><KeyRound size={10} /> SSO</span>
                       {/if}
                     </div>
+                    {#if u.email}<div class="num text-[11px] text-fg-3">{u.email}</div>{/if}
                     {#if u.id === session.me?.user?.id}<div class="text-[11px] text-accent">you</div>{/if}
                   </div>
                 </div>
@@ -171,12 +176,13 @@
                       },
                     },
                     {
-                      label: u.sso ? "Name managed by SSO" : "Change username",
+                      label: u.sso ? "Profile managed by SSO" : "Edit profile",
                       icon: Pencil,
                       disabled: u.sso,
                       onselect: () => {
                         nameUser = u;
                         newName = u.username;
+                        newEmail = u.email ?? "";
                         nameOpen = true;
                       },
                     },
@@ -200,6 +206,10 @@
     <div>
       <label class="label" for="nu">Username</label>
       <input id="nu" class="input" bind:value={form.username} required autocomplete="off" />
+    </div>
+    <div>
+      <label class="label" for="ne">Email <span class="font-normal text-fg-3">(optional)</span></label>
+      <input id="ne" class="input" type="email" bind:value={form.email} autocomplete="off" />
     </div>
     <div>
       <label class="label" for="np">Password</label>
@@ -238,14 +248,20 @@
   {/snippet}
 </Modal>
 
-<Modal bind:open={nameOpen} title="Change username of {nameUser?.username ?? ''}" width="max-w-sm">
-  <form id="rename" onsubmit={rename}>
-    <label class="label" for="rn">New username</label>
-    <input id="rn" class="input" bind:value={newName} required maxlength="64" autocomplete="off" />
-    <p class="hint">Monit agents reporting with this account must be updated to the new name.</p>
+<Modal bind:open={nameOpen} title="Edit {nameUser?.username ?? ''}" width="max-w-sm">
+  <form id="rename" class="space-y-4" onsubmit={rename}>
+    <div>
+      <label class="label" for="rn">Username</label>
+      <input id="rn" class="input" bind:value={newName} required maxlength="64" autocomplete="off" />
+      <p class="hint">Monit agents reporting with this account must be updated to the new name.</p>
+    </div>
+    <div>
+      <label class="label" for="re">Email</label>
+      <input id="re" class="input" type="email" bind:value={newEmail} placeholder="optional" autocomplete="off" />
+    </div>
   </form>
   {#snippet footer()}
     <button class="btn btn-ghost" onclick={() => (nameOpen = false)}>Cancel</button>
-    <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || newName.trim() === nameUser?.username}>Rename</button>
+    <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || (newName.trim() === nameUser?.username && newEmail.trim() === (nameUser?.email ?? ""))}>Save</button>
   {/snippet}
 </Modal>

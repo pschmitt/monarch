@@ -11,6 +11,7 @@ export interface User {
   auth_source: "local" | "oidc";
   /** Has a single sign-on identity (SSO account, or a local one linked to it). */
   sso: boolean;
+  email: string | null;
 }
 
 export interface Me {
@@ -218,13 +219,15 @@ export interface EventsResponse {
   has_more: boolean;
 }
 
-export type ChannelKind = "webhook" | "ntfy" | "gotify" | "slack" | "discord" | "telegram" | "email";
+export type ChannelKind = "webhook" | "ntfy" | "gotify" | "slack" | "discord" | "telegram" | "email" | "apprise" | "webpush" | "exec";
 
 export interface ChannelFilter {
   hosts: string | null;
   services: string | null;
   states: EventState[];
   include_heartbeat: boolean;
+  /** Event kinds to notify about; empty = all. */
+  events: string[];
 }
 
 export interface Channel {
@@ -243,7 +246,23 @@ export interface Settings {
   public_url: string;
   retention: { raw_hours: number; rollup_5m_days: number; rollup_1h_days: number; events_days: number };
   heartbeat_grace: number;
+  /** Event kinds that never trigger notifications. */
+  disabled_events: string[];
   collector_url: string;
+}
+
+export interface EventKind {
+  kind: string;
+  failed: string;
+  succeeded: string;
+}
+
+export interface PushSubscriptionInfo {
+  id: number;
+  endpoint: string;
+  user_agent: string | null;
+  created_at: number;
+  last_ok: number | null;
 }
 
 export type StreamMessage =
