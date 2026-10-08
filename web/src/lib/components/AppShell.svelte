@@ -5,6 +5,7 @@
     ChevronsLeft,
     ChevronsRight,
     LayoutDashboard,
+    ListChecks,
     LogOut,
     Menu as MenuIcon,
     Moon,
@@ -32,6 +33,7 @@
   let tokensOpen = $state(false);
 
   const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
+  const failingServices = $derived(Object.values(fleet.hosts).reduce((n, h) => n + h.services.failed, 0));
   const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
 
   const nav = $derived([
@@ -43,6 +45,7 @@
       active: ["hosts", "host", "service"].includes(router.route.name),
       badge: failingHosts,
     },
+    { href: "/services", label: "Services", icon: ListChecks, active: router.route.name === "services", badge: failingServices },
     { href: "/events", label: "Events", icon: Activity, active: router.route.name === "events", badge: unseen },
     ...(can("admin") ? [{ href: "/settings", label: "Settings", icon: Settings, active: router.route.name === "settings", badge: 0 }] : []),
   ]);

@@ -257,6 +257,25 @@ export interface Settings {
   collector_url: string;
 }
 
+export interface ServiceListItem {
+  host_id: number;
+  host: string;
+  host_state: HostState;
+  name: string;
+  type: ServiceType;
+  type_id: number;
+  state: ServiceState;
+  status_text: string;
+  state_since: number | null;
+  pending_action: string | null;
+}
+
+export interface ServicesResponse {
+  services: ServiceListItem[];
+  /** Per state, ignoring the state filter (for tab badges). */
+  counts: Partial<Record<ServiceState, number>>;
+}
+
 export interface CheckAlert {
   host_id: number;
   host?: string | null;

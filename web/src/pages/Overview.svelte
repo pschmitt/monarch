@@ -114,7 +114,7 @@
       </div>
     </a>
 
-    <div class="card kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--ok)">
+    <a href="/services" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--ok)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Services</span>
         <span class="kpi-icon"><CircleCheckBig size={16} /></span>
@@ -129,9 +129,9 @@
           <span>{data.services.unmonitored} unmonitored</span><span>{data.services.pending} pending</span>
         </div>
       {:else}<Skeleton class="mt-3 h-9 w-24" /><Skeleton class="mt-3 h-3 w-full" />{/if}
-    </div>
+    </a>
 
-    <div class="card kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: {data?.services.failed ? 'var(--bad)' : 'var(--fg-3)'}">
+    <a href="/services?state=failed" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: {data?.services.failed ? 'var(--bad)' : 'var(--fg-3)'}">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Failing</span>
         <span class="kpi-icon"><Siren size={16} /></span>
@@ -145,7 +145,7 @@
           {#if data.failing[0]}longest: {data.failing[0].host} / {data.failing[0].service}{:else}nothing is on fire 🎉{/if}
         </div>
       {:else}<Skeleton class="mt-3 h-9 w-16" />{/if}
-    </div>
+    </a>
 
     <a href="/events" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--accent-2)">
       <div class="flex items-center justify-between">

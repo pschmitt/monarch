@@ -14,6 +14,7 @@ import type {
   Role,
   ServiceAction,
   ServiceDetail,
+  ServicesResponse,
   Settings,
   StreamMessage,
   Target,
@@ -133,6 +134,7 @@ export const api = {
   updateUser: (id: number | "me", patch: Record<string, unknown>) => request<User>("PATCH", `/api/users/${id}`, patch),
   deleteUser: (id: number) => request<void>("DELETE", `/api/users/${id}`),
 
+  services: (p: { state?: string | null; q?: string | null; host?: number | null }) => request<ServicesResponse>("GET", `/api/services${qs(p as any)}`),
   checkAlerts: () => request<CheckAlert[]>("GET", "/api/checks/alerts"),
   checkAlert: (hostId: number, service: string) => request<CheckAlert>("GET", `/api/hosts/${hostId}/services/${enc(service)}/alerts`),
   saveCheckAlert: (hostId: number, service: string, a: { muted: boolean; events: string[] | null; channels: number[] | null }) =>

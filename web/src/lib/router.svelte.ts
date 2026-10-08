@@ -3,6 +3,7 @@
 export type RouteName =
   | "overview"
   | "hosts"
+  | "services"
   | "host"
   | "service"
   | "events"
@@ -21,6 +22,7 @@ export interface Route {
 const patterns: [RouteName, RegExp, string[]][] = [
   ["overview", /^\/$/, []],
   ["hosts", /^\/hosts\/?$/, []],
+  ["services", /^\/services\/?$/, []],
   ["service", /^\/hosts\/(\d+)\/services\/([^/]+)\/?$/, ["id", "name"]],
   ["host", /^\/hosts\/(\d+)(?:\/([a-z]+))?\/?$/, ["id", "tab"]],
   ["events", /^\/events\/?$/, []],

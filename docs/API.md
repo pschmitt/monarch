@@ -88,6 +88,18 @@ interface HostSummary {
 }
 ```
 
+`GET /api/services?state=&q=&host=` → `{"services": ServiceListItem[], "counts": {state: n}}`, every service of
+every host, worst first (failed, pending, init, unmonitored, ok). `counts` ignores `state` so tabs can show
+totals; `q` matches service or host names.
+
+```ts
+interface ServiceListItem {
+  host_id: number; host: string; host_state: HostState;
+  name: string; type: ServiceType; type_id: number;
+  state: ServiceState; status_text: string; state_since: number | null; pending_action: string | null;
+}
+```
+
 `GET /api/hosts/:id` → `HostDetail`
 
 ```ts

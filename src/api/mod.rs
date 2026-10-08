@@ -72,6 +72,7 @@ pub fn router() -> Router<SharedState> {
         .route("/auth/oidc/callback", get(crate::oidc::callback))
         .route("/overview", get(hosts::overview))
         .route("/hosts", get(hosts::list))
+        .route("/services", get(hosts::services_list))
         .route(
             "/hosts/{id}",
             get(hosts::detail)

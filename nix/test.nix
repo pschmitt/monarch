@@ -108,7 +108,7 @@
     machine.succeed(api + "-d '{\"name\":\"wp\",\"kind\":\"webpush\"}' http://127.0.0.1:8080/api/channels | jq -e '.kind == \"webpush\"'")
     ex = json.loads(machine.succeed(api + "-d '{\"name\":\"ex\",\"kind\":\"exec\",\"config\":{\"command\":\"echo \\\"$MONARCH_TITLE\\\" > /var/lib/monarch/exec-out\"}}' http://127.0.0.1:8080/api/channels"))
     machine.succeed(api + f"-X POST http://127.0.0.1:8080/api/channels/{ex['id']}/test | jq -e '.ok == true'")
-    machine.succeed("grep -q 'monarch' /var/lib/private/monarch/exec-out")
+    machine.succeed("grep -q 'Status failed' /var/lib/private/monarch/exec-out")
 
     # At most one default channel; "no events" and "all events" are different filters.
     d1 = json.loads(machine.succeed(api + "-d '{\"name\":\"d1\",\"kind\":\"webhook\",\"config\":{\"url\":\"http://127.0.0.1:9\"},\"default\":true}' http://127.0.0.1:8080/api/channels"))
@@ -143,6 +143,11 @@
     host = json.loads(machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts/1"))
     assert host["can_act"], host
     assert {s["type"] for s in host["services"]} == {"system", "process", "filesystem", "program"}
+
+    # The services overview lists every check, filterable by state and name.
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/services | jq -e '(.services | length) == 4 and (.counts | add) == 4'")
+    machine.succeed("curl -sf -b /tmp/cj 'http://127.0.0.1:8080/api/services?state=failed' | jq -e '.services | all(.state == \"failed\")'")
+    machine.succeed("curl -sf -b /tmp/cj 'http://127.0.0.1:8080/api/services?q=hello' | jq -e '(.services | length) == 1 and .services[0].name == \"hello\" and .services[0].host_id == 1'")
 
     # Actions are relayed to the agent's HTTP interface.
     machine.succeed(

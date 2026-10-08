@@ -943,6 +943,25 @@ export function createMock(): MockTransport {
       e.acked_at = now();
       return delay(e);
     }
+    if (p === "/api/services") {
+      const items = fleet.flatMap((f) =>
+        f.detail.services.map((x) => ({
+          host_id: f.detail.id,
+          host: f.detail.display_name || f.detail.hostname,
+          host_state: f.detail.state,
+          name: x.name,
+          type: x.type,
+          type_id: x.type_id,
+          state: x.state,
+          status_text: x.status_text,
+          state_since: x.state_since,
+          pending_action: x.pending_action,
+        })),
+      );
+      const counts: Record<string, number> = {};
+      for (const i of items) counts[i.state] = (counts[i.state] ?? 0) + 1;
+      return delay({ services: items, counts });
+    }
     if (p === "/api/checks/alerts") return delay([]);
     if (/^\/api\/hosts\/\d+\/services\/[^/]+\/alerts$/.test(p)) return delay(method === "GET" ? { host_id: 1, service: "x", muted: false, events: null, channels: null, updated_at: null } : undefined);
     if (p === "/api/events/kinds") {

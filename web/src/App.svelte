@@ -14,6 +14,7 @@
   import Host from "./pages/Host.svelte";
   import Service from "./pages/Service.svelte";
   import Events from "./pages/Events.svelte";
+  import Services from "./pages/Services.svelte";
   import Settings from "./pages/Settings.svelte";
   import NotFound from "./pages/NotFound.svelte";
 
@@ -70,6 +71,7 @@
   const titles: Record<string, string> = {
     overview: "Overview",
     hosts: "Hosts",
+    services: "Services",
     events: "Events",
     settings: "Settings",
     login: "Sign in",
@@ -95,6 +97,8 @@
           <Overview />
         {:else if router.route.name === "hosts"}
           <Hosts />
+        {:else if router.route.name === "services"}
+          <Services />
         {:else if router.route.name === "host"}
           <Host id={+router.route.params.id} tab={router.route.params.tab ?? "overview"} />
         {:else if router.route.name === "service"}

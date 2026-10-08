@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
 use serde::Deserialize;
@@ -23,6 +23,76 @@ pub async fn list(State(state): State<SharedState>, _user: User) -> ApiResult<Js
         out.push(views::host_summary(&state.db, &h, &services).await?);
     }
     Ok(Json(out))
+}
+
+#[derive(Deserialize)]
+pub struct ServicesQuery {
+    state: Option<String>,
+    q: Option<String>,
+    host: Option<i64>,
+}
+
+/// Every service of every host (the Services page), worst first.
+pub async fn services_list(
+    State(state): State<SharedState>,
+    _user: User,
+    Query(q): Query<ServicesQuery>,
+) -> ApiResult<Json<Value>> {
+    let needle =
+        q.q.as_deref()
+            .map(|s| s.trim().to_lowercase())
+            .filter(|s| !s.is_empty());
+    let wanted = q.state.as_deref().filter(|s| !s.is_empty());
+    let rank = |s: &str| match s {
+        "failed" => 0,
+        "pending" => 1,
+        "init" => 2,
+        "unmonitored" => 3,
+        _ => 4,
+    };
+    let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
+    let mut rows: Vec<(i64, String, String, Value)> = Vec::new();
+    for (h, services) in views::all_hosts(&state.db).await? {
+        if q.host.is_some_and(|id| id != h.id) {
+            continue;
+        }
+        let host_name = h.name().to_owned();
+        let host_state = views::host_state(&h, &services);
+        for s in &services {
+            if let Some(n) = &needle
+                && !s.name.to_lowercase().contains(n)
+                && !host_name.to_lowercase().contains(n)
+            {
+                continue;
+            }
+            *counts.entry(s.state.clone()).or_default() += 1;
+            if wanted.is_some_and(|w| w != s.state) {
+                continue;
+            }
+            rows.push((
+                rank(&s.state),
+                host_name.to_lowercase(),
+                s.name.to_lowercase(),
+                json!({
+                    "host_id": h.id,
+                    "host": host_name,
+                    "host_state": host_state,
+                    "name": s.name,
+                    "type": model::service_type_name(s.type_id),
+                    "type_id": s.type_id,
+                    "state": s.state,
+                    "status_text": model::status_text(s.type_id, s.status, s.monitor, s.pending_action),
+                    "state_since": s.state_since,
+                    "pending_action": if s.pending_action != 0 { model::action_name(s.pending_action) } else { None },
+                }),
+            ));
+        }
+    }
+    rows.sort_by(|a, b| (a.0, &a.1, &a.2).cmp(&(b.0, &b.1, &b.2)));
+    Ok(Json(json!({
+        "services": rows.into_iter().map(|r| r.3).collect::<Vec<_>>(),
+        "counts": counts,
+    })))
 }
 
 fn f(v: &Value) -> Option<f64> {
