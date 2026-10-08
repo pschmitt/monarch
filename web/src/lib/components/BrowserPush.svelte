@@ -104,21 +104,20 @@
   }
 </script>
 
-<div class="card flex flex-wrap items-center gap-3 p-4">
-  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line-strong bg-surface-2 text-accent">
-    {#if subscribed}<Bell size={18} />{:else}<BellOff size={18} />{/if}
+<div class="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-2/50 px-3 py-2">
+  <span class="shrink-0 text-accent">
+    {#if subscribed}<Bell size={15} />{:else}<BellOff size={15} />{/if}
   </span>
   <div class="min-w-0 flex-1">
-    <div class="text-[14px] font-semibold text-fg">Notifications on this device</div>
-    <p class="text-xs text-fg-3">
+    <p class="text-[11px] leading-snug text-fg-2">
       {#if !supported}
         This browser does not support push notifications (they need HTTPS and a service worker).
       {:else if permission === "denied"}
         Blocked in the browser settings for this site.
       {:else if subscribed}
-        Enabled. To get them for alerts, add a “Browser push” channel below.
+        This device receives them.
       {:else}
-        Get alerts as system notifications, even when Monarch is closed.
+        This device is not subscribed yet.
       {/if}
     </p>
   </div>

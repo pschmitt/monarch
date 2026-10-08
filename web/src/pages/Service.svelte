@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Braces, ChevronRight, Eye, EyeOff, Play, RotateCw, SearchX, Square } from "@lucide/svelte";
+  import { Bell, Braces, ChevronRight, Eye, EyeOff, Play, RotateCw, SearchX, Square } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
   import type { ServiceAction, ServiceDetail } from "../lib/types";
   import { ago, datetime, hostName, serviceTone, serviceTypeLabel } from "../lib/format";
@@ -8,6 +8,7 @@
   import { can, clock, fleet, toastError } from "../lib/state.svelte";
   import { hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
+  import CheckAlerts from "../lib/components/CheckAlerts.svelte";
   import Empty from "../lib/components/Empty.svelte";
   import EventsList from "../lib/components/EventsList.svelte";
   import MetricChart from "../lib/components/MetricChart.svelte";
@@ -18,6 +19,7 @@
   let { hostId, name }: { hostId: number; name: string } = $props();
 
   let svc = $state<ServiceDetail | null>(null);
+  let alertsOpen = $state(false);
   let notFound = $state(false);
   let showRaw = $state(false);
   let range = $state(localStorage.getItem("monarch.range") ?? "6h");
@@ -99,16 +101,19 @@
             </div>
           </div>
         </div>
-        {#if canAct}
-          <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2">
+          {#if canAct}
             {#each ACTIONS as a (a.id)}
               {@const Icon = icons[a.id]}
               {#if !(a.id === "monitor" && svc.state !== "unmonitored") && !(a.id === "unmonitor" && svc.state === "unmonitored")}
                 <button class="btn btn-sm {a.danger ? 'hover:text-bad' : ''}" onclick={() => act(a.id)}><Icon size={13} />{a.label}</button>
               {/if}
             {/each}
-          </div>
-        {/if}
+          {/if}
+          {#if can("admin")}
+            <button class="btn btn-sm" onclick={() => (alertsOpen = true)}><Bell size={13} />Alerts</button>
+          {/if}
+        </div>
       </div>
     </section>
 
@@ -141,4 +146,8 @@
       {/if}
     </section>
   </div>
+{/if}
+
+{#if svc && can("admin")}
+  <CheckAlerts bind:open={alertsOpen} {hostId} service={svc.name} hostName={hostName(svc.host)} />
 {/if}

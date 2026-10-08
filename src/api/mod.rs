@@ -10,6 +10,7 @@ use crate::state::SharedState;
 
 mod admin;
 mod auth;
+pub mod check_alerts;
 mod events;
 mod hosts;
 mod metrics;
@@ -84,6 +85,13 @@ pub fn router() -> Router<SharedState> {
         .route("/metrics", get(metrics::query))
         .route("/events", get(events::list))
         .route("/events/kinds", get(events::kinds))
+        .route("/checks/alerts", get(check_alerts::list))
+        .route(
+            "/hosts/{id}/services/{name}/alerts",
+            get(check_alerts::get)
+                .put(check_alerts::put)
+                .delete(check_alerts::delete),
+        )
         .route("/events/ack", post(events::ack_many))
         .route("/events/{id}/ack", post(events::ack))
         .route("/stream", get(stream::stream))

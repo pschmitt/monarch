@@ -6,7 +6,8 @@
   import { clock, confirm, toast, toastError } from "../../lib/state.svelte";
   import BrowserPush from "../../lib/components/BrowserPush.svelte";
   import Empty from "../../lib/components/Empty.svelte";
-  import EventToggles from "../../lib/components/EventToggles.svelte";
+  import CheckAlertsOverview from "../../lib/components/CheckAlertsOverview.svelte";
+  import RoutingMatrix from "../../lib/components/RoutingMatrix.svelte";
   import Modal from "../../lib/components/Modal.svelte";
   import StatusDot from "../../lib/components/StatusDot.svelte";
   import Switch from "../../lib/components/Switch.svelte";
@@ -99,7 +100,7 @@
   let channels = $state<Channel[] | null>(null);
   let open = $state(false);
   let editing = $state<Channel | null>(null);
-  let draft = $state<{ name: string; kind: ChannelKind; enabled: boolean; config: Record<string, string>; filter: Channel["filter"] }>(blank());
+  let draft = $state<{ name: string; kind: ChannelKind; enabled: boolean; default: boolean; config: Record<string, string>; filter: Channel["filter"] }>(blank());
   let busy = $state(false);
   let testing = $state<number | null>(null);
   let eventKinds = $state<EventKind[]>([]);
@@ -112,8 +113,9 @@
       name: "",
       kind: "ntfy" as ChannelKind,
       enabled: true,
+      default: false,
       config: {} as Record<string, string>,
-      filter: { hosts: null, services: null, states: ["failed", "succeeded"] as EventState[], include_heartbeat: true, events: [] as string[] },
+      filter: { hosts: null, services: null, states: ["failed", "succeeded"] as EventState[], include_heartbeat: true, events: null as string[] | null, group_minutes: null as number | null },
     };
   }
 
@@ -133,7 +135,7 @@
     const config = { ...(c?.config ?? {}) };
     // Masked secrets are shown as empty inputs with an "unchanged" placeholder.
     if (c) for (const f of KINDS[c.kind].fields) if (f.secret && config[f.key] === MASK) config[f.key] = "";
-    draft = c ? { name: c.name, kind: c.kind, enabled: c.enabled, config, filter: { ...c.filter, states: [...c.filter.states], events: [...(c.filter.events ?? [])] } } : blank();
+    draft = c ? { name: c.name, kind: c.kind, enabled: c.enabled, default: c.default, config, filter: { ...c.filter, states: [...c.filter.states], events: c.filter.events ? [...c.filter.events] : null } } : blank();
     open = true;
   }
 
@@ -191,7 +193,10 @@
   }
 
   function toggleEvent(kind: string) {
-    draft.filter.events = draft.filter.events.includes(kind) ? draft.filter.events.filter((x) => x !== kind) : [...draft.filter.events, kind];
+    const cur = draft.filter.events ?? [];
+    const next = cur.includes(kind) ? cur.filter((x) => x !== kind) : [...cur, kind];
+    // Nothing selected means all kinds; the routing table below can express "none".
+    draft.filter.events = next.length ? next : null;
   }
 
   function toggleState(s: EventState) {
@@ -200,8 +205,7 @@
 </script>
 
 <div class="space-y-4">
-  <EventToggles />
-  <BrowserPush />
+  <RoutingMatrix channels={channels ?? []} onchange={load} />
   <div class="flex items-center justify-between gap-4 pt-2">
     <div>
       <h2 class="card-title">Notification channels</h2>
@@ -235,10 +239,14 @@
             {#each c.filter.states as s (s)}
               <span class="tone-{eventTone(s)} rounded-md bg-tone-soft px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-tone uppercase">{eventStateLabel[s]}</span>
             {/each}
+            {#if c.default}<span class="rounded-md border border-[color-mix(in_oklab,var(--accent)_45%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold text-accent">default</span>{/if}
+            {#if c.filter.events}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">{c.filter.events.length} event kind{c.filter.events.length === 1 ? "" : "s"}</span>{/if}
+            {#if c.filter.group_minutes !== null}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">grouped {c.filter.group_minutes} min</span>{/if}
             {#if c.filter.include_heartbeat}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">heartbeat</span>{/if}
             {#if c.filter.hosts}<span class="num rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">hosts ~ {c.filter.hosts}</span>{/if}
             {#if c.filter.services}<span class="num rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">services ~ {c.filter.services}</span>{/if}
           </div>
+          {#if c.kind === "webpush"}<BrowserPush />{/if}
           <div class="mt-auto flex items-center gap-2 border-t border-line pt-3 mt-4 text-[11px]">
             {#if c.last_sent_at}
               <StatusDot tone={c.last_status === "ok" ? "ok" : "bad"} size={6} />
@@ -254,6 +262,8 @@
       {/each}
     </div>
   {/if}
+
+  <CheckAlertsOverview {channels} />
 </div>
 
 <Modal bind:open title={editing ? `Edit ${editing.name}` : "New notification channel"} width="max-w-xl">
@@ -321,19 +331,31 @@
           {#each eventKinds as k (k.kind)}
             <button
               type="button"
-              class="rounded-md border px-2 py-1 text-[11px] transition-colors {draft.filter.events.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
-              aria-pressed={draft.filter.events.includes(k.kind)}
+              class="rounded-md border px-2 py-1 text-[11px] transition-colors {draft.filter.events?.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
+              aria-pressed={draft.filter.events?.includes(k.kind)}
               title="{k.failed} / {k.succeeded}"
               onclick={() => toggleEvent(k.kind)}>{k.failed.replace(/ failed$| exceeded$/, "")}</button
             >
           {/each}
         </div>
-        <p class="hint">{draft.filter.events.length ? "Only the selected kinds." : "All kinds (except those muted above)."}</p>
+        <p class="hint">{draft.filter.events ? "Only the selected kinds." : "All kinds (except those muted in the routing table)."}</p>
       </div>
       <label class="flex items-center justify-between gap-4 text-[13px] text-fg-2">
         Notify when hosts stop reporting (heartbeat)
         <Switch bind:checked={draft.filter.include_heartbeat} label="Heartbeat alerts" />
       </label>
+      <label class="flex items-center justify-between gap-4 text-[13px] text-fg-2">
+        <span>
+          Default channel
+          <span class="block text-[11px] text-fg-3">Receives the events no other channel claims. Only one channel can be the default.</span>
+        </span>
+        <Switch bind:checked={draft.default} label="Default channel" />
+      </label>
+      <div>
+        <label class="label" for="fg">Grouping window (minutes)</label>
+        <input id="fg" class="input num h-9 w-28 text-xs" type="number" min="0" max="1440" placeholder="global" value={draft.filter.group_minutes ?? ""} oninput={(e) => (draft.filter.group_minutes = e.currentTarget.value === "" ? null : Math.max(0, Math.round(Number(e.currentTarget.value))))} />
+        <p class="hint">Collect events for this long and send one message. Empty uses the global setting, 0 sends immediately.</p>
+      </div>
     </div>
   </form>
   {#snippet footer()}

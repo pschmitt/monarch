@@ -110,6 +110,18 @@
     machine.succeed(api + f"-X POST http://127.0.0.1:8080/api/channels/{ex['id']}/test | jq -e '.ok == true'")
     machine.succeed("grep -q 'monarch' /var/lib/private/monarch/exec-out")
 
+    # At most one default channel; "no events" and "all events" are different filters.
+    d1 = json.loads(machine.succeed(api + "-d '{\"name\":\"d1\",\"kind\":\"webhook\",\"config\":{\"url\":\"http://127.0.0.1:9\"},\"default\":true}' http://127.0.0.1:8080/api/channels"))
+    assert d1["default"] is True and d1["filter"]["events"] is None, d1
+    d2 = json.loads(machine.succeed(api + "-d '{\"name\":\"d2\",\"kind\":\"webhook\",\"config\":{\"url\":\"http://127.0.0.1:9\"},\"default\":true,\"filter\":{\"events\":[]}}' http://127.0.0.1:8080/api/channels"))
+    assert d2["filter"]["events"] == [], d2
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/channels | jq -e '[.[]|select(.default)|.name] == [\"d2\"]'")
+
+    # Notifications are grouped for a configurable window.
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/settings | jq -e '.group_minutes == 10'")
+    machine.succeed(api + "-X PATCH -d '{\"group_minutes\":3}' http://127.0.0.1:8080/api/settings | jq -e '.group_minutes == 3'")
+    assert machine.succeed(api + "-o /dev/null -w '%{http_code}' -X PATCH -d '{\"group_minutes\":5000}' http://127.0.0.1:8080/api/settings") == "400"
+
     # Browser push: the VAPID key is served, subscriptions can be added and removed.
     pk = json.loads(machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/push/key"))["public_key"]
     assert len(pk) == 87, pk
@@ -141,6 +153,15 @@
         "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts/1/services/hello | jq -e '.state == \"unmonitored\"'",
         timeout=30,
     )
+
+    # Per-check alert settings override the generic ones and show up in the overview.
+    ca = "http://127.0.0.1:8080/api/hosts/1/services/hello/alerts"
+    machine.succeed(api + f"-X PUT -d '{{\"muted\":false,\"events\":[\"status\"],\"channels\":null}}' {ca} | jq -e '.events == [\"status\"]'")
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/checks/alerts | jq -e 'length == 1 and .[0].service == \"hello\" and .[0].host != null'")
+    assert machine.succeed(api + f"-o /dev/null -w '%{{http_code}}' -X PUT -d '{{\"events\":[\"bogus\"]}}' {ca}") == "400"
+    assert machine.succeed(api + "-o /dev/null -w '%{http_code}' -X PUT -d '{\"muted\":true}' http://127.0.0.1:8080/api/hosts/1/services/nope/alerts") == "404"
+    machine.succeed(api + f"-X PUT -d '{{\"muted\":false,\"events\":null,\"channels\":null}}' {ca} | jq -e '.events == null'")
+    machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/checks/alerts | jq -e 'length == 0'")
 
     # Metrics are recorded.
     machine.wait_until_succeeds(

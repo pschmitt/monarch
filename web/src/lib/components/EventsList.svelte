@@ -195,7 +195,7 @@
     {:else if events.length === 0}
       <Empty icon={Inbox} title="No events" body={q || stateF || unacked ? "Nothing matches these filters." : "Monit hasn't reported any events yet."} />
     {:else}
-      {#each grouped as g (g.day)}
+      {#each grouped as g (g.items[0].id)}
         <div class="border-b border-line bg-[var(--surface-hover)] px-5 py-2 eyebrow">{g.day}</div>
         <div class="divide-y divide-[var(--line)]">
           {#each g.items as e (e.id)}

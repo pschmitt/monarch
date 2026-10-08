@@ -287,6 +287,15 @@ Config keys per kind:
 `filter.events` limits a channel to event kinds (`GET /api/events/kinds`); empty = all. Kinds in
 `settings.disabled_events` (`PATCH /api/settings`) never notify.
 
+A channel with `default: true` (at most one; `PATCH` it onto another to move it) receives the events no
+other enabled channel's filter claims. `filter.events: null` means all kinds, `[]` none.
+`filter.group_minutes` overrides the global `settings.group_minutes` (default 10; 0 = send at once):
+events for a channel are collected for that long and sent as one message.
+
+Per-check overrides (beat the generic settings; admin to change):
+`GET /api/checks/alerts` lists them, `GET|PUT|DELETE /api/hosts/:id/services/:name/alerts`
+with `{"muted": bool, "events": string[]|null, "channels": number[]|null}`.
+
 Endpoints: `GET /api/channels`, `POST /api/channels`, `PATCH /api/channels/:id`,
 `DELETE /api/channels/:id`, `POST /api/channels/:id/test` → `{"ok": bool, "message": string}`.
 

@@ -1,6 +1,7 @@
 import type {
   ApiToken,
   Channel,
+  CheckAlert,
   EventKind,
   EventsResponse,
   HostDetail,
@@ -30,7 +31,7 @@ export class ApiError extends Error {
   }
 }
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "PUT" | "GET" | "POST" | "PATCH" | "DELETE";
 
 /** Transport used in mock mode; see lib/mock. */
 export interface MockTransport {
@@ -132,6 +133,11 @@ export const api = {
   updateUser: (id: number | "me", patch: Record<string, unknown>) => request<User>("PATCH", `/api/users/${id}`, patch),
   deleteUser: (id: number) => request<void>("DELETE", `/api/users/${id}`),
 
+  checkAlerts: () => request<CheckAlert[]>("GET", "/api/checks/alerts"),
+  checkAlert: (hostId: number, service: string) => request<CheckAlert>("GET", `/api/hosts/${hostId}/services/${enc(service)}/alerts`),
+  saveCheckAlert: (hostId: number, service: string, a: { muted: boolean; events: string[] | null; channels: number[] | null }) =>
+    request<CheckAlert>("PUT", `/api/hosts/${hostId}/services/${enc(service)}/alerts`, a),
+  resetCheckAlert: (hostId: number, service: string) => request<void>("DELETE", `/api/hosts/${hostId}/services/${enc(service)}/alerts`),
   eventKinds: () => request<EventKind[]>("GET", "/api/events/kinds"),
   pushKey: () => request<{ public_key: string }>("GET", "/api/push/key"),
   pushSubscriptions: () => request<PushSubscriptionInfo[]>("GET", "/api/push/subscriptions"),

@@ -291,6 +291,7 @@ fn channel_json(c: &ChannelRow) -> Value {
     }
     json!({
         "id": c.id, "name": c.name, "kind": c.kind, "enabled": c.enabled != 0,
+        "default": c.is_default != 0,
         "config": config, "filter": c.filter(), "last_status": c.last_status,
         "last_sent_at": c.last_sent_at, "created_at": c.created_at,
     })
@@ -317,8 +318,28 @@ pub struct ChannelBody {
     name: Option<String>,
     kind: Option<String>,
     enabled: Option<bool>,
+    /// Make this the (single) default channel.
+    default: Option<bool>,
     config: Option<HashMap<String, String>>,
     filter: Option<Filter>,
+}
+
+/// There is at most one default channel: making one the default clears the others.
+async fn set_default(state: &SharedState, id: i64, default: bool) -> ApiResult<()> {
+    let mut tx = state.db.begin_with("BEGIN IMMEDIATE").await?;
+    if default {
+        sqlx::query("UPDATE channels SET is_default = 0 WHERE id != ?")
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+    }
+    sqlx::query("UPDATE channels SET is_default = ? WHERE id = ?")
+        .bind(default as i64)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 fn validate_event_kinds(kinds: &[String]) -> ApiResult<()> {
@@ -343,7 +364,7 @@ fn validate_kind(state: &SharedState, kind: &str) -> ApiResult<()> {
 }
 
 fn validate_filter(f: &Filter) -> ApiResult<()> {
-    validate_event_kinds(&f.events)?;
+    validate_event_kinds(f.events.as_deref().unwrap_or_default())?;
     for re in [&f.hosts, &f.services].into_iter().flatten() {
         if !re.trim().is_empty() {
             regex::Regex::new(re)
@@ -382,6 +403,9 @@ pub async fn create_channel(
         .execute(&state.db)
         .await?
         .last_insert_rowid();
+    if let Some(d) = b.default {
+        set_default(&state, id, d).await?;
+    }
     Ok(Json(channel_json(&fetch_channel(&state, id).await?)))
 }
 
@@ -430,6 +454,9 @@ pub async fn update_channel(
     .bind(id)
     .execute(&state.db)
     .await?;
+    if let Some(d) = b.default {
+        set_default(&state, id, d).await?;
+    }
     Ok(Json(channel_json(&fetch_channel(&state, id).await?)))
 }
 
@@ -499,6 +526,7 @@ async fn settings_json(state: &SharedState) -> Value {
         "retention": s.retention,
         "heartbeat_grace": s.heartbeat_grace,
         "disabled_events": s.disabled_events,
+        "group_minutes": s.group_minutes,
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -514,6 +542,7 @@ pub struct SettingsPatch {
     retention: Option<Retention>,
     heartbeat_grace: Option<f64>,
     disabled_events: Option<Vec<String>>,
+    group_minutes: Option<u32>,
 }
 
 pub async fn update_settings(
@@ -547,6 +576,14 @@ pub async fn update_settings(
                 ));
             }
             s.heartbeat_grace = g;
+        }
+        if let Some(m) = b.group_minutes {
+            if m > 1440 {
+                return Err(ApiError::bad_request(
+                    "group_minutes must be between 0 and 1440",
+                ));
+            }
+            s.group_minutes = m;
         }
         if let Some(mut kinds) = b.disabled_events {
             validate_event_kinds(&kinds)?;

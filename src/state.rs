@@ -29,6 +29,8 @@ pub struct AppState {
     /// Serializes ingestion (SQLite has a single writer anyway); avoids lock
     /// upgrade conflicts between concurrent push and pull reports.
     pub ingest_lock: tokio::sync::Mutex<()>,
+    /// Events collected per channel until its grouping window closes.
+    pub pending: Mutex<HashMap<i64, Vec<crate::views::EventRow>>>,
 }
 
 impl AppState {
@@ -48,6 +50,7 @@ impl AppState {
                 .build()?,
             shutdown,
             ingest_lock: tokio::sync::Mutex::new(()),
+            pending: Mutex::new(HashMap::new()),
         }))
     }
 

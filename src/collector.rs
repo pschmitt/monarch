@@ -519,8 +519,11 @@ async fn ingest_locked(
     }
 
     if let Some(ev) = &doc.event {
-        let created = xml::num(&ev.collected_sec).unwrap_or(ts as f64)
-            + xml::num(&ev.collected_usec).unwrap_or(0.0) / 1e6;
+        // An agent with a wrong clock reports events from the future (rofl-12 once
+        // jumped 33 days ahead); never let them sort or group in the future.
+        let created = (xml::num(&ev.collected_sec).unwrap_or(ts as f64)
+            + xml::num(&ev.collected_usec).unwrap_or(0.0) / 1e6)
+            .min(ts as f64 + 60.0);
         let service = ev.service.clone().filter(|s| !s.is_empty());
         let event_type = xml::int(&ev.id).unwrap_or(0);
         let ev_state = xml::int(&ev.state).unwrap_or(0);

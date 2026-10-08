@@ -178,6 +178,12 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
         }
     })
     .await?;
+    // Send what the grouping windows still hold instead of losing it on restart.
+    let _ = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        notify::flush_all(&state),
+    )
+    .await;
     Ok(())
 }
 

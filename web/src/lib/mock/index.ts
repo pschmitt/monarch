@@ -703,9 +703,9 @@ export function createMock(): MockTransport {
       id: 1,
       name: "Signal via ntfy",
       kind: "ntfy",
-      enabled: true,
+      enabled: true, default: false,
       config: { url: "https://ntfy.brkn.lol/monarch", token: "********" },
-      filter: { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: [] },
+      filter: { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: null, group_minutes: null },
       last_status: "ok",
       last_sent_at: now() - 3600,
       created_at: now() - 86400 * 30,
@@ -714,9 +714,9 @@ export function createMock(): MockTransport {
       id: 2,
       name: "Ops mailbox",
       kind: "email",
-      enabled: false,
+      enabled: false, default: false,
       config: { smtp_url: "********", from: "monarch@brkn.lol", to: "ops@brkn.lol" },
-      filter: { hosts: "^(rofl|oci)-", services: null, states: ["failed"], include_heartbeat: true, events: [] },
+      filter: { hosts: "^(rofl|oci)-", services: null, states: ["failed"], include_heartbeat: true, events: null, group_minutes: null },
       last_status: null,
       last_sent_at: null,
       created_at: now() - 86400 * 12,
@@ -725,9 +725,9 @@ export function createMock(): MockTransport {
       id: 3,
       name: "n8n webhook",
       kind: "webhook",
-      enabled: true,
+      enabled: true, default: false,
       config: { url: "https://n8n.brkn.lol/webhook/monarch", method: "POST", headers: "X-Token: ********" },
-      filter: { hosts: null, services: "backup|reboot", states: ["failed", "succeeded", "changed"], include_heartbeat: false, events: [] },
+      filter: { hosts: null, services: "backup|reboot", states: ["failed", "succeeded", "changed"], include_heartbeat: false, events: null, group_minutes: null },
       last_status: "HTTP 500: workflow inactive",
       last_sent_at: now() - 86400,
       created_at: now() - 86400 * 4,
@@ -782,6 +782,7 @@ export function createMock(): MockTransport {
     retention: { raw_hours: 48, rollup_5m_days: 30, rollup_1h_days: 400, events_days: 90 },
     heartbeat_grace: 3,
     disabled_events: [] as string[],
+    group_minutes: 10,
     collector_url: "https://monarch.brkn.lol/collector",
   };
   let me: User | null = users[0];
@@ -942,6 +943,8 @@ export function createMock(): MockTransport {
       e.acked_at = now();
       return delay(e);
     }
+    if (p === "/api/checks/alerts") return delay([]);
+    if (/^\/api\/hosts\/\d+\/services\/[^/]+\/alerts$/.test(p)) return delay(method === "GET" ? { host_id: 1, service: "x", muted: false, events: null, channels: null, updated_at: null } : undefined);
     if (p === "/api/events/kinds") {
       return delay(
         ["exist", "status", "uptime", "heartbeat", "instance", "icmp", "content", "link"].map((kind) => ({ kind, failed: `${kind} failed`, succeeded: `${kind} succeeded` })),
@@ -979,8 +982,9 @@ export function createMock(): MockTransport {
           name: body.name,
           kind: body.kind,
           enabled: body.enabled ?? true,
+          default: body.default ?? false,
           config: body.config ?? {},
-          filter: body.filter ?? { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: [] },
+          filter: body.filter ?? { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: null, group_minutes: null },
           last_status: null,
           last_sent_at: null,
           created_at: now(),

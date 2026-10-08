@@ -226,8 +226,10 @@ export interface ChannelFilter {
   services: string | null;
   states: EventState[];
   include_heartbeat: boolean;
-  /** Event kinds to notify about; empty = all. */
-  events: string[];
+  /** Event kinds this channel receives; null = all. */
+  events: string[] | null;
+  /** Collection window in minutes; null = the global setting. */
+  group_minutes: number | null;
 }
 
 export interface Channel {
@@ -235,6 +237,8 @@ export interface Channel {
   name: string;
   kind: ChannelKind;
   enabled: boolean;
+  /** Receives the events no other channel claims. */
+  default: boolean;
   config: Record<string, string>;
   filter: ChannelFilter;
   last_status: string | null;
@@ -248,7 +252,21 @@ export interface Settings {
   heartbeat_grace: number;
   /** Event kinds that never trigger notifications. */
   disabled_events: string[];
+  /** Notifications are collected into one message for this many minutes (0 = off). */
+  group_minutes: number;
   collector_url: string;
+}
+
+export interface CheckAlert {
+  host_id: number;
+  host?: string | null;
+  service: string;
+  muted: boolean;
+  /** Event kinds that notify for this check; null = follow the global settings. */
+  events: string[] | null;
+  /** Channel ids that receive this check's events; null = normal routing. */
+  channels: number[] | null;
+  updated_at: number | null;
 }
 
 export interface EventKind {

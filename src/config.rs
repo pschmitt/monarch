@@ -201,6 +201,9 @@ pub struct Settings {
     pub heartbeat_grace: f64,
     /// Event kinds (see `GET /api/events/kinds`) that never trigger notifications.
     pub disabled_events: Vec<String>,
+    /// How long notifications for a channel are collected into one message
+    /// (minutes); 0 sends each event immediately. Channels can override it.
+    pub group_minutes: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,6 +233,7 @@ impl Default for Settings {
             retention: Retention::default(),
             heartbeat_grace: 3.0,
             disabled_events: Vec::new(),
+            group_minutes: 10,
         }
     }
 }

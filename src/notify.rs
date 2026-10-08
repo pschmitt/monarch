@@ -1,7 +1,7 @@
 //! Alert notifications (webhook, ntfy, gotify, slack, discord, telegram, email,
 //! apprise, browser push, command).
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use lettre::{
@@ -32,8 +32,10 @@ pub struct Filter {
     pub services: Option<String>,
     pub states: Vec<String>,
     pub include_heartbeat: bool,
-    /// Event kinds to notify about (see `model::EVENTS`); empty = all.
-    pub events: Vec<String>,
+    /// Event kinds to notify about (see `model::EVENTS`); `None` = all, an empty list = none.
+    pub events: Option<Vec<String>>,
+    /// Collection window in minutes for this channel; `None` = the global setting.
+    pub group_minutes: Option<u32>,
 }
 
 impl Default for Filter {
@@ -43,7 +45,8 @@ impl Default for Filter {
             services: None,
             states: vec!["failed".into(), "succeeded".into()],
             include_heartbeat: true,
-            events: Vec::new(),
+            events: None,
+            group_minutes: None,
         }
     }
 }
@@ -56,6 +59,8 @@ pub struct ChannelRow {
     pub config: String,
     pub filter: String,
     pub enabled: i64,
+    /// Receives the events no other channel's routing claims.
+    pub is_default: i64,
     pub created_at: i64,
     pub last_status: Option<String>,
     pub last_sent_at: Option<i64>,
@@ -88,9 +93,8 @@ impl Filter {
         if !self.states.is_empty() && !self.states.iter().any(|s| s == state) {
             return false;
         }
-        if !self.events.is_empty()
-            && !self
-                .events
+        if let Some(events) = &self.events
+            && !events
                 .iter()
                 .any(|k| k == crate::monit::model::event_kind(e.event_type))
         {
@@ -153,6 +157,25 @@ pub fn dispatch(state: SharedState, e: EventRow) {
     });
 }
 
+/// The channels an event goes to: every enabled channel whose routing accepts it,
+/// except the default channel, which only gets what no other channel claims.
+pub fn route<'a>(channels: &'a [ChannelRow], e: &EventRow) -> Vec<&'a ChannelRow> {
+    let accepted: Vec<&ChannelRow> = channels
+        .iter()
+        .filter(|c| c.enabled != 0 && c.filter().accepts(e))
+        .collect();
+    let routed: Vec<&ChannelRow> = accepted
+        .iter()
+        .copied()
+        .filter(|c| c.is_default == 0)
+        .collect();
+    if routed.is_empty() {
+        accepted.into_iter().filter(|c| c.is_default != 0).collect()
+    } else {
+        routed
+    }
+}
+
 async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
     if let Some(host_id) = e.host_id {
         let muted: Option<(Option<i64>,)> =
@@ -167,14 +190,27 @@ async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
         }
     }
     let kind = crate::monit::model::event_kind(e.event_type);
-    if state
-        .settings
-        .read()
-        .await
-        .disabled_events
-        .iter()
-        .any(|k| k == kind)
-    {
+    // Settings of this very check beat the generic ones.
+    let check = match (e.host_id, e.service.as_deref()) {
+        (Some(host_id), Some(service)) => {
+            crate::api::check_alerts::fetch(state, host_id, service).await?
+        }
+        _ => None,
+    };
+    if check.as_ref().is_some_and(|c| c.muted != 0) {
+        return Ok(());
+    }
+    let kind_enabled = match check.as_ref().and_then(|c| c.events()) {
+        Some(kinds) => kinds.iter().any(|k| k == kind),
+        None => !state
+            .settings
+            .read()
+            .await
+            .disabled_events
+            .iter()
+            .any(|k| k == kind),
+    };
+    if !kind_enabled {
         return Ok(());
     }
     let channels: Vec<ChannelRow> = sqlx::query_as("SELECT * FROM channels WHERE enabled = 1")
@@ -182,23 +218,138 @@ async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
         .await?;
     let public_url = state.settings.read().await.public_url.clone();
     let n = render(&public_url, e);
-    for c in channels.into_iter().filter(|c| c.filter().accepts(e)) {
-        let result = send(state, &c, &n).await;
-        let status = match &result {
-            Ok(()) => "ok".to_owned(),
-            Err(err) => {
-                tracing::warn!(channel = %c.name, "notification failed: {err:#}");
-                format!("error: {err:#}")
-            }
-        };
-        sqlx::query("UPDATE channels SET last_status = ?, last_sent_at = ? WHERE id = ?")
-            .bind(status)
-            .bind(now())
-            .bind(c.id)
-            .execute(&state.db)
-            .await?;
+    let default_window = state.settings.read().await.group_minutes;
+    let targets: Vec<&ChannelRow> = match check.as_ref().and_then(|c| c.channels()) {
+        Some(ids) => channels.iter().filter(|c| ids.contains(&c.id)).collect(),
+        None => route(&channels, e),
+    };
+    for c in targets {
+        let window = c.filter().group_minutes.unwrap_or(default_window);
+        if window == 0 {
+            deliver(state, c, &n).await?;
+        } else {
+            enqueue(state, c, e, Duration::from_secs(u64::from(window) * 60));
+        }
     }
     Ok(())
+}
+
+/// Send a notification and record the outcome on the channel.
+async fn deliver(state: &SharedState, c: &ChannelRow, n: &Notification) -> Result<()> {
+    let result = send(state, c, n).await;
+    let status = match &result {
+        Ok(()) => "ok".to_owned(),
+        Err(err) => {
+            tracing::warn!(channel = %c.name, "notification failed: {err:#}");
+            format!("error: {err:#}")
+        }
+    };
+    sqlx::query("UPDATE channels SET last_status = ?, last_sent_at = ? WHERE id = ?")
+        .bind(status)
+        .bind(now())
+        .bind(c.id)
+        .execute(&state.db)
+        .await?;
+    Ok(())
+}
+
+/// Collect an event for a channel; one message goes out when its window closes.
+fn enqueue(state: &SharedState, c: &ChannelRow, e: &EventRow, window: Duration) {
+    let first = {
+        let mut pending = state.pending.lock().unwrap();
+        let queue = pending.entry(c.id).or_default();
+        queue.push(e.clone());
+        queue.len() == 1
+    };
+    if first {
+        let state = state.clone();
+        let id = c.id;
+        tokio::spawn(async move {
+            tokio::time::sleep(window).await;
+            if let Err(err) = flush_channel(&state, id).await {
+                tracing::error!("flushing notifications of channel {id} failed: {err:#}");
+            }
+        });
+    }
+}
+
+async fn flush_channel(state: &SharedState, id: i64) -> Result<()> {
+    let events = state
+        .pending
+        .lock()
+        .unwrap()
+        .remove(&id)
+        .unwrap_or_default();
+    if events.is_empty() {
+        return Ok(());
+    }
+    let channel: Option<ChannelRow> = sqlx::query_as("SELECT * FROM channels WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+    let Some(c) = channel.filter(|c| c.enabled != 0) else {
+        return Ok(());
+    };
+    let public_url = state.settings.read().await.public_url.clone();
+    deliver(state, &c, &render_group(&public_url, &events)).await
+}
+
+/// Send everything still collected (used on shutdown).
+pub async fn flush_all(state: &SharedState) {
+    let ids: Vec<i64> = state.pending.lock().unwrap().keys().copied().collect();
+    for id in ids {
+        if let Err(err) = flush_channel(state, id).await {
+            tracing::error!("flushing notifications of channel {id} failed: {err:#}");
+        }
+    }
+}
+
+/// One message for several events: a summary title and one line per event.
+pub fn render_group(public_url: &str, events: &[EventRow]) -> Notification {
+    if let [e] = events {
+        return render(public_url, e);
+    }
+    let notes: Vec<Notification> = events.iter().map(|e| render(public_url, e)).collect();
+    let failed = notes.iter().any(|n| n.failed);
+    let mut hosts: Vec<&str> = events.iter().filter_map(|e| e.host.as_deref()).collect();
+    hosts.sort_unstable();
+    hosts.dedup();
+    let shown = hosts.iter().take(3).copied().collect::<Vec<_>>().join(", ");
+    let more = hosts.len().saturating_sub(3);
+    let title = format!(
+        "{} {} notifications{}{}",
+        if failed { "🔴" } else { "🟢" },
+        events.len(),
+        if shown.is_empty() {
+            String::new()
+        } else {
+            format!(" · {shown}")
+        },
+        if more > 0 {
+            format!(" +{more}")
+        } else {
+            String::new()
+        },
+    );
+    const MAX_LINES: usize = 25;
+    let mut lines: Vec<String> = notes
+        .iter()
+        .take(MAX_LINES)
+        .map(|n| match n.text.lines().next() {
+            Some(first) if !first.trim().is_empty() => format!("{} — {}", n.title, first.trim()),
+            _ => n.title.clone(),
+        })
+        .collect();
+    if notes.len() > MAX_LINES {
+        lines.push(format!("… and {} more", notes.len() - MAX_LINES));
+    }
+    Notification {
+        title,
+        text: lines.join("\n"),
+        url: format!("{}/events", public_url.trim_end_matches('/')),
+        failed,
+        event: json!({"count": events.len(), "events": notes.iter().map(|n| n.event.clone()).collect::<Vec<_>>()}),
+    }
 }
 
 fn cfg<'a>(c: &'a HashMap<String, String>, key: &str) -> Result<&'a str> {
@@ -438,5 +589,100 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
             run_command(cfg(&conf, "command")?, n).await
         }
         other => bail!("unknown channel kind {other}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn channel(id: i64, is_default: bool, events: Option<&[&str]>) -> ChannelRow {
+        let filter = Filter {
+            events: events.map(|e| e.iter().map(|s| s.to_string()).collect()),
+            ..Filter::default()
+        };
+        ChannelRow {
+            id,
+            name: format!("c{id}"),
+            kind: "webhook".into(),
+            config: "{}".into(),
+            filter: serde_json::to_string(&filter).unwrap(),
+            enabled: 1,
+            is_default: is_default as i64,
+            created_at: 0,
+            last_status: None,
+            last_sent_at: None,
+        }
+    }
+
+    fn event(event_type: i64) -> EventRow {
+        EventRow {
+            id: 0,
+            host_id: None,
+            host: Some("h".into()),
+            service: Some("s".into()),
+            service_type: None,
+            event_type,
+            state: 1,
+            action: 1,
+            message: String::new(),
+            created_at: 0.0,
+            source: "monit".into(),
+            acked_by: None,
+            acked_at: None,
+        }
+    }
+
+    fn ids(v: Vec<&ChannelRow>) -> Vec<i64> {
+        v.into_iter().map(|c| c.id).collect()
+    }
+
+    #[test]
+    fn groups_events_into_one_message() {
+        let events = vec![event(0x200000), event(0x40000000), event(0x200000)];
+        let n = render_group("https://m.example", &events);
+        assert!(n.title.contains("3 notifications"), "{}", n.title);
+        assert!(n.title.contains("· h"), "{}", n.title);
+        assert_eq!(n.text.lines().count(), 3);
+        assert_eq!(n.url, "https://m.example/events");
+        assert_eq!(n.event["count"], 3);
+        // A single event is rendered like an ungrouped one.
+        assert_eq!(
+            render_group("https://m.example", &events[..1]).title,
+            render("https://m.example", &events[0]).title
+        );
+    }
+
+    #[test]
+    fn routed_events_skip_the_default_channel() {
+        // 0x200000 = "status", 0x40000000 = "exist"
+        let channels = vec![
+            channel(1, true, None),
+            channel(2, false, Some(&["status"])),
+            channel(3, false, Some(&[])),
+        ];
+        assert_eq!(ids(route(&channels, &event(0x200000))), vec![2]);
+        // Nothing claims "exist": it falls back to the default channel.
+        assert_eq!(ids(route(&channels, &event(0x40000000))), vec![1]);
+    }
+
+    #[test]
+    fn catch_all_channels_keep_receiving_everything() {
+        let channels = vec![channel(1, true, None), channel(2, false, None)];
+        assert_eq!(ids(route(&channels, &event(0x40000000))), vec![2]);
+    }
+
+    #[test]
+    fn disabled_channels_do_not_claim_events() {
+        let mut routed = channel(2, false, Some(&["status"]));
+        routed.enabled = 0;
+        let channels = vec![channel(1, true, None), routed];
+        assert_eq!(ids(route(&channels, &event(0x200000))), vec![1]);
+    }
+
+    #[test]
+    fn no_default_means_unrouted_events_are_dropped() {
+        let channels = vec![channel(2, false, Some(&["status"]))];
+        assert!(route(&channels, &event(0x40000000)).is_empty());
     }
 }
