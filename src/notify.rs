@@ -5,7 +5,8 @@ use std::{collections::HashMap, time::Duration};
 
 use anyhow::{Context, Result, bail};
 use lettre::{
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::header::ContentType,
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::{MultiPart, header::ContentType},
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -516,8 +517,7 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
                         .parse()
                         .context("invalid from address")?,
                 )
-                .subject(&n.title)
-                .header(ContentType::TEXT_PLAIN);
+                .subject(&n.title);
             let mut recipients: Vec<String> = conf
                 .get("to")
                 .map(String::as_str)
@@ -557,7 +557,21 @@ pub async fn send(state: &SharedState, c: &ChannelRow, n: &Notification) -> Resu
                     .parse()
                     .with_context(|| format!("invalid address {to}"))?);
             }
-            let msg = msg.body(format!("{}\n\n{}\n", n.text, n.url))?;
+            let plain = format!("{}\n\n{}\n", n.text, n.url);
+            let msg = if conf.get("format").map(String::as_str) == Some("text") {
+                msg.header(ContentType::TEXT_PLAIN).body(plain)?
+            } else {
+                // HTML with a plain-text alternative; digests list their events,
+                // single events add the host's current state and graphs.
+                let host = match n.event["host_id"].as_i64() {
+                    Some(id) if !n.event["events"].is_array() => {
+                        views::host_summary_by_id(&state.db, id).await?
+                    }
+                    _ => None,
+                };
+                let html = crate::mail_html::render(n, host.as_ref(), &c.name);
+                msg.multipart(MultiPart::alternative_plain_html(plain, html))?
+            };
             mailer.send(msg).await?;
             Ok(())
         }

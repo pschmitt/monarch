@@ -480,11 +480,22 @@ pub async fn test_channel(
 ) -> ApiResult<Json<Value>> {
     user.require(Role::Admin)?;
     let c = fetch_channel(&state, id).await?;
+    // Use a real host and check when there is one, so email previews show the real design.
+    let sample: Option<(i64, String, String)> = sqlx::query_as(
+        "SELECT h.id, COALESCE(h.display_name, h.hostname), s.name FROM hosts h
+         JOIN services s ON s.host_id = h.id ORDER BY h.id, s.type DESC, s.name LIMIT 1",
+    )
+    .fetch_optional(&state.db)
+    .await?;
+    let (host_id, host, service) = match sample {
+        Some((id, host, service)) => (Some(id), host, service),
+        None => (None, "monarch".to_owned(), "test".to_owned()),
+    };
     let e = EventRow {
         id: 0,
-        host_id: None,
-        host: Some("monarch".into()),
-        service: Some("test".into()),
+        host_id,
+        host: Some(host),
+        service: Some(service),
         service_type: None,
         event_type: 0x200000,
         state: 1,

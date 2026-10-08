@@ -279,7 +279,7 @@ Config keys per kind:
 - gotify: `url`, `token`
 - slack / discord: `url` (incoming webhook)
 - telegram: `token`, `chat_id`
-- email: `smtp_url` (`smtps://user:pass@host:465`), `from`, `to` (comma separated) and/or `to_roles` (comma separated roles; mails every user of those roles that has an email)
+- email: `format` (`html`, the default, sends a styled multipart message with graphs; `text` plain only), `smtp_url` (`smtps://user:pass@host:465`), `from`, `to` (comma separated) and/or `to_roles` (comma separated roles; mails every user of those roles that has an email)
 - apprise: `apprise_url` (an Apprise API notify URL), optional `tag`
 - webpush: optional `users` (comma separated usernames); browsers enrol with `POST /api/push/subscriptions`
 - exec: `command` (run with `/bin/sh -c` on the server; needs `allow_exec_channels`). Event in `MONARCH_*` env vars and JSON on stdin

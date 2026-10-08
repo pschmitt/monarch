@@ -14,6 +14,7 @@ mod collector;
 mod compat;
 mod config;
 mod db;
+mod mail_html;
 mod monit;
 mod notify;
 mod oidc;

@@ -19,6 +19,8 @@
     secret?: boolean;
     multiline?: boolean;
     hint?: string;
+    /** Renders a select; the first option is the default. */
+    options?: { value: string; label: string }[];
   }
 
   const KINDS: Record<ChannelKind, { label: string; icon: any; fields: Field[] }> = {
@@ -55,6 +57,15 @@
         { key: "smtp_url", label: "SMTP URL", placeholder: "smtps://user:pass@smtp.example.com:465", secret: true },
         { key: "from", label: "From", placeholder: "monarch@example.com" },
         { key: "to", label: "To", placeholder: "ops@example.com, oncall@example.com", hint: "Comma separated" },
+        {
+          key: "format",
+          label: "Format",
+          options: [
+            { value: "html", label: "HTML (styled, with graphs)" },
+            { value: "text", label: "Plain text" },
+          ],
+          hint: "HTML mails always include a plain-text alternative",
+        },
         { key: "to_roles", label: "To users with role", placeholder: "admin, operator", hint: "Optional: also mails every user of these roles that has an email address" },
       ],
     },
@@ -294,7 +305,11 @@
     {#each KINDS[draft.kind].fields as f (f.key)}
       <div>
         <label class="label" for="f-{f.key}">{f.label}</label>
-        {#if f.multiline}
+        {#if f.options}
+          <select id="f-{f.key}" class="input" value={draft.config[f.key] ?? f.options[0].value} onchange={(e) => (draft.config[f.key] = e.currentTarget.value)}>
+            {#each f.options as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+          </select>
+        {:else if f.multiline}
           <textarea id="f-{f.key}" class="input num text-xs" rows="3" placeholder={f.placeholder} bind:value={draft.config[f.key]}></textarea>
         {:else}
           <input id="f-{f.key}" class="input {f.secret ? '' : 'num'}" type={f.secret ? "password" : "text"} autocomplete="off" placeholder={editing && f.secret ? "•••••••• (unchanged)" : f.placeholder} bind:value={draft.config[f.key]} />
