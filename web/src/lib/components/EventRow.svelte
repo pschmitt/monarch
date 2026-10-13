@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowRightLeft, CircleCheck, CircleX, HeartPulse, Check, Circle } from "@lucide/svelte";
   import type { MonarchEvent } from "../types";
-  import { ago, datetime, eventTone } from "../format";
+  import { ago, datetime, eventStateLabel, eventTone } from "../format";
   import { clock } from "../state.svelte";
   import { hostHref, serviceHref } from "../router.svelte";
 
@@ -43,20 +43,25 @@
     <Icon size={15} />
   </div>
   <div class="min-w-0 flex-1">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px]">
+    <div class="flex min-w-0 items-center gap-x-2 text-[13px]">
       {#if showHost && event.host}
-        <a href={event.host_id ? hostHref(event.host_id) : "/"} class="font-semibold text-fg hover:underline">{event.host}</a>
+        <a href={event.host_id ? hostHref(event.host_id) : "/"} class="shrink-0 font-semibold text-fg hover:underline">{event.host}</a>
         {#if event.service}<span class="text-fg-3">/</span>{/if}
       {/if}
       {#if event.service && event.host_id}
-        <a href={serviceHref(event.host_id, event.service)} class="font-medium text-fg-2 hover:text-fg hover:underline">{event.service}</a>
+        <a href={serviceHref(event.host_id, event.service)} class="truncate font-medium text-fg-2 hover:text-fg hover:underline">{event.service}</a>
       {/if}
-      <span class="tone-{tone} rounded-md bg-tone-soft px-1.5 py-px text-[10px] font-semibold tracking-wide text-tone uppercase">{event.kind_label}</span>
       {#if event.source === "monarch"}
-        <span class="rounded-md border border-line px-1.5 py-px text-[10px] font-medium text-fg-3">monarch</span>
+        <span class="shrink-0 rounded-md border border-line px-1.5 py-px text-[10px] font-medium text-fg-3">monarch</span>
       {/if}
     </div>
-    <div class="mt-0.5 text-[13px] leading-snug break-words text-fg-2 {compact ? 'line-clamp-1' : 'line-clamp-3'}">{event.message}</div>
+    <div class="mt-0.5 flex items-baseline gap-2 text-[13px] leading-snug text-fg-2">
+      <span
+        class="tone-{tone} shrink-0 rounded-md bg-tone-soft px-1.5 py-px text-[10px] font-semibold tracking-wide text-tone uppercase"
+        title={event.kind_label}>{eventStateLabel[event.state]}</span
+      >
+      <span class="min-w-0 break-words {compact ? 'line-clamp-1' : 'line-clamp-3'}">{event.message}</span>
+    </div>
     {#if !compact && event.acked_by}
       <div class="mt-1 flex items-center gap-1 text-[11px] text-fg-3"><Check size={12} /> acknowledged by {event.acked_by}</div>
     {/if}
