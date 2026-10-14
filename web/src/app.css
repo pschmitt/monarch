@@ -63,7 +63,9 @@
   --chart-axis: #646b80;
   --scrim: rgb(20 23 37 / 0.35);
   --glass: rgb(244 245 250 / 0.82);
-  color-scheme: light;
+  /* "only": keep browsers' automatic dark mode (Chrome's Auto Dark Mode for
+     web contents) from darkening the light theme; Monarch has its own. */
+  color-scheme: only light;
 }
 
 @theme inline {
