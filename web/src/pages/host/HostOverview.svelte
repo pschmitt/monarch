@@ -97,7 +97,7 @@
         <KV label="First seen">{datetime(host.first_seen)}</KV>
         <KV label="Reports from" mono>{host.remote_addr ?? "—"}</KV>
         <div class="col-span-2"><KV label="Control file" mono>{host.controlfile ?? "—"}</KV></div>
-        <div class="col-span-2"><KV label="Actions via" mono>{host.monit_url ?? "unavailable — no httpd"}</KV></div>
+        <div class="col-span-2"><KV label="Actions via" mono>{host.monit_url ?? "unavailable — no httpd"}{#if host.monit_url_source === "remote_addr"} <span class="text-warn" title="Monit listens on all interfaces; this is the address it pushes from. Set an action URL template or override if it is not reachable.">(guessed)</span>{/if}</KV></div>
         <div class="col-span-2"><KV label="Monit ID" mono><span class="text-[11px]">{host.monit_id}</span></KV></div>
       </dl>
     </section>

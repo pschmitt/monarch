@@ -4,6 +4,7 @@ import type {
   CheckAlert,
   EventKind,
   EventsResponse,
+  HostAccess,
   HostDetail,
   HostSummary,
   Me,
@@ -98,6 +99,7 @@ export const api = {
   overview: () => request<Overview>("GET", "/api/overview"),
 
   hosts: () => request<HostSummary[]>("GET", "/api/hosts"),
+  hostAccess: () => request<HostAccess[]>("GET", "/api/hosts/access"),
   host: (id: number) => request<HostDetail>("GET", `/api/hosts/${id}`),
   updateHost: (id: number, patch: Record<string, unknown>) => request<HostDetail>("PATCH", `/api/hosts/${id}`, patch),
   deleteHost: (id: number) => request<void>("DELETE", `/api/hosts/${id}`),

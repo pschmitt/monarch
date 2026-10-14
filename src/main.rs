@@ -117,6 +117,15 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
     if let Some(u) = &config.public_url {
         settings.public_url = u.trim_end_matches('/').to_owned();
     }
+    if let Some(t) = &config.action_url_template {
+        let t = t.trim();
+        if !t.is_empty()
+            && let Err(e) = views::validate_url_template(t)
+        {
+            bail!("invalid action_url_template: {e}");
+        }
+        settings.action_url_template = t.to_owned();
+    }
     db::save_settings(&pool, &settings).await?;
 
     if let (Some(user), Some(file)) = (

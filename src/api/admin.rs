@@ -15,7 +15,7 @@ use crate::{
     db,
     notify::{self, ChannelRow, Filter},
     state::{SharedState, now},
-    views::EventRow,
+    views::{self, EventRow},
 };
 
 // ---------------------------------------------------------------- users
@@ -538,6 +538,8 @@ async fn settings_json(state: &SharedState) -> Value {
         "heartbeat_grace": s.heartbeat_grace,
         "disabled_events": s.disabled_events,
         "group_minutes": s.group_minutes,
+        "action_url_template": s.action_url_template,
+        "action_url_template_managed": state.config.action_url_template.is_some(),
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -554,6 +556,7 @@ pub struct SettingsPatch {
     heartbeat_grace: Option<f64>,
     disabled_events: Option<Vec<String>>,
     group_minutes: Option<u32>,
+    action_url_template: Option<String>,
 }
 
 pub async fn update_settings(
@@ -595,6 +598,19 @@ pub async fn update_settings(
                 ));
             }
             s.group_minutes = m;
+        }
+        if let Some(t) = b.action_url_template {
+            let t = t.trim();
+            if state.config.action_url_template.is_some() && t != s.action_url_template {
+                return Err(ApiError::bad_request(
+                    "action_url_template is managed by the configuration file",
+                ));
+            }
+            if !t.is_empty() {
+                views::validate_url_template(t)
+                    .map_err(|e| ApiError::bad_request(format!("action_url_template {e}")))?;
+            }
+            s.action_url_template = t.to_owned();
         }
         if let Some(mut kinds) = b.disabled_events {
             validate_event_kinds(&kinds)?;

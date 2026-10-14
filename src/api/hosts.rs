@@ -217,11 +217,53 @@ async fn load_host(state: &SharedState, id: i64) -> ApiResult<HostRow> {
         .ok_or_else(|| ApiError::not_found("host"))
 }
 
+async fn url_template(state: &SharedState) -> String {
+    state.settings.read().await.action_url_template.clone()
+}
+
+/// How Monarch reaches each host's Monit HTTP interface, for Settings → Hosts.
+pub async fn access(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<Value>>> {
+    user.require(Role::Admin)?;
+    let template = url_template(&state).await;
+    let hosts: Vec<HostRow> =
+        sqlx::query_as("SELECT * FROM hosts ORDER BY hostname COLLATE NOCASE")
+            .fetch_all(&state.db)
+            .await?;
+    Ok(Json(
+        hosts
+            .iter()
+            .map(|h| {
+                let url = h.monit_url(&template);
+                json!({
+                    "id": h.id,
+                    "hostname": h.hostname,
+                    "display_name": h.display_name,
+                    "online": h.online != 0,
+                    "source": if h.target_id.is_some() && !h.recently_pushed() { "pull" } else { "push" },
+                    "target_id": h.target_id,
+                    "httpd": if h.httpd_port.is_some() || h.httpd_unixsocket.is_some() {
+                        json!({"address": h.httpd_address, "port": h.httpd_port, "ssl": h.httpd_ssl != 0, "unixsocket": h.httpd_unixsocket})
+                    } else { Value::Null },
+                    "remote_addr": h.remote_addr,
+                    "monit_url": url.as_ref().map(|(u, _)| u),
+                    "monit_url_source": url.map(|(_, s)| s.as_str()),
+                    "override_url": h.override_url,
+                    "override_username": h.override_username,
+                    "has_override_password": h.override_password.as_deref().is_some_and(|p| !p.is_empty()),
+                    "has_reported_credentials": h.reported_username.is_some(),
+                    "tls_skip_verify": h.tls_skip_verify != 0,
+                })
+            })
+            .collect(),
+    ))
+}
+
 async fn host_detail(state: &SharedState, h: &HostRow) -> ApiResult<Value> {
     let services = views::fetch_services(&state.db, h.id).await?;
     let mut v = views::host_summary(&state.db, h, &services).await?;
     let groups = h.servicegroups();
     let counts = views::event_counts(&state.db, h.id).await?;
+    let url = h.monit_url(&url_template(state).await);
     let extra = json!({
         "controlfile": h.controlfile,
         "incarnation": h.incarnation,
@@ -230,7 +272,8 @@ async fn host_detail(state: &SharedState, h: &HostRow) -> ApiResult<Value> {
             json!({"address": h.httpd_address, "port": h.httpd_port, "ssl": h.httpd_ssl != 0, "unixsocket": h.httpd_unixsocket})
         } else { Value::Null },
         "remote_addr": h.remote_addr,
-        "monit_url": h.monit_url(),
+        "monit_url": url.as_ref().map(|(u, _)| u),
+        "monit_url_source": url.map(|(_, s)| s.as_str()),
         "override_url": h.override_url,
         "override_username": h.override_username,
         "has_override_password": h.override_password.as_deref().is_some_and(|p| !p.is_empty()),
@@ -358,7 +401,9 @@ pub async fn test(
 ) -> ApiResult<Json<Value>> {
     user.require(Role::Operator)?;
     let h = load_host(&state, id).await?;
-    let Some(target) = views::action_target(&state.db, &state.config, &h).await? else {
+    let Some(target) =
+        views::action_target(&state.db, &state.config, &url_template(&state).await, &h).await?
+    else {
         return Ok(Json(json!({
             "ok": false, "latency_ms": null,
             "message": "No Monit HTTP interface known. Enable `set httpd` in monitrc or set a URL override.",
@@ -392,7 +437,9 @@ async fn run_action(
     if services.is_empty() {
         return Err(ApiError::bad_request("no services given"));
     }
-    let Some(target) = views::action_target(&state.db, &state.config, h).await? else {
+    let Some(target) =
+        views::action_target(&state.db, &state.config, &url_template(state).await, h).await?
+    else {
         return Err(ApiError::new(
             StatusCode::CONFLICT,
             "No Monit HTTP interface known for this host. Enable `set httpd` in monitrc or set a URL override.",

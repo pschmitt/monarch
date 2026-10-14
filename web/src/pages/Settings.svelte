@@ -1,19 +1,21 @@
 <script lang="ts">
-  import { ArrowDownToLine, Bell, Info, Radio, SlidersHorizontal, Users } from "@lucide/svelte";
+  import { Bell, Info, Radio, Server, SlidersHorizontal, Users } from "@lucide/svelte";
   import { can } from "../lib/state.svelte";
   import General from "./settings/General.svelte";
   import Collector from "./settings/Collector.svelte";
-  import Connections from "./settings/Connections.svelte";
+  import Hosts from "./settings/Hosts.svelte";
   import UsersSection from "./settings/Users.svelte";
   import Notifications from "./settings/Notifications.svelte";
   import About from "./settings/About.svelte";
 
-  let { section = "general" }: { section?: string } = $props();
+  let { section: requested = "general" }: { section?: string } = $props();
+  // Settings › Connections was folded into Settings › Hosts.
+  const section = $derived(requested === "connections" ? "hosts" : requested);
 
   const sections = [
     { id: "general", label: "General", icon: SlidersHorizontal, desc: "URL, retention, heartbeats" },
     { id: "collector", label: "Collector", icon: Radio, desc: "Agents push to Monarch" },
-    { id: "connections", label: "Connections", icon: ArrowDownToLine, desc: "Monarch pulls from agents" },
+    { id: "hosts", label: "Hosts", icon: Server, desc: "Action URLs & pull connections" },
     { id: "users", label: "Users", icon: Users, desc: "Accounts & roles" },
     { id: "notifications", label: "Notifications", icon: Bell, desc: "Channels & routing" },
     { id: "about", label: "About", icon: Info, desc: "Version & license" },
@@ -47,7 +49,7 @@
       </nav>
       <div class="min-w-0">
         {#if section === "collector"}<Collector />
-        {:else if section === "connections"}<Connections />
+        {:else if section === "hosts"}<Hosts />
         {:else if section === "users"}<UsersSection />
         {:else if section === "notifications"}<Notifications />
         {:else if section === "about"}<About />

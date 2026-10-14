@@ -100,8 +100,13 @@ while you try it out.
 
 For service actions, Monarch connects to the address Monit announces for its
 HTTP interface (or to the address the report came from when Monit listens on
-all interfaces). Override the URL and credentials per host in the host's
-settings if the agent is behind NAT.
+all interfaces). If that is not reachable (NAT, agents reachable only over a
+VPN such as Tailscale), set an *action URL template* under *Settings → Hosts*,
+e.g. `http://{short_hostname}.tailnet.ts.net:{port}` (placeholders:
+`{hostname}`, `{short_hostname}`, `{scheme}`, `{port}`, `{address}`), or
+pin it with `action_url_template` in the config file. A per-host URL and
+credential override (*Settings → Hosts*, or the host's settings) takes
+precedence over the template.
 
 ### Pull mode (Monarch polls the agent)
 
@@ -168,7 +173,7 @@ password_file = "/run/secrets/monarch-collector"
 ```
 
 Environment overrides: `MONARCH_LISTEN`, `MONARCH_DATABASE`, `MONARCH_PUBLIC_URL`,
-`MONARCH_INITIAL_ADMIN_USER`, `MONARCH_INITIAL_ADMIN_PASSWORD_FILE`, `MONARCH_LOG`
+`MONARCH_ACTION_URL_TEMPLATE`, `MONARCH_INITIAL_ADMIN_USER`, `MONARCH_INITIAL_ADMIN_PASSWORD_FILE`, `MONARCH_LOG`
 (tracing filter, default `info`).
 
 Retention, the offline grace period and the public URL can be changed at

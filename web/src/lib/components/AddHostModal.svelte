@@ -41,7 +41,7 @@
       router.go(hostHref(hostId));
     } else {
       toast("info", `${t.name} added`, "Waiting for the first successful poll.");
-      router.go("/settings/connections");
+      router.go("/settings/hosts");
     }
   }
 </script>

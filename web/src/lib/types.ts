@@ -98,6 +98,7 @@ export interface HostDetail extends Omit<HostSummary, "services"> {
   httpd: { address: string | null; port: number | null; ssl: boolean; unixsocket: string | null } | null;
   remote_addr: string | null;
   monit_url: string | null;
+  monit_url_source: UrlSource | null;
   override_url: string | null;
   override_username: string | null;
   has_override_password: boolean;
@@ -105,6 +106,28 @@ export interface HostDetail extends Omit<HostSummary, "services"> {
   tls_skip_verify: boolean;
   servicegroups: Record<string, string[]>;
   services: Service[];
+}
+
+/** How the action URL was decided (see `HostRow::monit_url`). */
+export type UrlSource = "override" | "template" | "reported" | "remote_addr";
+
+/** Settings → Hosts row: how Monarch reaches a host's Monit HTTP interface. */
+export interface HostAccess {
+  id: number;
+  hostname: string;
+  display_name: string | null;
+  online: boolean;
+  source: "push" | "pull";
+  target_id: number | null;
+  httpd: HostDetail["httpd"];
+  remote_addr: string | null;
+  monit_url: string | null;
+  monit_url_source: UrlSource | null;
+  override_url: string | null;
+  override_username: string | null;
+  has_override_password: boolean;
+  has_reported_credentials: boolean;
+  tls_skip_verify: boolean;
 }
 
 export interface Port {
@@ -254,6 +277,10 @@ export interface Settings {
   disabled_events: string[];
   /** Notifications are collected into one message for this many minutes (0 = off). */
   group_minutes: number;
+  /** e.g. `http://{short_hostname}.tailnet.ts.net:{port}`; empty = unset. */
+  action_url_template: string;
+  /** Pinned by the configuration file (read only). */
+  action_url_template_managed: boolean;
   collector_url: string;
 }
 

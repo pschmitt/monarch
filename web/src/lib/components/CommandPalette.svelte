@@ -88,7 +88,7 @@
         { id: "p:users", group: "Pages", label: "Settings › Users", icon: Settings, run: nav("/settings/users") },
         { id: "p:notify", group: "Pages", label: "Settings › Notifications", icon: Settings, run: nav("/settings/notifications") },
         { id: "p:collector", group: "Pages", label: "Settings › Collector", icon: Settings, run: nav("/settings/collector") },
-        { id: "p:connections", group: "Pages", label: "Settings › Connections", icon: Settings, run: nav("/settings/connections") },
+        { id: "p:hosts-settings", group: "Pages", label: "Settings › Hosts", icon: Settings, run: nav("/settings/hosts") },
       );
     }
     const actions: Item[] = [

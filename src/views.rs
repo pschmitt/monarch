@@ -76,26 +76,45 @@ impl HostRow {
             .unwrap_or(&self.hostname)
     }
 
-    pub fn monit_url(&self) -> Option<String> {
+    /// Where Monarch reaches the agent's Monit HTTP interface, and how that
+    /// was decided: a per-host override, the global URL template (`template`,
+    /// empty when unset), the address Monit reports, or — when it listens on
+    /// all interfaces — a guess from the address the agent pushed from.
+    pub fn monit_url(&self, template: &str) -> Option<(String, UrlSource)> {
         if let Some(u) = self.override_url.as_deref().filter(|s| !s.is_empty()) {
-            return Some(u.trim_end_matches('/').to_owned());
+            return Some((u.trim_end_matches('/').to_owned(), UrlSource::Override));
         }
         let port = self.httpd_port.filter(|p| *p > 0)?;
-        let addr = self
+        let scheme = if self.httpd_ssl != 0 { "https" } else { "http" };
+        let reported = self
             .httpd_address
             .as_deref()
-            .filter(|a| !a.is_empty() && *a != "0.0.0.0" && *a != "::")
-            .or(self.remote_addr.as_deref())?;
-        let addr = if addr.contains(':') && !addr.starts_with('[') {
-            format!("[{addr}]")
+            .filter(|a| !a.is_empty() && *a != "0.0.0.0" && *a != "::");
+        let address = reported.or(self.remote_addr.as_deref());
+        if !template.is_empty() {
+            let url = expand_url_template(template, &self.hostname, scheme, port, address);
+            return Some((url.trim_end_matches('/').to_owned(), UrlSource::Template));
+        }
+        let source = if reported.is_some() {
+            UrlSource::Reported
         } else {
-            addr.to_owned()
+            UrlSource::RemoteAddr
         };
-        let scheme = if self.httpd_ssl != 0 { "https" } else { "http" };
-        Some(format!("{scheme}://{addr}:{port}"))
+        Some((
+            format!("{scheme}://{}:{port}", bracket_ipv6(address?)),
+            source,
+        ))
     }
 
-    pub fn target(&self) -> Option<Target> {
+    /// Whether actions can be attempted at all (an override, an httpd with a
+    /// TCP port, or a pull connection), independent of the URL template.
+    pub fn can_act(&self) -> bool {
+        self.override_url.as_deref().is_some_and(|s| !s.is_empty())
+            || self.httpd_port.is_some_and(|p| p > 0)
+            || self.target_id.is_some()
+    }
+
+    pub fn target(&self, template: &str) -> Option<Target> {
         let (username, password) = match self.override_username.as_deref().filter(|s| !s.is_empty())
         {
             Some(u) => (Some(u.to_owned()), self.override_password.clone()),
@@ -105,7 +124,7 @@ impl HostRow {
             ),
         };
         Some(Target {
-            base_url: self.monit_url()?,
+            base_url: self.monit_url(template)?.0,
             username,
             password,
             tls_skip_verify: self.tls_skip_verify != 0,
@@ -126,6 +145,86 @@ impl HostRow {
     pub fn servicegroups(&self) -> HashMap<String, Vec<String>> {
         serde_json::from_str(&self.servicegroups).unwrap_or_default()
     }
+}
+
+/// See [`HostRow::monit_url`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UrlSource {
+    Override,
+    Template,
+    Reported,
+    RemoteAddr,
+}
+
+impl UrlSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Override => "override",
+            Self::Template => "template",
+            Self::Reported => "reported",
+            Self::RemoteAddr => "remote_addr",
+        }
+    }
+}
+
+/// Placeholders understood by the action URL template.
+pub const URL_TEMPLATE_PLACEHOLDERS: &[&str] =
+    &["hostname", "short_hostname", "scheme", "port", "address"];
+
+fn bracket_ipv6(addr: &str) -> String {
+    if addr.contains(':') && !addr.starts_with('[') {
+        format!("[{addr}]")
+    } else {
+        addr.to_owned()
+    }
+}
+
+/// Fills in `{hostname}`, `{short_hostname}`, `{scheme}`, `{port}` and
+/// `{address}` (reported httpd address, else the push source address).
+pub fn expand_url_template(
+    template: &str,
+    hostname: &str,
+    scheme: &str,
+    port: i64,
+    address: Option<&str>,
+) -> String {
+    let short = hostname.split('.').next().unwrap_or(hostname);
+    template
+        .replace("{hostname}", hostname)
+        .replace("{short_hostname}", short)
+        .replace("{scheme}", scheme)
+        .replace("{port}", &port.to_string())
+        .replace("{address}", &address.map(bracket_ipv6).unwrap_or_default())
+}
+
+/// Rejects templates that are not http(s) URLs or use unknown placeholders.
+pub fn validate_url_template(template: &str) -> Result<(), String> {
+    if !(template.starts_with("http://")
+        || template.starts_with("https://")
+        || template.starts_with("{scheme}://"))
+    {
+        return Err("must start with http://, https:// or {scheme}://".into());
+    }
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        let after = &rest[open + 1..];
+        let close = after
+            .find('}')
+            .ok_or_else(|| "unterminated placeholder".to_owned())?;
+        let name = &after[..close];
+        if !URL_TEMPLATE_PLACEHOLDERS.contains(&name) {
+            return Err(format!(
+                "unknown placeholder {{{name}}} (known: {})",
+                URL_TEMPLATE_PLACEHOLDERS
+                    .iter()
+                    .map(|p| format!("{{{p}}}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        rest = &after[close + 1..];
+    }
+    Ok(())
 }
 
 pub struct Counts {
@@ -247,7 +346,7 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
         "sparkline": {"cpu": cpu, "mem": mem},
         "failing": failing,
         "muted_until": h.muted_until,
-        "can_act": h.monit_url().is_some() || h.target_id.is_some(),
+        "can_act": h.can_act(),
         "source": if h.target_id.is_some() && !h.recently_pushed() { "pull" } else { "push" },
         "target_id": h.target_id,
     }))
@@ -458,6 +557,7 @@ pub async fn fetch_target(db: &SqlitePool, id: i64) -> Result<Option<TargetRow>>
 pub async fn action_target(
     db: &SqlitePool,
     config: &crate::config::Config,
+    url_template: &str,
     h: &HostRow,
 ) -> Result<Option<Target>> {
     if let Some(tid) = h.target_id
@@ -465,5 +565,43 @@ pub async fn action_target(
     {
         return Ok(Some(t.client_target(config)));
     }
-    Ok(h.target())
+    Ok(h.target(url_template))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expands_url_template() {
+        assert_eq!(
+            expand_url_template(
+                "{scheme}://{short_hostname}.ts.net:{port}",
+                "web-01.example.com",
+                "https",
+                2812,
+                None,
+            ),
+            "https://web-01.ts.net:2812"
+        );
+        assert_eq!(
+            expand_url_template(
+                "http://{address}:{port}",
+                "h",
+                "http",
+                2812,
+                Some("fd00::1")
+            ),
+            "http://[fd00::1]:2812"
+        );
+    }
+
+    #[test]
+    fn validates_url_template() {
+        assert!(validate_url_template("http://{hostname}:{port}").is_ok());
+        assert!(validate_url_template("{scheme}://{address}:2812").is_ok());
+        assert!(validate_url_template("ftp://{hostname}").is_err());
+        assert!(validate_url_template("http://{host}:2812").is_err());
+        assert!(validate_url_template("http://{hostname:2812").is_err());
+    }
 }

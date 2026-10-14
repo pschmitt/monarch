@@ -463,6 +463,7 @@ function buildFleet(): MockHost[] {
       httpd: { address: spec.name === "turris" ? null : `100.64.0.${10 + i}`, port: 2812, ssl: false, unixsocket: null },
       remote_addr: `100.64.0.${10 + i}`,
       monit_url: spec.name === "turris" ? null : `http://100.64.0.${10 + i}:2812`,
+      monit_url_source: spec.name === "turris" ? null : "reported",
       override_url: null,
       override_username: null,
       has_override_password: false,
@@ -783,6 +784,8 @@ export function createMock(): MockTransport {
     heartbeat_grace: 3,
     disabled_events: [] as string[],
     group_minutes: 10,
+    action_url_template: "",
+    action_url_template_managed: false,
     collector_url: "https://monarch.brkn.lol/collector",
   };
   let me: User | null = users[0];
@@ -869,6 +872,15 @@ export function createMock(): MockTransport {
 
     if (p === "/api/overview") return delay(overview());
     if (p === "/api/hosts") return delay(fleet.map((h) => h.summary));
+    if (p === "/api/hosts/access") {
+      return delay(
+        fleet.map(({ detail: d }) => {
+          const { id, hostname, display_name, online, source, target_id, httpd, remote_addr, monit_url, monit_url_source } = d;
+          const { override_url, override_username, has_override_password, has_reported_credentials, tls_skip_verify } = d;
+          return { id, hostname, display_name, online, source, target_id, httpd, remote_addr, monit_url, monit_url_source, override_url, override_username, has_override_password, has_reported_credentials, tls_skip_verify };
+        }),
+      );
+    }
     if ((m = p.match(/^\/api\/hosts\/(\d+)$/))) {
       const h = host(+m[1]);
       if (method === "GET") return delay(h.detail);

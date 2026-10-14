@@ -191,7 +191,7 @@ in
     targets = lib.mkOption {
       description = ''
         Monit agents Monarch polls itself (pull mode), directly or through
-        SSH. They show up read-only under Settings → Connections.
+        SSH. They show up read-only under Settings → Hosts.
       '';
       default = [ ];
       example = lib.literalExpression ''

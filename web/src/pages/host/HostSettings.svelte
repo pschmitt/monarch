@@ -2,7 +2,7 @@
   import { ArrowDownToLine, BellOff, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { HostDetail, Target } from "../../lib/types";
-  import { hostName, toLocalInput } from "../../lib/format";
+  import { hostName, toLocalInput, urlSourceLabel } from "../../lib/format";
   import { confirm, toast, toastError } from "../../lib/state.svelte";
   import { router } from "../../lib/router.svelte";
   import Switch from "../../lib/components/Switch.svelte";
@@ -123,7 +123,7 @@
             <div class="min-w-0"><div class="eyebrow">Last poll</div><div class="mt-1 truncate {target.last_status && target.last_status !== 'ok' ? 'text-bad' : 'text-fg-2'}" title={target.last_status ?? ""}>{target.last_status === "ok" ? `OK · every ${target.interval}s` : (target.last_status ?? "pending")}</div></div>
           </div>
         {/if}
-        <a class="btn" href="/settings/connections"><Link size={14} /> Manage connection{target?.managed ? " (managed by config)" : ""}</a>
+        <a class="btn" href="/settings/hosts"><Link size={14} /> Manage connection{target?.managed ? " (managed by config)" : ""}</a>
       </section>
     {:else}
     <section class="card space-y-4 p-5 sm:p-6">
@@ -137,12 +137,12 @@
         <div class="grid gap-3 rounded-xl border border-line bg-surface-2/50 p-3 text-xs sm:grid-cols-3">
           <div><div class="eyebrow">Reported httpd</div><div class="num mt-1 text-fg-2">{host.httpd ? `${host.httpd.ssl ? "https" : "http"}://${host.httpd.address ?? "?"}:${host.httpd.port ?? "?"}` : "not enabled"}</div></div>
           <div><div class="eyebrow">Credentials</div><div class="mt-1 text-fg-2">{host.has_reported_credentials ? "registered by Monit" : "not registered"}</div></div>
-          <div><div class="eyebrow">Effective URL</div><div class="num mt-1 truncate text-fg-2">{host.monit_url ?? "—"}</div></div>
+          <div class="min-w-0"><div class="eyebrow">Effective URL</div><div class="num mt-1 truncate text-fg-2" title={host.monit_url ?? ""}>{host.monit_url ?? "—"}</div>{#if host.monit_url_source}<div class="mt-0.5 text-[11px] {host.monit_url_source === 'remote_addr' ? 'text-warn' : 'text-fg-3'}">{urlSourceLabel[host.monit_url_source]}</div>{/if}</div>
         </div>
         <div>
           <label class="label" for="url">URL override</label>
           <input id="url" class="input num" placeholder="https://host.example.com:2812" bind:value={override_url} />
-          <p class="hint">Leave empty to use the reported address.</p>
+          <p class="hint">Leave empty to use the <a class="underline" href="/settings/hosts">action URL template</a> or the reported address.</p>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div>

@@ -14,6 +14,8 @@ pub struct Config {
     pub database: PathBuf,
     /// Externally reachable base URL; seeds the corresponding setting.
     pub public_url: Option<String>,
+    /// Pins the action URL template setting (read only in the UI when set).
+    pub action_url_template: Option<String>,
     /// Create this admin user on startup if no user exists yet.
     pub initial_admin_user: Option<String>,
     /// File containing the password for `initial_admin_user`.
@@ -136,6 +138,7 @@ impl Default for Config {
             listen: "127.0.0.1:8080".parse().unwrap(),
             database: PathBuf::from("monarch.db"),
             public_url: None,
+            action_url_template: None,
             initial_admin_user: None,
             initial_admin_password_file: None,
             collector_allow_anonymous: false,
@@ -181,6 +184,9 @@ impl Config {
         if let Ok(v) = std::env::var("MONARCH_PUBLIC_URL") {
             cfg.public_url = Some(v);
         }
+        if let Ok(v) = std::env::var("MONARCH_ACTION_URL_TEMPLATE") {
+            cfg.action_url_template = Some(v);
+        }
         if let Ok(v) = std::env::var("MONARCH_INITIAL_ADMIN_USER") {
             cfg.initial_admin_user = Some(v);
         }
@@ -204,6 +210,10 @@ pub struct Settings {
     /// How long notifications for a channel are collected into one message
     /// (minutes); 0 sends each event immediately. Channels can override it.
     pub group_minutes: u32,
+    /// How to reach a pushing agent's Monit HTTP interface when the host has
+    /// no URL override, e.g. `http://{short_hostname}.tailnet.ts.net:{port}`.
+    /// Empty: use the reported httpd address (or the push source address).
+    pub action_url_template: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,6 +244,7 @@ impl Default for Settings {
             heartbeat_grace: 3.0,
             disabled_events: Vec::new(),
             group_minutes: 10,
+            action_url_template: String::new(),
         }
     }
 }

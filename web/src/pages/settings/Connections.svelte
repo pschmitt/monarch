@@ -96,7 +96,7 @@
 <div class="space-y-4">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h2 class="card-title">Connections</h2>
+      <h2 class="card-title">Pull connections</h2>
       <p class="mt-0.5 text-xs text-fg-3">Monit agents Monarch polls itself — directly or through an SSH tunnel.</p>
     </div>
     <button class="btn btn-primary btn-sm" onclick={() => (ui.addHost = true)}><Plus size={14} /> Add connection</button>

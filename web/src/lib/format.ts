@@ -1,4 +1,4 @@
-import type { EventState, HostState, ServiceState, ServiceType } from "./types";
+import type { EventState, HostState, ServiceState, ServiceType, UrlSource } from "./types";
 
 const UNITS = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"];
 
@@ -213,3 +213,10 @@ export function octalMode(m: unknown): string {
   const s = String(m);
   return s.padStart(4, "0");
 }
+
+export const urlSourceLabel: Record<UrlSource, string> = {
+  override: "host override",
+  template: "URL template",
+  reported: "reported by Monit",
+  remote_addr: "guessed from push source",
+};

@@ -110,6 +110,7 @@ interface HostDetail extends HostSummary {
   httpd: { address: string | null; port: number | null; ssl: boolean; unixsocket: string | null } | null;
   remote_addr: string | null;          // ip the collector request came from
   monit_url: string | null;            // effective URL used for actions
+  monit_url_source: "override" | "template" | "reported" | "remote_addr" | null;
   override_url: string | null;
   override_username: string | null;
   has_override_password: boolean;
@@ -125,6 +126,18 @@ interface HostDetail extends HostSummary {
 → `HostDetail`. Empty string clears a field. `muted_until: null` unmutes.
 
 `DELETE /api/hosts/:id` (admin) → `204`.
+
+`GET /api/hosts/access` (admin) → one entry per host with how Monarch reaches
+its Monit HTTP interface: `id`, `hostname`, `display_name`, `online`, `source`,
+`target_id`, `httpd`, `remote_addr`, `monit_url`, `monit_url_source`,
+`override_url`, `override_username`, `has_override_password`,
+`has_reported_credentials`, `tls_skip_verify` (fields as in `HostDetail`).
+
+The action URL is, in order: the host's `override_url`; the
+`action_url_template` setting with `{hostname}`, `{short_hostname}`,
+`{scheme}`, `{port}` and `{address}` filled in (needs an httpd TCP port); the
+reported httpd address; the address the agent pushed from. Pulled hosts use
+their connection instead.
 
 `POST /api/hosts/:id/test` (operator) → `{"ok": bool, "message": string, "latency_ms": number | null}` –
 tries `GET <monit_url>/_status?format=xml` with the configured credentials.
@@ -357,6 +370,10 @@ interface Settings {
   public_url: string;                     // used for the monitrc snippet + links in notifications
   retention: { raw_hours: number; rollup_5m_days: number; rollup_1h_days: number; events_days: number };
   heartbeat_grace: number;                // multiples of the poll interval before a host is offline
+  disabled_events: string[];
+  group_minutes: number;
+  action_url_template: string;            // "" = unset, see GET /api/hosts/access
+  action_url_template_managed: boolean;   // pinned by the config file, read only
   collector_url: string;                  // e.g. https://monarch.example.com/collector
 }
 ```
