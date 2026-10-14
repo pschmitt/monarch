@@ -281,7 +281,7 @@ fn event_card(n: &Notification) -> String {
         "{}<div style=\"margin-top:10px;font-size:18px;font-weight:700;line-height:1.3;\">{}</div>{message}\
          <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin-top:10px;\">{meta}</table>",
         pill(color, label),
-        format!(
+        format_args!(
             "{} <span class=\"muted\" style=\"font-weight:400;color:#6b7189;\">· {}{}</span>",
             esc(e["kind_label"].as_str().unwrap_or("Event")),
             esc(host),
