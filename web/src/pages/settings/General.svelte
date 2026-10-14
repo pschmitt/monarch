@@ -2,6 +2,7 @@
   import { LoaderCircle, Save } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Settings } from "../../lib/types";
+  import Switch from "../../lib/components/Switch.svelte";
   import { toast, toastError } from "../../lib/state.svelte";
 
   let s = $state<Settings | null>(null);
@@ -16,7 +17,7 @@
     if (!s) return;
     saving = true;
     try {
-      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace });
+      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace, gravatar: s.gravatar });
       toast("ok", "Settings saved");
     } catch (err) {
       toastError(err, "Could not save settings");
@@ -65,6 +66,17 @@
           </div>
         {/each}
       </div>
+    </section>
+
+    <section class="card flex items-center justify-between gap-4 p-5 sm:p-6">
+      <div>
+        <h2 class="card-title">Gravatar</h2>
+        <p class="mt-1 text-xs text-fg-3">
+          Show the Gravatar of users with an email address and no uploaded profile picture. Monarch fetches it itself, so browsers never contact gravatar.com; Gravatar sees
+          the SHA-256 hash of the address.
+        </p>
+      </div>
+      <Switch bind:checked={s.gravatar} label="Use Gravatar" />
     </section>
 
     <div class="flex justify-end">

@@ -214,6 +214,9 @@ pub struct Settings {
     /// no URL override, e.g. `http://{short_hostname}.tailnet.ts.net:{port}`.
     /// Empty: use the reported httpd address (or the push source address).
     pub action_url_template: String,
+    /// Fall back to Gravatar (fetched by the server) for users with an email
+    /// address and no uploaded profile picture.
+    pub gravatar: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,6 +248,7 @@ impl Default for Settings {
             disabled_events: Vec::new(),
             group_minutes: 10,
             action_url_template: String::new(),
+            gravatar: false,
         }
     }
 }

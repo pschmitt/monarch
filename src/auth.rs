@@ -50,7 +50,19 @@ pub struct User {
     /// Has a single sign-on identity (SSO-created, or a local account linked to one).
     pub sso: bool,
     pub email: Option<String>,
+    /// When the uploaded profile picture was last changed, 0 for a Gravatar
+    /// (setting enabled and an email address set), none without a picture.
+    /// Doubles as cache buster for `/api/users/:id/avatar?v=…`.
+    pub avatar: Option<i64>,
 }
+
+/// Columns of [`User`]; append `WHERE …` / `ORDER BY …`.
+pub const USER_SELECT: &str = "SELECT id, username, role, created_at, last_login, auth_source, \
+    (oidc_subject IS NOT NULL) AS sso, email, \
+    COALESCE((SELECT updated_at FROM user_avatars a WHERE a.user_id = users.id), \
+      CASE WHEN COALESCE(email, '') != '' AND \
+        (SELECT json_extract(value, '$.gravatar') FROM settings WHERE key = 'settings') = 1 \
+      THEN 0 END) AS avatar FROM users";
 
 impl User {
     pub fn role(&self) -> Role {
@@ -117,12 +129,10 @@ pub async fn check_credentials(
     if !ok {
         return Ok(None);
     }
-    Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
-    )
-    .bind(id)
-    .fetch_optional(db)
-    .await?)
+    Ok(sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
+        .bind(id)
+        .fetch_optional(db)
+        .await?)
 }
 
 fn token_hash(token: &str) -> String {
@@ -222,10 +232,10 @@ pub async fn user_from_headers(
     if let Some(token) = bearer_token(headers) {
         let ts = now();
         let hash = token_hash(token);
-        let user: Option<User> = sqlx::query_as(
-            "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso, u.email FROM api_tokens t
-             JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > ?)",
-        )
+        let user: Option<User> = sqlx::query_as(&format!(
+            "{USER_SELECT} WHERE id = (SELECT user_id FROM api_tokens
+             WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?))"
+        ))
         .bind(&hash)
         .bind(ts)
         .fetch_optional(&state.db)
@@ -243,10 +253,9 @@ pub async fn user_from_headers(
     let Some(token) = session_token(headers) else {
         return Ok(None);
     };
-    Ok(sqlx::query_as(
-        "SELECT u.id, u.username, u.role, u.created_at, u.last_login, u.auth_source, (u.oidc_subject IS NOT NULL) AS sso, u.email FROM sessions s
-         JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?",
-    )
+    Ok(sqlx::query_as(&format!(
+        "{USER_SELECT} WHERE id = (SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ?)"
+    ))
     .bind(token_hash(&token))
     .bind(now())
     .fetch_optional(&state.db)
@@ -304,10 +313,8 @@ pub async fn create_user(
     .execute(db)
     .await?
     .last_insert_rowid();
-    Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
-    )
-    .bind(id)
-    .fetch_one(db)
-    .await?)
+    Ok(sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
+        .bind(id)
+        .fetch_one(db)
+        .await?)
 }

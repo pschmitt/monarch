@@ -57,11 +57,16 @@ async function request<T>(method: Method, path: string, body?: unknown): Promise
     const m = await mock;
     return (await m.request(method, path, body)) as T;
   }
+  // Blobs (e.g. profile pictures) are sent as is, everything else as JSON.
+  const raw = body instanceof Blob;
   const res = await fetch(path, {
     method,
     credentials: "same-origin",
-    headers: body !== undefined ? { "Content-Type": "application/json", Accept: "application/json" } : { Accept: "application/json" },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers:
+      body === undefined
+        ? { Accept: "application/json" }
+        : { "Content-Type": raw ? body.type || "application/octet-stream" : "application/json", Accept: "application/json" },
+    body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -168,9 +173,18 @@ export const api = {
   testTarget: (t: TargetInput | { id: number }) => request<TargetTestResult>("POST", "/api/targets/test", t),
   pollTarget: (id: number) => request<Target>("POST", `/api/targets/${id}/poll`),
 
+  /** Own picture by default; admins may pass another user's id. */
+  uploadAvatar: (image: Blob, id: number | "me" = "me") => request<User>("PUT", `/api/users/${id}/avatar`, image),
+  deleteAvatar: (id: number | "me" = "me") => request<User>("DELETE", `/api/users/${id}/avatar`),
+
   settings: () => request<Settings>("GET", "/api/settings"),
   updateSettings: (s: Partial<Settings>) => request<Settings>("PATCH", "/api/settings", s),
 };
+
+/** URL of a user's profile picture, or null when they have none. */
+export function avatarUrl(u: Pick<User, "id" | "avatar">): string | null {
+  return u.avatar !== null ? `/api/users/${u.id}/avatar?v=${u.avatar}` : null;
+}
 
 export type StreamStatus = "connecting" | "live" | "down";
 

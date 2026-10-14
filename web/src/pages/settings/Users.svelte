@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { Ellipsis, KeyRound, LoaderCircle, Pencil, Plus, Trash, UserPlus, Users } from "@lucide/svelte";
+  import { Ellipsis, ImageUp, KeyRound, LoaderCircle, Pencil, Plus, Trash, UserPlus, Users } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Role, User } from "../../lib/types";
   import { ago, datetime } from "../../lib/format";
   import { clock, confirm, refreshSession, session, toast, toastError } from "../../lib/state.svelte";
+  import Avatar from "../../lib/components/Avatar.svelte";
   import Empty from "../../lib/components/Empty.svelte";
   import Menu from "../../lib/components/Menu.svelte";
   import Modal from "../../lib/components/Modal.svelte";
+  import ProfilePicture from "../../lib/components/ProfilePicture.svelte";
 
   let users = $state<User[] | null>(null);
   let addOpen = $state(false);
@@ -19,6 +21,8 @@
   let newName = $state("");
   let newEmail = $state("");
   let busy = $state(false);
+  let pictureUser = $state<User | null>(null);
+  let pictureOpen = $state(false);
 
   const roles: { id: Role; label: string; desc: string }[] = [
     { id: "admin", label: "Admin", desc: "Full access, including settings and users" },
@@ -134,7 +138,7 @@
             <tr>
               <td class="pl-5">
                 <div class="flex items-center gap-3">
-                  <span class="bg-accent-gradient flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white uppercase">{u.username.slice(0, 2)}</span>
+                  <Avatar user={u} size={32} />
                   <div>
                     <div class="flex items-center gap-1.5">
                       <span class="font-medium text-fg">{u.username}</span>
@@ -184,6 +188,14 @@
                         newName = u.username;
                         newEmail = u.email ?? "";
                         nameOpen = true;
+                      },
+                    },
+                    {
+                      label: "Profile picture",
+                      icon: ImageUp,
+                      onselect: () => {
+                        pictureUser = u;
+                        pictureOpen = true;
                       },
                     },
                     "sep",
@@ -265,3 +277,5 @@
     <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || (newName.trim() === nameUser?.username && newEmail.trim() === (nameUser?.email ?? ""))}>Save</button>
   {/snippet}
 </Modal>
+
+<ProfilePicture bind:open={pictureOpen} target={pictureUser} onsaved={(u) => users && (users = users.map((x) => (x.id === u.id ? u : x)))} />

@@ -10,6 +10,7 @@ use crate::state::SharedState;
 
 mod admin;
 mod auth;
+mod avatars;
 pub mod check_alerts;
 mod events;
 mod hosts;
@@ -99,6 +100,16 @@ pub fn router() -> Router<SharedState> {
         .route("/stream", get(stream::stream))
         .route("/users", get(admin::users).post(admin::create_user))
         .route("/users/me", axum::routing::patch(admin::update_me))
+        .route(
+            "/users/me/avatar",
+            axum::routing::put(avatars::put_me).delete(avatars::delete_me),
+        )
+        .route(
+            "/users/{id}/avatar",
+            get(avatars::get)
+                .put(avatars::put_user)
+                .delete(avatars::delete_user),
+        )
         .route("/push/key", get(crate::push::key))
         .route(
             "/push/subscriptions",

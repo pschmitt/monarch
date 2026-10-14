@@ -694,10 +694,10 @@ export function createMock(): MockTransport {
   const fleet = buildFleet();
   let events = buildEvents(fleet);
   let users: User[] = [
-    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false, email: null },
-    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true, email: null },
-    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false, email: null },
-    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false, email: null },
+    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false, email: null, avatar: null },
+    { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true, email: null, avatar: null },
+    { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false, email: null, avatar: null },
+    { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false, email: null, avatar: null },
   ];
   let channels: Channel[] = [
     {
@@ -786,6 +786,7 @@ export function createMock(): MockTransport {
     group_minutes: 10,
     action_url_template: "",
     action_url_template_managed: false,
+    gravatar: false,
     collector_url: "https://monarch.brkn.lol/collector",
   };
   let me: User | null = users[0];
@@ -990,11 +991,18 @@ export function createMock(): MockTransport {
     }
     if (p === "/api/users") {
       if (method === "POST") {
-        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local", sso: false, email: null };
+        const u: User = { id: Math.max(...users.map((x) => x.id)) + 1, username: body.username, role: body.role, created_at: now(), last_login: null, auth_source: "local", sso: false, email: null, avatar: null };
         users = [...users, u];
         return delay(u);
       }
       return delay(users);
+    }
+    if (p === "/api/users/me/avatar") {
+      // No image storage in mock mode; Avatar falls back to initials.
+      const u = users.find((x) => x.id === me!.id)!;
+      u.avatar = method === "DELETE" ? null : now();
+      me = u;
+      return delay(u);
     }
     if ((m = p.match(/^\/api\/users\/(\d+|me)$/))) {
       const id = m[1] === "me" ? me.id : +m[1];

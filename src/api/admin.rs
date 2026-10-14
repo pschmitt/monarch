@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use super::{ApiError, ApiResult, auth::validate_parts};
 use crate::{
-    auth::{self, Role, User},
+    auth::{self, Role, USER_SELECT, User},
     config::Retention,
     db,
     notify::{self, ChannelRow, Filter},
@@ -20,12 +20,10 @@ use crate::{
 
 // ---------------------------------------------------------------- users
 
-const USER_COLS: &str = "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users";
-
 pub async fn users(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<User>>> {
     user.require(Role::Admin)?;
     Ok(Json(
-        sqlx::query_as(&format!("{USER_COLS} ORDER BY username"))
+        sqlx::query_as(&format!("{USER_SELECT} ORDER BY username"))
             .fetch_all(&state.db)
             .await?,
     ))
@@ -108,7 +106,7 @@ async fn admin_count(state: &SharedState) -> ApiResult<i64> {
 }
 
 async fn fetch_user(state: &SharedState, id: i64) -> ApiResult<User> {
-    sqlx::query_as(&format!("{USER_COLS} WHERE id = ?"))
+    sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
         .bind(id)
         .fetch_optional(&state.db)
         .await?
@@ -540,6 +538,7 @@ async fn settings_json(state: &SharedState) -> Value {
         "group_minutes": s.group_minutes,
         "action_url_template": s.action_url_template,
         "action_url_template_managed": state.config.action_url_template.is_some(),
+        "gravatar": s.gravatar,
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -557,6 +556,7 @@ pub struct SettingsPatch {
     disabled_events: Option<Vec<String>>,
     group_minutes: Option<u32>,
     action_url_template: Option<String>,
+    gravatar: Option<bool>,
 }
 
 pub async fn update_settings(
@@ -611,6 +611,9 @@ pub async fn update_settings(
                     .map_err(|e| ApiError::bad_request(format!("action_url_template {e}")))?;
             }
             s.action_url_template = t.to_owned();
+        }
+        if let Some(g) = b.gravatar {
+            s.gravatar = g;
         }
         if let Some(mut kinds) = b.disabled_events {
             validate_event_kinds(&kinds)?;

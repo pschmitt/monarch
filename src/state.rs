@@ -31,7 +31,11 @@ pub struct AppState {
     pub ingest_lock: tokio::sync::Mutex<()>,
     /// Events collected per channel until its grouping window closes.
     pub pending: Mutex<HashMap<i64, Vec<crate::views::EventRow>>>,
+    /// Gravatar email hash -> (fetched at, picture as (mime, bytes); None: has none).
+    pub gravatars: Mutex<HashMap<String, GravatarEntry>>,
 }
+
+pub type GravatarEntry = (Instant, Option<(&'static str, axum::body::Bytes)>);
 
 impl AppState {
     pub fn new(db: SqlitePool, config: Config, settings: Settings) -> Result<SharedState> {
@@ -51,6 +55,7 @@ impl AppState {
             shutdown,
             ingest_lock: tokio::sync::Mutex::new(()),
             pending: Mutex::new(HashMap::new()),
+            gravatars: Mutex::new(HashMap::new()),
         }))
     }
 

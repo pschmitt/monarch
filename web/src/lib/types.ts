@@ -12,6 +12,9 @@ export interface User {
   /** Has a single sign-on identity (SSO account, or a local one linked to it). */
   sso: boolean;
   email: string | null;
+  /** Uploaded profile picture version (unix time of the last change), 0 for
+   * a Gravatar, null: none. */
+  avatar: number | null;
 }
 
 export interface Me {
@@ -281,6 +284,8 @@ export interface Settings {
   action_url_template: string;
   /** Pinned by the configuration file (read only). */
   action_url_template_managed: boolean;
+  /** Fall back to Gravatar (proxied by the server) for users with an email. */
+  gravatar: boolean;
   collector_url: string;
 }
 

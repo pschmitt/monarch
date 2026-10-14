@@ -419,10 +419,10 @@ async fn upsert_user(
             .last_insert_rowid()
         }
     };
-    Ok(sqlx::query_as(
-        "SELECT id, username, role, created_at, last_login, auth_source, (oidc_subject IS NOT NULL) AS sso, email FROM users WHERE id = ?",
+    Ok(
+        sqlx::query_as(&format!("{} WHERE id = ?", crate::auth::USER_SELECT))
+            .bind(id)
+            .fetch_one(db)
+            .await?,
     )
-    .bind(id)
-    .fetch_one(db)
-    .await?)
 }

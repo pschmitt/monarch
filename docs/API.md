@@ -24,7 +24,7 @@ Roles: `admin` (everything), `operator` (read + service actions + ack events),
 
 ```ts
 type Role = "admin" | "operator" | "viewer" | "collector";
-interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null; auth_source: "local" | "oidc"; sso: boolean }
+interface User { id: number; username: string; role: Role; created_at: number; last_login: number | null; auth_source: "local" | "oidc"; sso: boolean; email: string | null; avatar: number | null }
 ```
 
 ## Overview
@@ -275,6 +275,13 @@ type StreamMessage =
 - `POST /api/users` `{"username","password","role"}` → `User`
 - `PATCH /api/users/:id` `{"username"?, "password"?, "role"?}` → `User` (users may change their own username and password via `PATCH /api/users/me {"username"?, "password"?, "current_password"?}`; `current_password` is required with `password`; usernames of SSO accounts cannot be changed)
 - `DELETE /api/users/:id` → `204`
+- `GET /api/users/:id/avatar` (any signed-in user) → the profile picture (`404` without one). `avatar` in
+  `User` is the time the uploaded picture last changed (use it as cache buster, `?v=<avatar>`; cached for
+  good), `0` when it falls back to Gravatar (setting `gravatar`, user has an email; fetched and cached by
+  the server, so browsers never contact gravatar.com), `null` without a picture.
+- `PUT /api/users/me/avatar` with the image as body (PNG, JPEG, WebP or GIF, at most 512 KiB; the web UI
+  crops and scales to 256×256 first) → `User`; `DELETE /api/users/me/avatar` → `User`. Admins can do the
+  same for any account via `/api/users/:id/avatar` (e.g. collector accounts, which never sign in).
 - `GET /api/tokens` → `{id, name, prefix, created_at, last_used, expires_at}[]` (your own API tokens)
 - `POST /api/tokens` `{"name", "expires_days"?}` → the token info plus `token` (shown once)
 - `DELETE /api/tokens/:id` → `204`
@@ -374,6 +381,7 @@ interface Settings {
   group_minutes: number;
   action_url_template: string;            // "" = unset, see GET /api/hosts/access
   action_url_template_managed: boolean;   // pinned by the config file, read only
+  gravatar: boolean;                      // Gravatar fallback for profile pictures
   collector_url: string;                  // e.g. https://monarch.example.com/collector
 }
 ```

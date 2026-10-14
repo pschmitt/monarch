@@ -4,6 +4,7 @@
     Activity,
     ChevronsLeft,
     ChevronsRight,
+    ImageUp,
     LayoutDashboard,
     ListChecks,
     LogOut,
@@ -22,15 +23,18 @@
   import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import ChangePassword from "./ChangePassword.svelte";
   import ApiTokens from "./ApiTokens.svelte";
+  import Avatar from "./Avatar.svelte";
   import ChangeUsername from "./ChangeUsername.svelte";
   import Logo from "./Logo.svelte";
   import Menu from "./Menu.svelte";
+  import ProfilePicture from "./ProfilePicture.svelte";
   import StatusDot from "./StatusDot.svelte";
 
   let { children, onlogout }: { children: Snippet; onlogout: () => void } = $props();
   let pwOpen = $state(false);
   let nameOpen = $state(false);
   let tokensOpen = $state(false);
+  let pictureOpen = $state(false);
 
   const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
   const failingServices = $derived(Object.values(fleet.hosts).reduce((n, h) => n + h.services.failed, 0));
@@ -167,6 +171,7 @@
                     ...(session.me?.user?.sso ? [] : [{ label: "Edit profile", icon: Pencil, onselect: () => (nameOpen = true) }]),
                     { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
                   ]),
+              { label: "Profile picture", icon: ImageUp, onselect: () => (pictureOpen = true) },
               { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },
               ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
               "sep" as const,
@@ -174,9 +179,7 @@
             ]}
           >
             {#snippet trigger()}
-              <span class="bg-accent-gradient flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold text-white uppercase">
-                {session.me?.user?.username?.slice(0, 2) ?? "?"}
-              </span>
+              <Avatar user={session.me?.user} size={28} />
             {/snippet}
           </Menu>
         </div>
@@ -192,3 +195,4 @@
 <ChangePassword bind:open={pwOpen} />
 <ChangeUsername bind:open={nameOpen} />
 <ApiTokens bind:open={tokensOpen} />
+<ProfilePicture bind:open={pictureOpen} />
