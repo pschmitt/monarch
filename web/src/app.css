@@ -105,11 +105,27 @@
   }
   body {
     min-height: 100dvh;
+  }
+  /* A fixed layer instead of `background-attachment: fixed`: Firefox does not
+     reliably repaint fixed backgrounds below backdrop-filter surfaces, which
+     left dark-theme remnants behind after switching to the light theme. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background:
       radial-gradient(1100px 600px at 12% -10%, var(--glow-1), transparent 60%),
       radial-gradient(900px 500px at 100% 0%, var(--glow-2), transparent 60%),
       linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
-    background-attachment: fixed;
+  }
+  /* Set while the theme changes (see setTheme): no element may be caught
+     mid-transition with the old theme's colors. */
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
   }
   ::selection {
     background: color-mix(in oklab, var(--accent) 35%, transparent);

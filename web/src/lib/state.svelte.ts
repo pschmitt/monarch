@@ -41,8 +41,11 @@ export const theme = $state<{ value: Theme }>({ value: initialTheme() });
 export function setTheme(t: Theme) {
   theme.value = t;
   const root = document.documentElement;
+  root.classList.add("theme-switching");
   root.classList.remove("dark", "light");
   root.classList.add(t);
+  // Re-enable transitions once the new colors have been painted.
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#07080c" : "#f6f7fb");
   try {
     localStorage.setItem("monarch.theme", t);
