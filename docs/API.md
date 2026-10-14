@@ -381,7 +381,7 @@ interface Settings {
   group_minutes: number;
   action_url_template: string;            // "" = unset, see GET /api/hosts/access
   action_url_template_managed: boolean;   // pinned by the config file, read only
-  gravatar: boolean;                      // Gravatar fallback for profile pictures
+  gravatar: boolean;                      // Gravatar fallback for profile pictures (default: true)
   collector_url: string;                  // e.g. https://monarch.example.com/collector
 }
 ```
