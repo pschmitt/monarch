@@ -75,7 +75,7 @@
     <div class="flex flex-wrap rounded-xl border border-line bg-surface-2 p-0.5 text-xs">
       {#each tabs as [id, label, n] (id)}
         <button
-          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
+          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateFilter = id)}
         >
           {#if id}<StatusDot tone={serviceTone((id === "pending" ? "pending" : id) as ServiceState)} size={6} />{/if}{label}<span class="num text-[10px] text-fg-3">{n}</span>
@@ -89,9 +89,9 @@
   {:else if services.length === 0}
     <div class="card"><Empty icon={ListChecks} title="No services" body={q || stateFilter ? "Nothing matches these filters." : "No host has reported a check yet."} /></div>
   {:else}
-    <div class="card divide-y divide-[var(--line)] overflow-hidden">
+    <div class="card divide-y divide-[var(--mn-line)] overflow-hidden">
       {#each services as s (`${s.host_id}/${s.name}`)}
-        <a class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--surface-hover)] sm:px-5" href={serviceHref(s.host_id, s.name)}>
+        <a class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--mn-surface-hover)] sm:px-5" href={serviceHref(s.host_id, s.name)}>
           <ServiceIcon type={s.type} size={18} />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">

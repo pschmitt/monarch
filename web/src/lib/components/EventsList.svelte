@@ -159,7 +159,7 @@
       <div class="flex flex-wrap rounded-xl border border-line bg-surface-2 p-0.5 text-xs">
         {#each ["", "failed", "succeeded", "changed"] as s (s)}
           <button
-            class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateF === s ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
+            class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateF === s ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
             onclick={() => (stateF = s as EventState | "")}
           >
             {#if s}<StatusDot tone={eventTone(s as EventState)} size={6} />{eventStateLabel[s as EventState]}{:else}All{/if}
@@ -167,7 +167,7 @@
         {/each}
       </div>
       <label class="flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 text-xs text-fg-2">
-        <input type="checkbox" class="accent-[var(--accent)]" bind:checked={unacked} /> Unacknowledged
+        <input type="checkbox" class="accent-[var(--mn-accent)]" bind:checked={unacked} /> Unacknowledged
       </label>
     </div>
   {/if}
@@ -177,7 +177,7 @@
       <label class="flex cursor-pointer items-center gap-2">
         <input
           type="checkbox"
-          class="h-4 w-4 accent-[var(--accent)]"
+          class="h-4 w-4 accent-[var(--mn-accent)]"
           checked={allSelected}
           onchange={() => (selected = allSelected ? new Set() : new Set(unackedVisible.map((e) => e.id)))}
         />
@@ -196,8 +196,8 @@
       <Empty icon={Inbox} title="No events" body={q || stateF || unacked ? "Nothing matches these filters." : "Monit hasn't reported any events yet."} />
     {:else}
       {#each grouped as g (g.items[0].id)}
-        <div class="border-b border-line bg-[var(--surface-hover)] px-5 py-2 eyebrow">{g.day}</div>
-        <div class="divide-y divide-[var(--line)]">
+        <div class="border-b border-line bg-[var(--mn-surface-hover)] px-5 py-2 eyebrow">{g.day}</div>
+        <div class="divide-y divide-[var(--mn-line)]">
           {#each g.items as e (e.id)}
             <EventRow
               event={e}

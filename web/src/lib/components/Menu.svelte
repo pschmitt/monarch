@@ -66,7 +66,7 @@
     >
       {#each items as item, i (i)}
         {#if item === "sep"}
-          <div class="my-1 h-px bg-[var(--line)]"></div>
+          <div class="my-1 h-px bg-[var(--mn-line)]"></div>
         {:else}
           <button
             role="menuitem"

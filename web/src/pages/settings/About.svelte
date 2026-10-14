@@ -12,7 +12,7 @@
       <Logo size={64} />
       <div>
         <h2 class="text-2xl font-semibold tracking-tight text-fg">Monarch</h2>
-        <p class="mt-1 text-[13px] text-fg-2">A free, open source central dashboard for <a class="underline decoration-[var(--line-strong)] underline-offset-2 hover:text-fg" href="https://mmonit.com/monit/" data-external target="_blank" rel="noreferrer">Monit</a>.</p>
+        <p class="mt-1 text-[13px] text-fg-2">A free, open source central dashboard for <a class="underline decoration-[var(--mn-line-strong)] underline-offset-2 hover:text-fg" href="https://mmonit.com/monit/" data-external target="_blank" rel="noreferrer">Monit</a>.</p>
         <div class="num mt-2 text-xs text-fg-3">version {session.me?.version ?? "?"}</div>
         <div class="mt-4 flex flex-wrap gap-2">
           <a class="btn btn-sm" href="https://github.com/pschmitt/monarch" target="_blank" rel="noreferrer"><Code size={14} /> GitHub</a>

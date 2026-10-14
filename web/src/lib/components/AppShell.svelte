@@ -76,7 +76,7 @@
           href={item.href}
           title={collapsed && !mobile ? item.label : undefined}
           class="group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-medium transition-all {item.active
-            ? 'bg-hover text-fg ring-1 ring-[var(--line)]'
+            ? 'bg-hover text-fg ring-1 ring-[var(--mn-line)]'
             : 'text-fg-2 hover:bg-hover hover:text-fg'} {collapsed && !mobile ? 'justify-center px-0' : ''}"
           aria-current={item.active ? "page" : undefined}
         >
@@ -121,7 +121,7 @@
 <div class="flex min-h-dvh">
   <!-- desktop sidebar -->
   <aside
-    class="sticky top-0 hidden h-dvh shrink-0 border-r border-line bg-[var(--glass)] backdrop-blur-xl transition-[width] duration-200 md:block {collapsed
+    class="sticky top-0 hidden h-dvh shrink-0 border-r border-line bg-[var(--mn-glass)] backdrop-blur-xl transition-[width] duration-200 md:block {collapsed
       ? 'w-[72px]'
       : 'w-60'}"
   >
@@ -131,7 +131,7 @@
   <!-- mobile drawer -->
   {#if ui.mobileNav}
     <div class="fixed inset-0 z-50 md:hidden">
-      <button class="absolute inset-0 bg-[var(--scrim)] backdrop-blur-sm" aria-label="Close navigation" onclick={() => (ui.mobileNav = false)}></button>
+      <button class="absolute inset-0 bg-[var(--mn-scrim)] backdrop-blur-sm" aria-label="Close navigation" onclick={() => (ui.mobileNav = false)}></button>
       <aside class="absolute inset-y-0 left-0 w-72 border-r border-line bg-surface-solid shadow-2xl" style="animation: fade-up 180ms both">
         {@render sidebar(true)}
       </aside>
@@ -139,7 +139,7 @@
   {/if}
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header class="sticky top-0 z-30 border-b border-line bg-[var(--glass)] backdrop-blur-xl">
+    <header class="sticky top-0 z-30 border-b border-line bg-[var(--mn-glass)] backdrop-blur-xl">
       <div class="flex h-16 items-center gap-3 px-4 sm:px-6">
         <button class="btn btn-ghost btn-icon md:hidden" aria-label="Open navigation" onclick={() => (ui.mobileNav = true)}><MenuIcon size={18} /></button>
         <div class="md:hidden"><Logo size={26} /></div>

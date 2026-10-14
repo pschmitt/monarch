@@ -19,7 +19,7 @@
 {#if confirmState.req}
   {@const req = confirmState.req}
   <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-    <button class="absolute inset-0 cursor-default bg-[var(--scrim)] backdrop-blur-sm" aria-label="Cancel" onclick={() => done(false)}></button>
+    <button class="absolute inset-0 cursor-default bg-[var(--mn-scrim)] backdrop-blur-sm" aria-label="Cancel" onclick={() => done(false)}></button>
     <div role="alertdialog" aria-modal="true" class="relative w-full max-w-sm rounded-2xl border border-line-strong bg-surface-solid p-5 shadow-2xl animate-in">
       <div class="flex gap-3.5">
         <div class="tone-{req.danger ? 'bad' : 'info'} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-tone-soft text-tone">

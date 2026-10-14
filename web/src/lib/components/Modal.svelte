@@ -33,7 +33,7 @@
 
 {#if open}
   <div class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="presentation">
-    <button class="absolute inset-0 cursor-default bg-[var(--scrim)] backdrop-blur-sm" style="animation: fade-up 160ms both" aria-label="Close dialog" onclick={close}></button>
+    <button class="absolute inset-0 cursor-default bg-[var(--mn-scrim)] backdrop-blur-sm" style="animation: fade-up 160ms both" aria-label="Close dialog" onclick={close}></button>
     <div
       role="dialog"
       aria-modal="true"
@@ -48,7 +48,7 @@
       {/if}
       <div class="overflow-y-auto px-5 py-4">{@render children()}</div>
       {#if footer}
-        <div class="flex items-center justify-end gap-2 border-t border-line bg-[var(--surface-hover)] px-5 py-3">{@render footer()}</div>
+        <div class="flex items-center justify-end gap-2 border-t border-line bg-[var(--mn-surface-hover)] px-5 py-3">{@render footer()}</div>
       {/if}
     </div>
   </div>

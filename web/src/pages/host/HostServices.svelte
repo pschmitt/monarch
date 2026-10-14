@@ -92,7 +92,7 @@
     <div class="flex flex-wrap rounded-xl border border-line bg-surface-2 p-0.5 text-xs">
       {#each [["", "All"], ["failed", "Failed"], ["pending", "Pending"], ["unmonitored", "Unmonitored"], ["ok", "OK"]] as [id, label] (id)}
         <button
-          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateF === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
+          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateF === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateF = id as ServiceState | "")}
         >
           {label}<span class="num text-[10px] {id === 'failed' && counts.failed ? 'text-bad' : 'text-fg-3'}">{counts[id as keyof typeof counts]}</span>
@@ -100,8 +100,8 @@
       {/each}
     </div>
     <div class="ml-auto flex rounded-xl border border-line bg-surface-2 p-0.5 text-xs">
-      <button class="h-8 rounded-[9px] px-2.5 font-medium {groupBy === 'type' ? 'bg-surface-solid text-fg ring-1 ring-[var(--line-strong)]' : 'text-fg-3'}" onclick={() => (groupBy = "type")}>By type</button>
-      <button class="h-8 rounded-[9px] px-2.5 font-medium {groupBy === 'group' ? 'bg-surface-solid text-fg ring-1 ring-[var(--line-strong)]' : 'text-fg-3'}" onclick={() => (groupBy = "group")}>By group</button>
+      <button class="h-8 rounded-[9px] px-2.5 font-medium {groupBy === 'type' ? 'bg-surface-solid text-fg ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3'}" onclick={() => (groupBy = "type")}>By type</button>
+      <button class="h-8 rounded-[9px] px-2.5 font-medium {groupBy === 'group' ? 'bg-surface-solid text-fg ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3'}" onclick={() => (groupBy = "group")}>By group</button>
     </div>
   </div>
 
@@ -115,7 +115,7 @@
   {#if selected.size > 0}
     <div class="card sticky top-20 z-20 flex flex-wrap items-center gap-2 px-4 py-2.5 animate-in">
       <span class="text-[13px] font-medium text-fg">{selected.size} selected</span>
-      <div class="mx-1 h-5 w-px bg-[var(--line)]"></div>
+      <div class="mx-1 h-5 w-px bg-[var(--mn-line)]"></div>
       {#each ACTIONS as a (a.id)}
         {@const Icon = icons[a.id]}
         <button class="btn btn-sm {a.danger ? 'text-bad' : ''}" onclick={() => act([...selected], a.id)}><Icon size={13} />{a.label}</button>
@@ -138,13 +138,13 @@
           <Badge tone="bad" size="sm" dot>{sec.items.filter((s) => s.state === "failed").length} failed</Badge>
         {/if}
       </div>
-      <ul class="divide-y divide-[var(--line)]">
+      <ul class="divide-y divide-[var(--mn-line)]">
         {#each sec.items as s (s.id)}
           {@const tone = serviceTone(s.state)}
           {@const metrics = keyMetrics(s)}
           <li class="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-hover sm:px-5 {selected.has(s.name) ? 'bg-hover' : ''}">
             {#if canAct}
-              <input type="checkbox" class="h-4 w-4 shrink-0 accent-[var(--accent)]" checked={selected.has(s.name)} onchange={() => toggle(s.name)} aria-label="Select {s.name}" />
+              <input type="checkbox" class="h-4 w-4 shrink-0 accent-[var(--mn-accent)]" checked={selected.has(s.name)} onchange={() => toggle(s.name)} aria-label="Select {s.name}" />
             {/if}
             <a href={serviceHref(host.id, s.name)} class="flex min-w-0 flex-1 items-center gap-3">
               <span class="tone-{tone} flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-tone-soft bg-tone-soft text-tone">

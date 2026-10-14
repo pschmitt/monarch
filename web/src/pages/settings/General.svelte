@@ -45,7 +45,7 @@
         <p class="mt-1 text-xs text-fg-3">A host is marked offline when it misses this many consecutive poll cycles.</p>
       </div>
       <div class="flex items-center gap-4">
-        <input type="range" min="2" max="10" step="1" class="flex-1 accent-[var(--accent)]" bind:value={s.heartbeat_grace} aria-label="Heartbeat grace" />
+        <input type="range" min="2" max="10" step="1" class="flex-1 accent-[var(--mn-accent)]" bind:value={s.heartbeat_grace} aria-label="Heartbeat grace" />
         <span class="num w-24 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-center text-sm text-fg">{s.heartbeat_grace} cycles</span>
       </div>
     </section>

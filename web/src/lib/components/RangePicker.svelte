@@ -20,7 +20,7 @@
       role="radio"
       aria-checked={value === r.id}
       class="num h-7 rounded-[9px] px-2.5 text-[11px] font-medium transition-all {value === r.id
-        ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--line-strong)]'
+        ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]'
         : 'text-fg-3 hover:text-fg-2'}"
       onclick={() => (value = r.id)}>{r.label}</button
     >

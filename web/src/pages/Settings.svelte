@@ -36,7 +36,7 @@
         {#each sections as s (s.id)}
           <a
             href="/settings{s.id === 'general' ? '' : `/${s.id}`}"
-            class="flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors {section === s.id ? 'bg-hover text-fg ring-1 ring-[var(--line)]' : 'text-fg-2 hover:bg-hover hover:text-fg'}"
+            class="flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 transition-colors {section === s.id ? 'bg-hover text-fg ring-1 ring-[var(--mn-line)]' : 'text-fg-2 hover:bg-hover hover:text-fg'}"
             aria-current={section === s.id ? "page" : undefined}
           >
             <s.icon size={16} class={section === s.id ? "text-accent" : "text-fg-3"} />

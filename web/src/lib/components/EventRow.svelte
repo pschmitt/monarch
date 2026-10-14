@@ -33,7 +33,7 @@
   {#if selectable}
     <input
       type="checkbox"
-      class="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+      class="mt-1 h-4 w-4 shrink-0 accent-[var(--mn-accent)]"
       checked={selected}
       onchange={() => ontoggle?.()}
       aria-label="Select event"

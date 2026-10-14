@@ -39,11 +39,11 @@
     <div class="min-w-0 flex-1 space-y-2">
       <div>
         <div class="flex items-center justify-between text-[10px] text-fg-3"><span>CPU 1h</span><span class="num">{pct(host.system.cpu)}</span></div>
-        <Sparkline values={host.sparkline.cpu} max={100} height={20} color="var(--accent)" />
+        <Sparkline values={host.sparkline.cpu} max={100} height={20} color="var(--mn-accent)" />
       </div>
       <div>
         <div class="flex items-center justify-between text-[10px] text-fg-3"><span>Memory</span><span class="num">{kb(host.system.mem_kb, 1)}</span></div>
-        <Sparkline values={host.sparkline.mem} max={100} height={20} color="var(--accent-2)" />
+        <Sparkline values={host.sparkline.mem} max={100} height={20} color="var(--mn-accent-2)" />
       </div>
     </div>
   </div>

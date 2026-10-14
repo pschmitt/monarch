@@ -57,7 +57,7 @@
       {#if filesystems.length === 0}
         <p class="px-5 py-6 text-[13px] text-fg-3">No filesystem checks configured.</p>
       {:else}
-        <ul class="divide-y divide-[var(--line)]">
+        <ul class="divide-y divide-[var(--mn-line)]">
           {#each filesystems as f (f.id)}
             {@const sp = f.data.space ?? {}}
             <li>
@@ -116,8 +116,8 @@
             service={n.name}
             title={n.name}
             metrics={[
-              { key: "rx_bps", label: "Download", color: "var(--accent-2)" },
-              { key: "tx_bps", label: "Upload", color: "var(--accent)" },
+              { key: "rx_bps", label: "Download", color: "var(--mn-accent-2)" },
+              { key: "tx_bps", label: "Upload", color: "var(--mn-accent)" },
             ]}
             format={(v) => rate(v)}
             {range}

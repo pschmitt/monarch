@@ -131,7 +131,7 @@
               </td>
               <td>
                 {#if t.ssh}
-                  <span class="num inline-flex max-w-56 items-center gap-1.5 truncate rounded-md border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2 py-0.5 text-[11px] text-fg" title="ssh -W via {t.ssh.destination}{t.ssh.port ? ` -p ${t.ssh.port}` : ''}">
+                  <span class="num inline-flex max-w-56 items-center gap-1.5 truncate rounded-md border border-[color-mix(in_oklab,var(--mn-accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] px-2 py-0.5 text-[11px] text-fg" title="ssh -W via {t.ssh.destination}{t.ssh.port ? ` -p ${t.ssh.port}` : ''}">
                     <Terminal size={11} class="shrink-0 text-accent" />{t.ssh.destination}{t.ssh.port && t.ssh.port !== 22 ? `:${t.ssh.port}` : ""}
                   </span>
                 {:else}

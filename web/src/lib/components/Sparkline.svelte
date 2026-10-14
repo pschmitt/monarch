@@ -1,7 +1,7 @@
 <script lang="ts">
   let {
     values,
-    color = "var(--accent)",
+    color = "var(--mn-accent)",
     height = 32,
     max = null,
     fill = true,

@@ -120,7 +120,7 @@
     <div class="flex rounded-xl border border-line bg-surface-2 p-0.5 text-xs">
       {#each [["", "All", counts.all], ["ok", "Healthy", counts.ok], ["degraded", "Degraded", counts.degraded], ["offline", "Offline", counts.offline]] as [id, label, n] (id)}
         <button
-          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
+          class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateFilter = id as string)}
         >
           {#if id}<StatusDot tone={hostTone(id as "ok")} size={6} />{/if}{label}<span class="num text-[10px] text-fg-3">{n}</span>
@@ -134,8 +134,8 @@
       </select>
     {/if}
     <div class="ml-auto flex rounded-xl border border-line bg-surface-2 p-0.5">
-      <button class="flex h-8 w-8 items-center justify-center rounded-[9px] {view === 'table' ? 'bg-surface-solid text-fg ring-1 ring-[var(--line-strong)]' : 'text-fg-3'}" onclick={() => (view = "table")} aria-label="Table view"><List size={15} /></button>
-      <button class="flex h-8 w-8 items-center justify-center rounded-[9px] {view === 'grid' ? 'bg-surface-solid text-fg ring-1 ring-[var(--line-strong)]' : 'text-fg-3'}" onclick={() => (view = "grid")} aria-label="Grid view"><LayoutGrid size={15} /></button>
+      <button class="flex h-8 w-8 items-center justify-center rounded-[9px] {view === 'table' ? 'bg-surface-solid text-fg ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3'}" onclick={() => (view = "table")} aria-label="Table view"><List size={15} /></button>
+      <button class="flex h-8 w-8 items-center justify-center rounded-[9px] {view === 'grid' ? 'bg-surface-solid text-fg ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3'}" onclick={() => (view = "grid")} aria-label="Grid view"><LayoutGrid size={15} /></button>
     </div>
   </div>
 

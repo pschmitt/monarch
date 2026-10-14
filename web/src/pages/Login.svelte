@@ -50,8 +50,8 @@
 <div class="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10">
   <!-- animated backdrop -->
   <div class="pointer-events-none absolute inset-0" aria-hidden="true">
-    <div class="blob absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full opacity-40 blur-3xl" style="background: radial-gradient(circle, var(--accent), transparent 65%)"></div>
-    <div class="blob2 absolute -right-40 -bottom-48 h-[560px] w-[560px] rounded-full opacity-30 blur-3xl" style="background: radial-gradient(circle, var(--accent-2), transparent 65%)"></div>
+    <div class="blob absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full opacity-40 blur-3xl" style="background: radial-gradient(circle, var(--mn-accent), transparent 65%)"></div>
+    <div class="blob2 absolute -right-40 -bottom-48 h-[560px] w-[560px] rounded-full opacity-30 blur-3xl" style="background: radial-gradient(circle, var(--mn-accent-2), transparent 65%)"></div>
     <div class="absolute inset-0 grid-bg"></div>
   </div>
 
@@ -101,7 +101,7 @@
         </a>
         {#if passwordLogin}
           <div class="flex items-center gap-3 py-1 text-[11px] font-medium tracking-wider text-fg-3 uppercase">
-            <span class="h-px flex-1 bg-[var(--line)]"></span>or<span class="h-px flex-1 bg-[var(--line)]"></span>
+            <span class="h-px flex-1 bg-[var(--mn-line)]"></span>or<span class="h-px flex-1 bg-[var(--mn-line)]"></span>
           </div>
         {/if}
       {/if}
@@ -165,8 +165,8 @@
 <style>
   .grid-bg {
     background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      linear-gradient(var(--mn-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mn-line) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
     opacity: 0.6;

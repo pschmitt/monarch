@@ -93,7 +93,7 @@
 <Modal bind:open title={own ? "Profile picture" : `Profile picture of ${target?.username}`} width="max-w-sm">
   <div class="flex flex-col items-center gap-4">
     {#if preview}
-      <img src={preview} alt="Preview" class="h-28 w-28 rounded-full object-cover ring-1 ring-[var(--line)]" />
+      <img src={preview} alt="Preview" class="h-28 w-28 rounded-full object-cover ring-1 ring-[var(--mn-line)]" />
     {:else}
       <Avatar {user} size={112} />
     {/if}

@@ -122,7 +122,7 @@
             {#if host.source === "pull"}
               <a
                 href={can("admin") ? "/settings/hosts" : undefined}
-                class="inline-flex h-6 items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-2.5 text-xs text-fg-2 hover:text-fg"
+                class="inline-flex h-6 items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--mn-accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] px-2.5 text-xs text-fg-2 hover:text-fg"
                 title={target ? `Polled from ${target.url}${target.ssh ? ` via ssh ${target.ssh.destination}` : ""}` : "Polled by Monarch"}
               >
                 {#if target?.ssh}<Terminal size={12} class="text-accent" /> Pulled via SSH <span class="num">{target.ssh.destination}</span>{:else}<ArrowDownToLine size={12} class="text-accent" /> Pulled by Monarch{/if}

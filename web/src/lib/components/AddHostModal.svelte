@@ -96,8 +96,8 @@
     justify-content: flex-start;
     text-align: left;
     border-radius: 16px;
-    border: 1px solid var(--line);
-    background: var(--surface-2);
+    border: 1px solid var(--mn-line);
+    background: var(--mn-surface-2);
     padding: 1.25rem;
     transition:
       border-color 160ms ease,
@@ -105,8 +105,8 @@
       background-color 160ms ease;
   }
   .choice:hover:not(:disabled) {
-    border-color: color-mix(in oklab, var(--accent) 55%, transparent);
-    background: color-mix(in oklab, var(--accent) 7%, var(--surface-2));
+    border-color: color-mix(in oklab, var(--mn-accent) 55%, transparent);
+    background: color-mix(in oklab, var(--mn-accent) 7%, var(--mn-surface-2));
     transform: translateY(-1px);
   }
   .choice:disabled {

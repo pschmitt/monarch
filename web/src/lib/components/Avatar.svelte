@@ -14,7 +14,7 @@
     alt=""
     width={size}
     height={size}
-    class="shrink-0 rounded-full object-cover ring-1 ring-[var(--line)]"
+    class="shrink-0 rounded-full object-cover ring-1 ring-[var(--mn-line)]"
     style="width:{size}px;height:{size}px"
     onerror={() => (failed = src)}
   />

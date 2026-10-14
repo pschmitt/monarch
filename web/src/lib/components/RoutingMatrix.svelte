@@ -125,7 +125,7 @@
                 <td class="text-center">
                   <input
                     type="checkbox"
-                    class="h-4 w-4 accent-[var(--accent)]"
+                    class="h-4 w-4 accent-[var(--mn-accent)]"
                     checked={accepts(c, k.kind)}
                     disabled={muted}
                     aria-label="{k.failed} to {c.name}"

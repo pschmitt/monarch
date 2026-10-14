@@ -99,7 +99,7 @@
 
   <!-- KPI tiles -->
   <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-    <a href="/hosts" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--accent)">
+    <a href="/hosts" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Hosts</span>
         <span class="kpi-icon"><Server size={16} /></span>
@@ -114,7 +114,7 @@
       </div>
     </a>
 
-    <a href="/services" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--ok)">
+    <a href="/services" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-ok)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Services</span>
         <span class="kpi-icon"><CircleCheckBig size={16} /></span>
@@ -131,7 +131,7 @@
       {:else}<Skeleton class="mt-3 h-9 w-24" /><Skeleton class="mt-3 h-3 w-full" />{/if}
     </a>
 
-    <a href="/services?state=failed" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: {data?.services.failed ? 'var(--bad)' : 'var(--fg-3)'}">
+    <a href="/services?state=failed" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: {data?.services.failed ? 'var(--mn-bad)' : 'var(--mn-fg-3)'}">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Failing</span>
         <span class="kpi-icon"><Siren size={16} /></span>
@@ -147,7 +147,7 @@
       {:else}<Skeleton class="mt-3 h-9 w-16" />{/if}
     </a>
 
-    <a href="/events" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--accent-2)">
+    <a href="/events" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent-2)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Events · 24h</span>
         <span class="kpi-icon"><Activity size={16} /></span>
@@ -159,8 +159,8 @@
             {#each data.activity as a, i (a.ts)}
               {@const h = ((a.ok + a.failed) / activityMax) * 26}
               {@const hf = (a.failed / activityMax) * 26}
-              <rect x={i * 4} y={28 - h} width="3" height={Math.max(h - hf, 0)} rx="1" fill="var(--accent-2)" opacity="0.55" />
-              <rect x={i * 4} y={28 - hf} width="3" height={hf} rx="1" fill="var(--bad)" />
+              <rect x={i * 4} y={28 - h} width="3" height={Math.max(h - hf, 0)} rx="1" fill="var(--mn-accent-2)" opacity="0.55" />
+              <rect x={i * 4} y={28 - hf} width="3" height={hf} rx="1" fill="var(--mn-bad)" />
             {/each}
           </svg>
         </div>
@@ -184,7 +184,7 @@
               <span class="num rounded-md bg-tone-soft px-1.5 text-[11px] font-semibold text-tone">{data.failing.length}</span>
             </div>
           </div>
-          <ul class="divide-y divide-[var(--line)]">
+          <ul class="divide-y divide-[var(--mn-line)]">
             {#each data.failing as f (f.host_id + f.service)}
               <li>
                 <a href={serviceHref(f.host_id, f.service)} class="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-hover">
@@ -240,7 +240,7 @@
         {:else if recent.length === 0}
           <Empty icon={Activity} title="Quiet so far" body="Events from Monit will stream in here." />
         {:else}
-          <div class="divide-y divide-[var(--line)]">
+          <div class="divide-y divide-[var(--mn-line)]">
             {#each recent as e (e.id)}<div class="animate-in"><EventRow event={e} compact /></div>{/each}
           </div>
         {/if}
@@ -256,9 +256,9 @@
             {#each data.activity as a (a.ts)}
               {@const total = a.ok + a.failed}
               <div class="group relative flex h-full flex-1 flex-col justify-end" title="{timeShort(a.ts)} — {a.failed} failed, {a.ok} other">
-                <div class="rounded-t-[3px] bg-[color-mix(in_oklab,var(--accent-2)_55%,transparent)] transition-opacity group-hover:opacity-100" style="height:{(a.ok / activityMax) * 100}%"></div>
+                <div class="rounded-t-[3px] bg-[color-mix(in_oklab,var(--mn-accent-2)_55%,transparent)] transition-opacity group-hover:opacity-100" style="height:{(a.ok / activityMax) * 100}%"></div>
                 <div class="bg-bad {a.ok ? '' : 'rounded-t-[3px]'}" style="height:{(a.failed / activityMax) * 100}%"></div>
-                {#if total === 0}<div class="h-px bg-[var(--line-strong)]"></div>{/if}
+                {#if total === 0}<div class="h-px bg-[var(--mn-line-strong)]"></div>{/if}
               </div>
             {/each}
           </div>

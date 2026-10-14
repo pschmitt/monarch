@@ -118,8 +118,8 @@
     plot?.destroy();
     plot = null;
     if (!el || gapped.x.length === 0) return;
-    const axis = cssVar("--chart-axis");
-    const grid = cssVar("--chart-grid");
+    const axis = cssVar("--mn-chart-axis");
+    const grid = cssVar("--mn-chart-grid");
     const font = `11px ${cssVar("--font-mono") || "monospace"}`;
     const ordered = stacked ? [...series.keys()].reverse() : [...series.keys()];
 
@@ -128,7 +128,7 @@
       height,
       padding: [8, 4, 0, 0],
       cursor: {
-        points: { size: 7, width: 2, fill: cssVar("--surface-solid") },
+        points: { size: 7, width: 2, fill: cssVar("--mn-surface-solid") },
         drag: { x: false, y: false },
         y: false,
       },

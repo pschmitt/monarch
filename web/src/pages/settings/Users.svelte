@@ -143,7 +143,7 @@
                     <div class="flex items-center gap-1.5">
                       <span class="font-medium text-fg">{u.username}</span>
                       {#if u.sso}
-                        <span class="inline-flex items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-px text-[10px] font-semibold text-accent" title="Signs in via {session.me?.oidc?.name ?? 'single sign-on'}"><KeyRound size={10} /> SSO</span>
+                        <span class="inline-flex items-center gap-1 rounded-md border border-[color-mix(in_oklab,var(--mn-accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] px-1.5 py-px text-[10px] font-semibold text-accent" title="Signs in via {session.me?.oidc?.name ?? 'single sign-on'}"><KeyRound size={10} /> SSO</span>
                       {/if}
                     </div>
                     {#if u.email}<div class="num text-[11px] text-fg-3">{u.email}</div>{/if}
@@ -231,8 +231,8 @@
       <legend class="label">Role</legend>
       <div class="grid gap-2 sm:grid-cols-2">
         {#each roles as r (r.id)}
-          <label class="flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors {form.role === r.id ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)]' : 'border-line hover:border-line-strong'}">
-            <input type="radio" name="role" value={r.id} bind:group={form.role} class="mt-0.5 accent-[var(--accent)]" />
+          <label class="flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors {form.role === r.id ? 'border-[color-mix(in_oklab,var(--mn-accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_8%,transparent)]' : 'border-line hover:border-line-strong'}">
+            <input type="radio" name="role" value={r.id} bind:group={form.role} class="mt-0.5 accent-[var(--mn-accent)]" />
             <span>
               <span class="block text-[13px] font-medium text-fg">{r.label}</span>
               <span class="block text-[11px] text-fg-3">{r.desc}</span>

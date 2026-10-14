@@ -89,14 +89,14 @@
 
       <fieldset class="space-y-2 rounded-xl border border-line p-4 {muted ? 'opacity-50' : ''}" disabled={muted}>
         <legend class="label px-1">Events</legend>
-        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ev" checked={!ownEvents} onchange={() => (ownEvents = false)} class="accent-[var(--accent)]" /> Follow the generic event settings</label>
-        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ev" checked={ownEvents} onchange={() => (ownEvents = true)} class="accent-[var(--accent)]" /> Only these kinds</label>
+        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ev" checked={!ownEvents} onchange={() => (ownEvents = false)} class="accent-[var(--mn-accent)]" /> Follow the generic event settings</label>
+        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ev" checked={ownEvents} onchange={() => (ownEvents = true)} class="accent-[var(--mn-accent)]" /> Only these kinds</label>
         {#if ownEvents}
           <div class="flex flex-wrap gap-1.5 pt-1">
             {#each kinds as k (k.kind)}
               <button
                 type="button"
-                class="rounded-md border px-2 py-1 text-[11px] transition-colors {events.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
+                class="rounded-md border px-2 py-1 text-[11px] transition-colors {events.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--mn-accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
                 aria-pressed={events.includes(k.kind)}
                 title="{k.failed} / {k.succeeded}"
                 onclick={() => (events = toggle(events, k.kind))}>{k.failed.replace(/ failed$| exceeded$/, "")}</button
@@ -108,13 +108,13 @@
 
       <fieldset class="space-y-2 rounded-xl border border-line p-4 {muted ? 'opacity-50' : ''}" disabled={muted}>
         <legend class="label px-1">Channels</legend>
-        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ch" checked={!ownChannels} onchange={() => (ownChannels = false)} class="accent-[var(--accent)]" /> Normal routing</label>
-        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ch" checked={ownChannels} onchange={() => (ownChannels = true)} class="accent-[var(--accent)]" /> Only these channels</label>
+        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ch" checked={!ownChannels} onchange={() => (ownChannels = false)} class="accent-[var(--mn-accent)]" /> Normal routing</label>
+        <label class="flex items-center gap-2 text-[13px] text-fg-2"><input type="radio" name="ch" checked={ownChannels} onchange={() => (ownChannels = true)} class="accent-[var(--mn-accent)]" /> Only these channels</label>
         {#if ownChannels}
           <div class="grid gap-1.5 pt-1 sm:grid-cols-2">
             {#each channels as c (c.id)}
               <label class="flex items-center gap-2 text-[13px] text-fg-2">
-                <input type="checkbox" checked={selected.includes(c.id)} onchange={() => (selected = toggle(selected, c.id))} class="accent-[var(--accent)]" />
+                <input type="checkbox" checked={selected.includes(c.id)} onchange={() => (selected = toggle(selected, c.id))} class="accent-[var(--mn-accent)]" />
                 <span class="truncate">{c.name}</span>
                 {#if !c.enabled}<span class="text-[10px] text-fg-3">(off)</span>{/if}
               </label>

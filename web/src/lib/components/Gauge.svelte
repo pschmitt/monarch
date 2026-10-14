@@ -15,7 +15,7 @@
 
 <div class="relative inline-flex items-center justify-center tone-{t}" style="width:{size}px;height:{size}px">
   <svg width={size} height={size} class="-rotate-90">
-    <circle cx={size / 2} cy={size / 2} {r} fill="none" stroke="var(--line)" stroke-width={stroke} />
+    <circle cx={size / 2} cy={size / 2} {r} fill="none" stroke="var(--mn-line)" stroke-width={stroke} />
     <circle
       cx={size / 2}
       cy={size / 2}
@@ -30,8 +30,8 @@
     />
     <defs>
       <linearGradient id="gauge-ok" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="var(--accent)" />
-        <stop offset="1" stop-color="var(--accent-2)" />
+        <stop offset="0" stop-color="var(--mn-accent)" />
+        <stop offset="1" stop-color="var(--mn-accent-2)" />
       </linearGradient>
     </defs>
   </svg>

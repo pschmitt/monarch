@@ -178,7 +178,7 @@
 
 {#if ui.palette}
   <div class="fixed inset-0 z-[65] flex items-start justify-center px-4 pt-[12vh]">
-    <button class="absolute inset-0 cursor-default bg-[var(--scrim)] backdrop-blur-sm" aria-label="Close" onclick={() => (ui.palette = false)}></button>
+    <button class="absolute inset-0 cursor-default bg-[var(--mn-scrim)] backdrop-blur-sm" aria-label="Close" onclick={() => (ui.palette = false)}></button>
     <div class="relative w-full max-w-xl overflow-hidden rounded-2xl border border-line-strong bg-surface-solid shadow-2xl animate-in" role="dialog" aria-label="Command palette">
       <div class="flex items-center gap-3 border-b border-line px-4">
         <Search size={17} class="text-fg-3" />
@@ -202,7 +202,7 @@
           {#each entries as { item, index } (item.id)}
             <button
               data-pal={index}
-              class="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors {sel === index ? 'bg-hover ring-1 ring-[var(--line-strong)]' : ''}"
+              class="flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors {sel === index ? 'bg-hover ring-1 ring-[var(--mn-line-strong)]' : ''}"
               onmouseenter={() => (sel = index)}
               onclick={() => run(item)}
             >

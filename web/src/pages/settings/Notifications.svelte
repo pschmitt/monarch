@@ -250,7 +250,7 @@
             {#each c.filter.states as s (s)}
               <span class="tone-{eventTone(s)} rounded-md bg-tone-soft px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-tone uppercase">{eventStateLabel[s]}</span>
             {/each}
-            {#if c.default}<span class="rounded-md border border-[color-mix(in_oklab,var(--accent)_45%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold text-accent">default</span>{/if}
+            {#if c.default}<span class="rounded-md border border-[color-mix(in_oklab,var(--mn-accent)_45%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold text-accent">default</span>{/if}
             {#if c.filter.events}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">{c.filter.events.length} event kind{c.filter.events.length === 1 ? "" : "s"}</span>{/if}
             {#if c.filter.group_minutes !== null}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">grouped {c.filter.group_minutes} min</span>{/if}
             {#if c.filter.include_heartbeat}<span class="rounded-md border border-line px-1.5 py-0.5 text-[10px] text-fg-3">heartbeat</span>{/if}
@@ -286,7 +286,7 @@
           {#each Object.entries(KINDS) as [k, K] (k)}
             <button
               type="button"
-              class="flex flex-col items-center gap-1.5 rounded-xl border px-1 py-2.5 text-[11px] transition-colors {draft.kind === k ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:border-line-strong hover:text-fg-2'}"
+              class="flex flex-col items-center gap-1.5 rounded-xl border px-1 py-2.5 text-[11px] transition-colors {draft.kind === k ? 'border-[color-mix(in_oklab,var(--mn-accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:border-line-strong hover:text-fg-2'}"
               onclick={() => {
                 draft.kind = k as ChannelKind;
                 draft.config = {};
@@ -346,7 +346,7 @@
           {#each eventKinds as k (k.kind)}
             <button
               type="button"
-              class="rounded-md border px-2 py-1 text-[11px] transition-colors {draft.filter.events?.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
+              class="rounded-md border px-2 py-1 text-[11px] transition-colors {draft.filter.events?.includes(k.kind) ? 'border-[color-mix(in_oklab,var(--mn-accent)_60%,transparent)] bg-[color-mix(in_oklab,var(--mn-accent)_10%,transparent)] text-fg' : 'border-line text-fg-3 hover:text-fg-2'}"
               aria-pressed={draft.filter.events?.includes(k.kind)}
               title="{k.failed} / {k.succeeded}"
               onclick={() => toggleEvent(k.kind)}>{k.failed.replace(/ failed$| exceeded$/, "")}</button

@@ -72,13 +72,13 @@ export interface ChartDef {
 
 const P = (v: number) => `${v.toFixed(v < 10 ? 1 : 0)}%`;
 const C = {
-  a: "var(--accent)",
-  b: "var(--accent-2)",
-  ok: "var(--ok)",
-  warn: "var(--warn)",
-  bad: "var(--bad)",
-  info: "var(--info)",
-  muted: "var(--muted)",
+  a: "var(--mn-accent)",
+  b: "var(--mn-accent-2)",
+  ok: "var(--mn-ok)",
+  warn: "var(--mn-warn)",
+  bad: "var(--mn-bad)",
+  info: "var(--mn-info)",
+  muted: "var(--mn-muted)",
 };
 
 export function chartsFor(s: Service): ChartDef[] {

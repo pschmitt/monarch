@@ -75,7 +75,7 @@
     </p>
 
     {#if created}
-      <div class="rounded-xl border border-[color-mix(in_oklab,var(--ok)_40%,transparent)] bg-[color-mix(in_oklab,var(--ok)_8%,transparent)] p-3">
+      <div class="rounded-xl border border-[color-mix(in_oklab,var(--mn-ok)_40%,transparent)] bg-[color-mix(in_oklab,var(--mn-ok)_8%,transparent)] p-3">
         <div class="mb-1.5 text-xs font-medium text-fg">Copy your new token now, it is not shown again.</div>
         <div class="flex items-center gap-2">
           <code class="num min-w-0 flex-1 truncate rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-fg select-all">{created}</code>
@@ -106,7 +106,7 @@
     {:else if tokens.length === 0}
       <p class="text-center text-xs text-fg-3">No tokens yet.</p>
     {:else}
-      <ul class="divide-y divide-[var(--line)] rounded-xl border border-line">
+      <ul class="divide-y divide-[var(--mn-line)] rounded-xl border border-line">
         {#each tokens as t (t.id)}
           <li class="flex items-center gap-3 px-3 py-2.5">
             <KeyRound size={15} class="shrink-0 text-fg-3" />
