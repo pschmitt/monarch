@@ -8,6 +8,7 @@
   import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
   import Toasts from "./lib/components/Toasts.svelte";
   import Logo from "./lib/components/Logo.svelte";
+  import FleetFavicon from "./lib/components/FleetFavicon.svelte";
   import Login from "./pages/Login.svelte";
   import Overview from "./pages/Overview.svelte";
   import Hosts from "./pages/Hosts.svelte";
@@ -119,5 +120,6 @@
   <AddHostModal />
 {/if}
 
+<FleetFavicon {authed} />
 <ConfirmDialog />
 <Toasts />

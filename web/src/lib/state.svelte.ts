@@ -103,11 +103,12 @@ export const fleet = $state<{
   hosts: Record<number, HostSummary>;
   loaded: boolean;
   status: StreamStatus;
+  loadError: boolean;
   /** Most recent events received live (newest first). */
   live: MonarchEvent[];
   /** Bumped on every live message so pages can react (e.g. refetch). */
   tick: number;
-}>({ hosts: {}, loaded: false, status: "connecting", live: [], tick: 0 });
+}>({ hosts: {}, loaded: false, status: "connecting", loadError: false, live: [], tick: 0 });
 
 export const hostList = () =>
   Object.values(fleet.hosts).sort((a, b) => hostName(a).localeCompare(hostName(b), undefined, { numeric: true }));
@@ -119,7 +120,9 @@ export async function loadHosts() {
     for (const h of list) map[h.id] = h;
     fleet.hosts = map;
     fleet.loaded = true;
+    fleet.loadError = false;
   } catch (e) {
+    fleet.loadError = true;
     toastError(e, "Failed to load hosts");
   }
 }
@@ -180,7 +183,7 @@ export function startLive() {
     const prev = fleet.status;
     fleet.status = s;
     // Resync after a reconnect so we don't miss state changes.
-    if (s === "live" && prev === "down") loadHosts();
+    if (s === "live" && (prev !== "live" || fleet.loadError)) loadHosts();
   });
 }
 export function stopLive() {
@@ -188,6 +191,8 @@ export function stopLive() {
   closeStream = null;
   fleet.hosts = {};
   fleet.loaded = false;
+  fleet.loadError = false;
+  fleet.status = "connecting";
   fleet.live = [];
 }
 

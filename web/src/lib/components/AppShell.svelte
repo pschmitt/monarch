@@ -21,6 +21,7 @@
   import { isMock } from "../api";
   import { router } from "../router.svelte";
   import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
+  import { faviconPreference, setFaviconMode } from "../favicon.svelte";
   import ChangePassword from "./ChangePassword.svelte";
   import ApiTokens from "./ApiTokens.svelte";
   import Avatar from "./Avatar.svelte";
@@ -174,6 +175,7 @@
               { label: "Profile picture", icon: ImageUp, onselect: () => (pictureOpen = true) },
               { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },
               ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
+              { label: faviconPreference.mode === "count" ? "Favicon: issue count (switch to dots)" : "Favicon: dots (switch to count)", icon: Activity, onselect: () => setFaviconMode(faviconPreference.mode === "count" ? "binary" : "count") },
               "sep" as const,
               { label: "Sign out", icon: LogOut, danger: true, onselect: onlogout },
             ]}
