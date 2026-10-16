@@ -15,10 +15,11 @@
     if (!authed) return "/favicon.svg";
     const text = unknown ? "!" : issues && faviconPreference.mode === "count" ? (issues > 99 ? "99+" : String(issues)) : "";
     const color = unknown ? "#f59e0b" : issues ? "#dc2626" : "#16a34a";
-    const width = text.length > 2 ? 12 : text.length > 1 ? 10 : 8;
+    const width = text.length > 1 ? 15 : 10;
+    const fontSize = text.length > 2 ? 8 : 11;
     const badge = text
-      ? `<rect x="${16 - width}" y="8" width="${width}" height="8" rx="4" fill="${color}" stroke="#fff" stroke-width=".6"/><text x="${16 - width / 2}" y="12.3" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-size="${text.length > 2 ? 5 : 6}" font-weight="700" fill="#fff">${text}</text>`
-      : `<circle cx="12.5" cy="12.5" r="3" fill="${color}" stroke="#fff" stroke-width=".8"/>`;
+      ? `<rect x=".5" y=".5" width="${width}" height="12" rx="3" fill="${color}" stroke="#fff" stroke-width=".6"/><text x="${.5 + width / 2}" y="6.8" text-anchor="middle" dominant-baseline="central" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="700" fill="#fff">${text}</text>`
+      : `<circle cx="3.5" cy="3.5" r="3" fill="${color}" stroke="#fff" stroke-width=".8"/>`;
     return `data:image/svg+xml,${encodeURIComponent(crown.replace("</svg>", `${badge}</svg>`))}`;
   });
 
