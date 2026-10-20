@@ -65,7 +65,9 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
+      # GitHub's hosted ARM64 runner does not expose KVM; run the VM test on x86_64.
       - name: Enable KVM
+        if: matrix.system == 'x86_64-linux'
         run: |
           test -c /dev/kvm
           sudo chmod 0666 /dev/kvm
@@ -76,4 +78,5 @@ jobs:
       - name: Build
         run: nix build -L '.#monarch' '.#monarch-static'
       - name: NixOS VM test
+        if: matrix.system == 'x86_64-linux'
         run: nix build -L '.#checks.${{ matrix.system }}.nixos'
