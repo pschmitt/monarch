@@ -17,6 +17,7 @@
         <div class="mt-4 flex flex-wrap gap-2">
           <a class="btn btn-sm" href="https://github.com/pschmitt/monarch" target="_blank" rel="noreferrer"><Code size={14} /> GitHub</a>
           <a class="btn btn-sm hover:text-bad" href="https://github.com/sponsors/pschmitt" target="_blank" rel="noreferrer"><Heart size={14} class="text-bad" /> Sponsor</a>
+          <a class="btn btn-sm" href="https://mmonit.com/shop/" target="_blank" rel="noreferrer"><ExternalLink size={14} /> Buy M/Monit</a>
           {#if pwa.canInstall}
             <button class="btn btn-primary btn-sm" onclick={installApp}><Download size={14} /> Install app</button>
           {/if}

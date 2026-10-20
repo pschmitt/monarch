@@ -5,6 +5,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
 </p>
 
+**Don't be a dick!** Monarch is an independent, clean-room Rust reimplementation of [M/Monit](https://mmonit.com/), and using Monarch does not require an M/Monit license. Please support Tildeslash, the people behind M/Monit, by [buying an M/Monit license](https://mmonit.com/shop/) if you find their work useful.
+
 **A modern, open source central dashboard for [Monit](https://mmonit.com/monit/) agents.**
 
 Monarch is a drop-in, GPL-licensed alternative to M/Monit: point your Monit
