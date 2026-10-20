@@ -12,7 +12,7 @@ buildNpmPackage {
       ]
     );
   };
-  npmDepsHash = "sha256-6UrzsPaP5AhOziPz5TDs1Hj7/LcoiDukkfWwzjnVsmE=";
+  npmDepsHash = "sha256-w2FkPGSbG42eopeBYkuKiL0ral5MBL2LjpWhIJuoLcM=";
   installPhase = ''
     runHook preInstall
     cp -r dist $out
