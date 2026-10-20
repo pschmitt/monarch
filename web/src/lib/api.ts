@@ -110,6 +110,8 @@ export const api = {
   deleteHost: (id: number) => request<void>("DELETE", `/api/hosts/${id}`),
   testHost: (id: number) =>
     request<{ ok: boolean; message: string; latency_ms: number | null }>("POST", `/api/hosts/${id}/test`),
+  confirmHostReplacement: (id: number) =>
+    request<{ host_id: number }>("POST", `/api/hosts/${id}/replace`),
 
   service: (hostId: number, name: string) =>
     request<ServiceDetail>("GET", `/api/hosts/${hostId}/services/${enc(name)}`),

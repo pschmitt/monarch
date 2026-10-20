@@ -164,6 +164,11 @@ listen = "127.0.0.1:8080"
 database = "/var/lib/monarch/monarch.db"
 public_url = "https://monarch.example.com"
 collector_allow_anonymous = false
+# Optional sender filtering. IPs/CIDRs match the request address; hostnames
+# and domains match Monit's reported hostname (domains include subdomains).
+# A non-empty allowlist requires a match; denylist matches always take priority.
+collector_allowlist = [ "10.20.0.0/16", "example.com" ]
+collector_denylist = [ "192.0.2.10", "blocked.example.net" ]
 session_days = 30
 initial_admin_user = "admin"
 initial_admin_password_file = "/run/secrets/monarch-admin"

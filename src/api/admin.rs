@@ -541,6 +541,7 @@ async fn settings_json(state: &SharedState) -> Value {
         "action_url_template": s.action_url_template,
         "action_url_template_managed": state.config.action_url_template.is_some(),
         "gravatar": s.gravatar,
+        "host_deduplication": s.host_deduplication,
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -559,6 +560,7 @@ pub struct SettingsPatch {
     group_minutes: Option<u32>,
     action_url_template: Option<String>,
     gravatar: Option<bool>,
+    host_deduplication: Option<crate::config::HostDeduplication>,
 }
 
 pub async fn update_settings(
@@ -616,6 +618,9 @@ pub async fn update_settings(
         }
         if let Some(g) = b.gravatar {
             s.gravatar = g;
+        }
+        if let Some(mode) = b.host_deduplication {
+            s.host_deduplication = mode;
         }
         if let Some(mut kinds) = b.disabled_events {
             validate_event_kinds(&kinds)?;

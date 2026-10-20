@@ -131,7 +131,9 @@ interface HostDetail extends HostSummary {
 its Monit HTTP interface: `id`, `hostname`, `display_name`, `online`, `source`,
 `target_id`, `httpd`, `remote_addr`, `monit_url`, `monit_url_source`,
 `override_url`, `override_username`, `has_override_password`,
-`has_reported_credentials`, `tls_skip_verify` (fields as in `HostDetail`).
+`has_reported_credentials`, `tls_skip_verify`, `replacement_of`, and
+`replacement_hostname`. The last two fields identify a host awaiting
+replacement confirmation; otherwise they are `null`.
 
 The action URL is, in order: the host's `override_url`; the
 `action_url_template` setting with `{hostname}`, `{short_hostname}`,
@@ -382,11 +384,14 @@ interface Settings {
   action_url_template: string;            // "" = unset, see GET /api/hosts/access
   action_url_template_managed: boolean;   // pinned by the config file, read only
   gravatar: boolean;                      // Gravatar fallback for profile pictures (default: true)
+  host_deduplication: "auto" | "confirm" | "off"; // default: auto; same hostname, idle for 1h
   collector_url: string;                  // e.g. https://monarch.example.com/collector
 }
 ```
 
 `PATCH /api/settings` (admin) with the same shape (partial) → `Settings`.
+`POST /api/hosts/:id/replace` (admin) confirms a pending replacement and merges
+it into the previous host, retaining that host's ID, history, and settings.
 
 ## M/Monit compatibility layer
 

@@ -17,7 +17,7 @@
     if (!s) return;
     saving = true;
     try {
-      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace, gravatar: s.gravatar });
+      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace, gravatar: s.gravatar, host_deduplication: s.host_deduplication });
       toast("ok", "Settings saved");
     } catch (err) {
       toastError(err, "Could not save settings");
@@ -48,6 +48,23 @@
         <input type="range" min="2" max="10" step="1" class="flex-1 accent-[var(--mn-accent)]" bind:value={s.heartbeat_grace} aria-label="Heartbeat grace" />
         <span class="num w-24 rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-center text-sm text-fg">{s.heartbeat_grace} cycles</span>
       </div>
+    </section>
+
+    <section class="card space-y-4 p-5 sm:p-6">
+      <div>
+        <h2 class="card-title">Host replacement detection</h2>
+        <p class="mt-1 text-xs text-fg-3">
+          Detect a new Monit ID reporting the same hostname after the previous agent has been silent for at least one hour.
+        </p>
+      </div>
+      <select class="input max-w-sm" bind:value={s.host_deduplication} aria-label="Host replacement detection">
+        <option value="auto">Automatic merge</option>
+        <option value="confirm">Ask for confirmation</option>
+        <option value="off">Keep duplicates</option>
+      </select>
+      <p class="hint">
+        Automatic merge keeps the existing host history and settings. Confirmation keeps both hosts until you approve the replacement in Settings → Hosts.
+      </p>
     </section>
 
     <section class="card space-y-4 p-5 sm:p-6">

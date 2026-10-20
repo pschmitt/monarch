@@ -95,6 +95,34 @@ in
             default = false;
             description = "Accept collector posts from Monit agents without valid credentials.";
           };
+          collector_allowlist = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            example = [
+              "192.0.2.10"
+              "10.20.0.0/16"
+              "example.com"
+            ];
+            description = ''
+              Optional allowlist for collector senders. IPs and CIDRs match the
+              request address; hostnames and domains match the reported Monit
+              hostname, with domains also matching subdomains. When non-empty,
+              a sender must match at least one entry.
+            '';
+          };
+          collector_denylist = lib.mkOption {
+            type = lib.types.listOf lib.types.str;
+            default = [ ];
+            example = [
+              "192.0.2.10"
+              "10.20.0.0/16"
+              "example.com"
+            ];
+            description = ''
+              Collector senders matching these IPs, CIDRs, hostnames, or
+              domains are rejected, even if they match the allowlist.
+            '';
+          };
         };
       };
     };

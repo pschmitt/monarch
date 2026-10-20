@@ -787,6 +787,7 @@ export function createMock(): MockTransport {
     action_url_template: "",
     action_url_template_managed: false,
     gravatar: true,
+    host_deduplication: "auto",
     collector_url: "https://monarch.brkn.lol/collector",
   };
   let me: User | null = users[0];

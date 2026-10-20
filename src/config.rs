@@ -22,6 +22,11 @@ pub struct Config {
     pub initial_admin_password_file: Option<PathBuf>,
     /// Accept collector posts without (valid) credentials.
     pub collector_allow_anonymous: bool,
+    /// Optional collector sender allowlist. Entries can be IPs, CIDRs,
+    /// hostnames, or domains (which also match subdomains).
+    pub collector_allowlist: Vec<String>,
+    /// Collector senders matching these entries are always rejected.
+    pub collector_denylist: Vec<String>,
     /// Session lifetime in days.
     pub session_days: i64,
     /// Users that are created (or whose password and role are reset) on startup.
@@ -142,6 +147,8 @@ impl Default for Config {
             initial_admin_user: None,
             initial_admin_password_file: None,
             collector_allow_anonymous: false,
+            collector_allowlist: Vec::new(),
+            collector_denylist: Vec::new(),
             session_days: 30,
             ensure_users: Vec::new(),
             ssh_binary: "ssh".into(),
@@ -217,6 +224,17 @@ pub struct Settings {
     /// Fall back to Gravatar (fetched by the server) for users with an email
     /// address and no uploaded profile picture. On by default.
     pub gravatar: bool,
+    /// How to handle a new Monit ID for a host that has been silent for an hour.
+    pub host_deduplication: HostDeduplication,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum HostDeduplication {
+    #[default]
+    Auto,
+    Confirm,
+    Off,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,6 +267,7 @@ impl Default for Settings {
             group_minutes: 10,
             action_url_template: String::new(),
             gravatar: true,
+            host_deduplication: HostDeduplication::Auto,
         }
     }
 }

@@ -21,6 +21,7 @@ use sqlx::{Sqlite, Transaction};
 
 use crate::{
     auth,
+    config::HostDeduplication,
     monit::{model, xml},
     notify,
     state::{SharedState, now},
@@ -65,6 +66,10 @@ pub async fn collector(
     };
 
     let remote = client_ip(&headers).unwrap_or_else(|| peer.ip().to_string());
+    if !sender_allowed(&state, &doc, &remote) {
+        tracing::warn!(%peer, %remote, hostname = ?doc.server.localhostname, "collector: sender rejected by allowlist or denylist");
+        return (StatusCode::FORBIDDEN, "sender not allowed").into_response();
+    }
     match ingest(&state, doc, &remote, None).await {
         Ok(_) => StatusCode::OK.into_response(),
         Err(e) => {
@@ -72,6 +77,281 @@ pub async fn collector(
             (StatusCode::INTERNAL_SERVER_ERROR, "ingest failed").into_response()
         }
     }
+}
+
+fn sender_allowed(state: &SharedState, doc: &xml::Monit, remote: &str) -> bool {
+    let hostnames = [
+        doc.server.localhostname.as_deref(),
+        doc.id.as_deref(),
+        doc.server.id.as_deref(),
+    ];
+    let matches = |rules: &[String]| {
+        rules
+            .iter()
+            .any(|rule| sender_rule_matches(rule, remote, &hostnames))
+    };
+
+    !matches(&state.config.collector_denylist)
+        && (state.config.collector_allowlist.is_empty()
+            || matches(&state.config.collector_allowlist))
+}
+
+fn sender_rule_matches(rule: &str, remote: &str, hostnames: &[Option<&str>]) -> bool {
+    if let Some(network) = parse_network(rule) {
+        return remote
+            .parse()
+            .ok()
+            .is_some_and(|address| network_contains(network, address));
+    }
+
+    let domain = rule.trim().trim_end_matches('.').to_ascii_lowercase();
+    if domain.is_empty() {
+        return false;
+    }
+    hostnames.iter().flatten().any(|hostname| {
+        let hostname = hostname.trim().trim_end_matches('.').to_ascii_lowercase();
+        hostname == domain
+            || hostname
+                .strip_suffix(&domain)
+                .is_some_and(|prefix| prefix.ends_with('.'))
+    })
+}
+
+#[derive(Clone, Copy)]
+enum Network {
+    V4(u32, u8),
+    V6(u128, u8),
+}
+
+fn parse_network(rule: &str) -> Option<Network> {
+    let (address, prefix): (std::net::IpAddr, u8) =
+        if let Some((address, prefix)) = rule.split_once('/') {
+            (address.parse().ok()?, prefix.parse().ok()?)
+        } else {
+            let address = rule.parse().ok()?;
+            let prefix = match address {
+                std::net::IpAddr::V4(_) => 32,
+                std::net::IpAddr::V6(_) => 128,
+            };
+            (address, prefix)
+        };
+    match address {
+        std::net::IpAddr::V4(address) => {
+            (prefix <= 32).then_some(Network::V4(u32::from(address), prefix))
+        }
+        std::net::IpAddr::V6(address) => {
+            (prefix <= 128).then_some(Network::V6(u128::from(address), prefix))
+        }
+    }
+}
+
+fn network_contains(network: Network, address: std::net::IpAddr) -> bool {
+    match (network, address) {
+        (Network::V4(network, prefix), std::net::IpAddr::V4(address)) => {
+            let mask = if prefix == 0 {
+                0
+            } else {
+                u32::MAX << (32 - prefix)
+            };
+            u32::from(address) & mask == network & mask
+        }
+        (Network::V6(network, prefix), std::net::IpAddr::V6(address)) => {
+            let mask = if prefix == 0 {
+                0
+            } else {
+                u128::MAX << (128 - prefix)
+            };
+            u128::from(address) & mask == network & mask
+        }
+        _ => false,
+    }
+}
+
+/// Merge a pending replacement into its previous host, keeping the previous
+/// host ID and settings while adopting the reporting Monit ID.
+pub async fn confirm_replacement(state: &SharedState, candidate_id: i64) -> Result<i64> {
+    let _guard = state.ingest_lock.lock().await;
+    let old_id: Option<(i64,)> = sqlx::query_as(
+        "SELECT replacement_of FROM hosts WHERE id = ? AND replacement_of IS NOT NULL",
+    )
+    .bind(candidate_id)
+    .fetch_optional(&state.db)
+    .await?;
+    let Some((old_id,)) = old_id else {
+        anyhow::bail!("host is not a pending replacement candidate");
+    };
+    merge_host_rows(state, candidate_id, old_id).await
+}
+
+async fn merge_host_rows(state: &SharedState, candidate_id: i64, old_id: i64) -> Result<i64> {
+    let mut tx = state.db.begin_with("BEGIN IMMEDIATE").await?;
+    let candidate: Option<(String,)> = sqlx::query_as("SELECT hostname FROM hosts WHERE id = ?")
+        .bind(candidate_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let Some((candidate_hostname,)) = candidate else {
+        anyhow::bail!("replacement candidate no longer exists");
+    };
+    let new_monit_id: (String,) = sqlx::query_as("SELECT monit_id FROM hosts WHERE id = ?")
+        .bind(candidate_id)
+        .fetch_one(&mut *tx)
+        .await?;
+    let new_monit_id = new_monit_id.0;
+    let old_hostname: Option<(String,)> = sqlx::query_as("SELECT hostname FROM hosts WHERE id = ?")
+        .bind(old_id)
+        .fetch_optional(&mut *tx)
+        .await?;
+    let Some((old_hostname,)) = old_hostname else {
+        anyhow::bail!("replacement target no longer exists");
+    };
+    if !old_hostname
+        .trim()
+        .eq_ignore_ascii_case(candidate_hostname.trim())
+    {
+        anyhow::bail!("replacement hostnames no longer match");
+    }
+
+    sqlx::query(
+        "UPDATE hosts AS old SET
+            hostname = incoming.hostname, monit_version = incoming.monit_version,
+            incarnation = incoming.incarnation, monit_uptime = incoming.monit_uptime,
+            poll = incoming.poll, startdelay = incoming.startdelay,
+            controlfile = incoming.controlfile, os_name = incoming.os_name,
+            os_release = incoming.os_release, os_version = incoming.os_version,
+            machine = incoming.machine, cpu_count = incoming.cpu_count,
+            mem_total_kb = incoming.mem_total_kb, swap_total_kb = incoming.swap_total_kb,
+            httpd_address = incoming.httpd_address, httpd_port = incoming.httpd_port,
+            httpd_ssl = incoming.httpd_ssl, httpd_unixsocket = incoming.httpd_unixsocket,
+            reported_username = incoming.reported_username,
+            reported_password = incoming.reported_password,
+            hostgroups = incoming.hostgroups, servicegroups = incoming.servicegroups,
+            remote_addr = incoming.remote_addr,
+            first_seen = MIN(old.first_seen, incoming.first_seen),
+            last_seen = MAX(old.last_seen, incoming.last_seen),
+            online = incoming.online, last_push = incoming.last_push,
+            target_id = COALESCE(old.target_id, incoming.target_id)
+         FROM hosts AS incoming WHERE old.id = ? AND incoming.id = ?",
+    )
+    .bind(old_id)
+    .bind(candidate_id)
+    .execute(&mut *tx)
+    .await?;
+
+    sqlx::query(
+        "DELETE FROM services WHERE host_id = ?
+         AND name IN (SELECT name FROM services WHERE host_id = ?)",
+    )
+    .bind(old_id)
+    .bind(candidate_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("UPDATE services SET host_id = ? WHERE host_id = ?")
+        .bind(old_id)
+        .bind(candidate_id)
+        .execute(&mut *tx)
+        .await?;
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO check_alerts (host_id, service, muted, events, channels, updated_at)
+         SELECT ?, service, muted, events, channels, updated_at FROM check_alerts WHERE host_id = ?",
+    )
+    .bind(old_id)
+    .bind(candidate_id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("DELETE FROM check_alerts WHERE host_id = ?")
+        .bind(candidate_id)
+        .execute(&mut *tx)
+        .await?;
+
+    let incoming_series: Vec<(i64, String, String)> =
+        sqlx::query_as("SELECT id, service, metric FROM series WHERE host_id = ?")
+            .bind(candidate_id)
+            .fetch_all(&mut *tx)
+            .await?;
+    for (incoming_id, service, metric) in incoming_series {
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM series WHERE host_id = ? AND service = ? AND metric = ?",
+        )
+        .bind(old_id)
+        .bind(&service)
+        .bind(&metric)
+        .fetch_optional(&mut *tx)
+        .await?;
+        if let Some((existing_id,)) = existing {
+            sqlx::query(
+                "INSERT OR IGNORE INTO samples (series_id, ts, value)
+                 SELECT ?, ts, value FROM samples WHERE series_id = ?",
+            )
+            .bind(existing_id)
+            .bind(incoming_id)
+            .execute(&mut *tx)
+            .await?;
+            for table in ["rollup_5m", "rollup_1h"] {
+                let rollups: Vec<(i64, f64, i64, f64, f64)> = sqlx::query_as(sqlx::AssertSqlSafe(
+                    format!("SELECT bucket, sum, count, min, max FROM {table} WHERE series_id = ?"),
+                ))
+                .bind(incoming_id)
+                .fetch_all(&mut *tx)
+                .await?;
+                for (bucket, sum, count, min, max) in rollups {
+                    sqlx::query(sqlx::AssertSqlSafe(format!(
+                        "INSERT INTO {table} (series_id, bucket, sum, count, min, max)
+                         VALUES (?, ?, ?, ?, ?, ?)
+                         ON CONFLICT (series_id, bucket) DO UPDATE SET
+                           sum = sum + excluded.sum, count = count + excluded.count,
+                           min = MIN(min, excluded.min), max = MAX(max, excluded.max)"
+                    )))
+                    .bind(existing_id)
+                    .bind(bucket)
+                    .bind(sum)
+                    .bind(count)
+                    .bind(min)
+                    .bind(max)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+            }
+            sqlx::query("DELETE FROM series WHERE id = ?")
+                .bind(incoming_id)
+                .execute(&mut *tx)
+                .await?;
+        } else {
+            sqlx::query("UPDATE series SET host_id = ? WHERE id = ?")
+                .bind(old_id)
+                .bind(incoming_id)
+                .execute(&mut *tx)
+                .await?;
+        }
+    }
+
+    sqlx::query("UPDATE events SET host_id = ? WHERE host_id = ?")
+        .bind(old_id)
+        .bind(candidate_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("UPDATE targets SET host_id = ? WHERE host_id = ?")
+        .bind(old_id)
+        .bind(candidate_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("DELETE FROM hosts WHERE id = ?")
+        .bind(candidate_id)
+        .execute(&mut *tx)
+        .await?;
+    sqlx::query("UPDATE hosts SET monit_id = ? WHERE id = ?")
+        .bind(&new_monit_id)
+        .bind(old_id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+
+    state.series.lock().unwrap().clear();
+    state.publish(json!({"type": "host_removed", "id": candidate_id}));
+    if let Some(summary) = views::host_summary_by_id(&state.db, old_id).await? {
+        state.publish(json!({"type": "host", "host": summary}));
+    }
+    Ok(old_id)
 }
 
 fn client_ip(headers: &HeaderMap) -> Option<String> {
@@ -290,13 +570,82 @@ async fn ingest_locked(
         })
         .unwrap_or_default();
 
+    let deduplication = state.settings.read().await.host_deduplication;
+    if target.is_none() && deduplication == HostDeduplication::Auto {
+        let incoming: Option<(i64,)> = sqlx::query_as("SELECT id FROM hosts WHERE monit_id = ?")
+            .bind(&monit_id)
+            .fetch_optional(&state.db)
+            .await?;
+        if let Some((candidate_id,)) = incoming {
+            let stale_hosts: Vec<(i64,)> = sqlx::query_as(
+                "SELECT id FROM hosts
+                 WHERE lower(trim(hostname)) = lower(trim(?)) AND monit_id != ?
+                   AND target_id IS NULL AND last_push IS NOT NULL AND replacement_of IS NULL
+                   AND last_seen <= ?
+                 ORDER BY last_seen DESC LIMIT 2",
+            )
+            .bind(&hostname)
+            .bind(&monit_id)
+            .bind(ts - 3600)
+            .fetch_all(&state.db)
+            .await?;
+            if let [(old_id,)] = stale_hosts.as_slice()
+                && candidate_id != *old_id
+            {
+                merge_host_rows(state, candidate_id, *old_id).await?;
+            }
+        }
+    }
+
     let mut tx = state.db.begin_with("BEGIN IMMEDIATE").await?;
 
-    let prev: Option<(i64, i64)> =
+    let mut prev: Option<(i64, i64)> =
         sqlx::query_as("SELECT id, online FROM hosts WHERE monit_id = ?")
             .bind(&monit_id)
             .fetch_optional(&mut *tx)
             .await?;
+
+    let mut replacement_of = None;
+    if target.is_none() && deduplication != HostDeduplication::Off {
+        let candidates: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT id, online FROM hosts
+             WHERE lower(trim(hostname)) = lower(trim(?)) AND monit_id != ?
+               AND target_id IS NULL AND last_push IS NOT NULL AND replacement_of IS NULL
+               AND last_seen <= ?
+             ORDER BY last_seen DESC LIMIT 2",
+        )
+        .bind(&hostname)
+        .bind(&monit_id)
+        .bind(ts - 3600)
+        .fetch_all(&mut *tx)
+        .await?;
+        if let [(old_id, old_online)] = candidates.as_slice() {
+            match deduplication {
+                HostDeduplication::Auto => {
+                    if prev.is_none() {
+                        sqlx::query("UPDATE hosts SET monit_id = ? WHERE id = ?")
+                            .bind(&monit_id)
+                            .bind(old_id)
+                            .execute(&mut *tx)
+                            .await?;
+                        prev = Some((*old_id, *old_online));
+                    }
+                }
+                HostDeduplication::Confirm => {
+                    if let Some((candidate_id, _)) = prev {
+                        sqlx::query("UPDATE hosts SET replacement_of = ? WHERE id = ?")
+                            .bind(old_id)
+                            .bind(candidate_id)
+                            .execute(&mut *tx)
+                            .await?;
+                    } else {
+                        replacement_of = Some(*old_id);
+                    }
+                }
+                HostDeduplication::Off => unreachable!(),
+            }
+        }
+    }
 
     let (host_id,): (i64,) = sqlx::query_as(
         "INSERT INTO hosts (monit_id, hostname, monit_version, incarnation, monit_uptime, poll, startdelay,
@@ -346,6 +695,14 @@ async fn ingest_locked(
     .bind(ts)
     .fetch_one(&mut *tx)
     .await?;
+
+    if let Some(old_id) = replacement_of {
+        sqlx::query("UPDATE hosts SET replacement_of = ? WHERE id = ?")
+            .bind(old_id)
+            .bind(host_id)
+            .execute(&mut *tx)
+            .await?;
+    }
 
     // Hosts that also push send real events; only derive events for pull-only hosts.
     let pushing = match target {

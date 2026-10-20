@@ -103,6 +103,18 @@
     }
   }
 
+  async function confirmReplacement(h: HostAccess) {
+    const target = h.replacement_hostname ?? "the previous host";
+    if (!window.confirm(`Replace ${target} with this reporting host? Its history and settings will be kept.`)) return;
+    try {
+      await api.confirmHostReplacement(h.id);
+      toast("ok", `${target} replacement confirmed`);
+      await load();
+    } catch (err) {
+      toastError(err, "Could not confirm host replacement");
+    }
+  }
+
   const reported = (h: HostAccess) =>
     h.httpd?.port ? `${h.httpd.ssl ? "https" : "http"}://${h.httpd.address || "*"}:${h.httpd.port}` : h.httpd?.unixsocket ? "unix socket only" : "httpd disabled";
   const sourceTone = (h: HostAccess) => (!h.monit_url_source ? "bad" : h.monit_url_source === "remote_addr" ? "warn" : "muted");
@@ -160,6 +172,7 @@
                     <span class="font-semibold text-fg">{hostName(h)}</span>
                   </div>
                   {#if h.display_name}<div class="num mt-0.5 text-[11px] text-fg-3">{h.hostname}</div>{/if}
+                  {#if h.replacement_of}<div class="mt-0.5 text-[11px] text-warn">Possible replacement for {h.replacement_hostname}</div>{/if}
                 </td>
                 <td class="num text-xs text-fg-2">
                   <div>{reported(h)}</div>
@@ -177,6 +190,11 @@
                 </td>
                 <td class="pr-5">
                   <div class="flex items-center justify-end gap-1">
+                    {#if h.replacement_of}
+                      <button class="btn btn-primary btn-sm" onclick={() => confirmReplacement(h)} title="Merge this host into {h.replacement_hostname}">
+                        <CircleCheck size={14} /> Confirm replacement
+                      </button>
+                    {/if}
                     <a class="btn btn-ghost btn-sm btn-icon" href={hostHref(h.id)} title="Open host" aria-label="Open host {hostName(h)}"><ArrowUpRight size={14} /></a>
                     <button class="btn btn-ghost btn-sm btn-icon" onclick={() => edit(h)} title="Edit override" aria-label="Edit override for {hostName(h)}"><Pencil size={14} /></button>
                   </div>

@@ -252,10 +252,35 @@ pub async fn access(State(state): State<SharedState>, user: User) -> ApiResult<J
                     "has_override_password": h.override_password.as_deref().is_some_and(|p| !p.is_empty()),
                     "has_reported_credentials": h.reported_username.is_some(),
                     "tls_skip_verify": h.tls_skip_verify != 0,
+                    "replacement_of": h.replacement_of,
+                    "replacement_hostname": h.replacement_of.and_then(|id| {
+                        hosts.iter().find(|candidate| candidate.id == id).map(|candidate| candidate.hostname.clone())
+                    }),
                 })
             })
             .collect(),
     ))
+}
+
+pub async fn confirm_replacement(
+    State(state): State<SharedState>,
+    user: User,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
+    user.require(Role::Admin)?;
+    let pending: Option<(i64,)> = sqlx::query_as(
+        "SELECT replacement_of FROM hosts WHERE id = ? AND replacement_of IS NOT NULL",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await?;
+    if pending.is_none() {
+        return Err(ApiError::bad_request(
+            "host is not a pending replacement candidate",
+        ));
+    }
+    let host_id = collector::confirm_replacement(&state, id).await?;
+    Ok(Json(json!({ "host_id": host_id })))
 }
 
 async fn host_detail(state: &SharedState, h: &HostRow) -> ApiResult<Value> {

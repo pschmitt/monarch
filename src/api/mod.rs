@@ -82,6 +82,7 @@ pub fn router() -> Router<SharedState> {
                 .delete(hosts::remove),
         )
         .route("/hosts/{id}/test", post(hosts::test))
+        .route("/hosts/{id}/replace", post(hosts::confirm_replacement))
         .route("/hosts/{id}/action", post(hosts::bulk_action))
         .route("/hosts/{id}/services/{name}", get(hosts::service))
         .route("/hosts/{id}/services/{name}/action", post(hosts::action))

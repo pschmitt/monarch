@@ -47,6 +47,7 @@ pub struct HostRow {
     pub muted_until: Option<i64>,
     pub target_id: Option<i64>,
     pub last_push: Option<i64>,
+    pub replacement_of: Option<i64>,
 }
 
 #[derive(Debug, Clone, FromRow)]

@@ -131,6 +131,8 @@ export interface HostAccess {
   has_override_password: boolean;
   has_reported_credentials: boolean;
   tls_skip_verify: boolean;
+  replacement_of: number | null;
+  replacement_hostname: string | null;
 }
 
 export interface Port {
@@ -286,6 +288,8 @@ export interface Settings {
   action_url_template_managed: boolean;
   /** Fall back to Gravatar (proxied by the server) for users with an email. */
   gravatar: boolean;
+  /** How to handle a new Monit ID after a host has been silent for an hour. */
+  host_deduplication: "auto" | "confirm" | "off";
   collector_url: string;
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE hosts ADD COLUMN replacement_of INTEGER REFERENCES hosts(id) ON DELETE SET NULL;
