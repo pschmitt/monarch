@@ -1,10 +1,19 @@
 {
   description = "Monarch – a modern, open source central monitoring server for Monit agents";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Builds the dependencies in their own derivation, so CI caches and hosts
+    # reuse them instead of recompiling every crate on each change.
+    crane.url = "github:ipetkov/crane";
+  };
 
   outputs =
-    { self, nixpkgs }:
+    {
+      self,
+      nixpkgs,
+      crane,
+    }:
     let
       systems = [
         "x86_64-linux"
@@ -18,8 +27,11 @@
       packages = forAllSystems (
         pkgs:
         let
+          craneLib = crane.mkLib pkgs;
           web = pkgs.callPackage ./nix/web.nix { };
-          monarch = pkgs.callPackage ./nix/package.nix { inherit web; };
+          monarch = pkgs.callPackage ./nix/package.nix {
+            inherit craneLib web;
+          };
         in
         {
           inherit monarch web;
@@ -27,7 +39,10 @@
         }
         // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux rec {
           # Fully static (musl) binary, used for release assets and the image.
-          monarch-static = pkgs.pkgsStatic.callPackage ./nix/package.nix { inherit web; };
+          monarch-static = pkgs.pkgsStatic.callPackage ./nix/package.nix {
+            craneLib = crane.mkLib pkgs.pkgsStatic;
+            inherit web;
+          };
           image = pkgs.dockerTools.buildLayeredImage {
             name = "ghcr.io/pschmitt/monarch";
             tag = monarch-static.version;
@@ -51,7 +66,9 @@
       );
 
       overlays.default = final: _prev: {
-        monarch = final.callPackage ./nix/package.nix { };
+        monarch = final.callPackage ./nix/package.nix {
+          craneLib = crane.mkLib final;
+        };
       };
 
       nixosModules.default = {
