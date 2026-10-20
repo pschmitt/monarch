@@ -10,7 +10,7 @@ default-run = "monarch"
 
 [dependencies]
 anyhow = "1"
-argon2 = { version = "0.5", features = ["std"] }
+argon2 = { version = "0.6", features = ["std"] }
 axum = { version = "0.8", features = ["macros"] }
 base64 = "0.23"
 clap = { version = "4", features = ["derive", "env"] }
