@@ -17,7 +17,7 @@
     if (!s) return;
     saving = true;
     try {
-      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace, gravatar: s.gravatar, host_deduplication: s.host_deduplication });
+      s = await api.updateSettings({ public_url: s.public_url, retention: s.retention, heartbeat_grace: s.heartbeat_grace, gravatar: s.gravatar, host_deduplication: s.host_deduplication, host_deduplication_delay_minutes: s.host_deduplication_delay_minutes });
       toast("ok", "Settings saved");
     } catch (err) {
       toastError(err, "Could not save settings");
@@ -54,7 +54,7 @@
       <div>
         <h2 class="card-title">Host replacement detection</h2>
         <p class="mt-1 text-xs text-fg-3">
-          Detect a new Monit ID reporting the same hostname after the previous agent has been silent for at least one hour.
+          Detect a new Monit ID reporting the same hostname after the previous agent has been silent for at least {s.host_deduplication_delay_minutes} minutes.
         </p>
       </div>
       <select class="input max-w-sm" bind:value={s.host_deduplication} aria-label="Host replacement detection">
@@ -62,6 +62,13 @@
         <option value="confirm">Ask for confirmation</option>
         <option value="off">Keep duplicates</option>
       </select>
+      <div class="max-w-sm">
+        <label class="label" for="host-deduplication-delay">Inactivity delay</label>
+        <div class="relative">
+          <input id="host-deduplication-delay" class="input num pr-16" type="number" min="1" max="10080" bind:value={s.host_deduplication_delay_minutes} />
+          <span class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-fg-3">minutes</span>
+        </div>
+      </div>
       <p class="hint">
         Automatic merge keeps the existing host history and settings. Confirmation keeps both hosts until you approve the replacement in Settings → Hosts.
       </p>

@@ -542,6 +542,7 @@ async fn settings_json(state: &SharedState) -> Value {
         "action_url_template_managed": state.config.action_url_template.is_some(),
         "gravatar": s.gravatar,
         "host_deduplication": s.host_deduplication,
+        "host_deduplication_delay_minutes": s.host_deduplication_delay_minutes,
         "collector_url": format!("{}/collector", s.public_url.trim_end_matches('/')),
     })
 }
@@ -561,6 +562,7 @@ pub struct SettingsPatch {
     action_url_template: Option<String>,
     gravatar: Option<bool>,
     host_deduplication: Option<crate::config::HostDeduplication>,
+    host_deduplication_delay_minutes: Option<u32>,
 }
 
 pub async fn update_settings(
@@ -621,6 +623,14 @@ pub async fn update_settings(
         }
         if let Some(mode) = b.host_deduplication {
             s.host_deduplication = mode;
+        }
+        if let Some(minutes) = b.host_deduplication_delay_minutes {
+            if !(1..=10080).contains(&minutes) {
+                return Err(ApiError::bad_request(
+                    "host_deduplication_delay_minutes must be between 1 and 10080",
+                ));
+            }
+            s.host_deduplication_delay_minutes = minutes;
         }
         if let Some(mut kinds) = b.disabled_events {
             validate_event_kinds(&kinds)?;

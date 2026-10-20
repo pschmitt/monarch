@@ -570,7 +570,10 @@ async fn ingest_locked(
         })
         .unwrap_or_default();
 
-    let deduplication = state.settings.read().await.host_deduplication;
+    let settings = state.settings.read().await;
+    let deduplication = settings.host_deduplication;
+    let deduplication_delay = i64::from(settings.host_deduplication_delay_minutes) * 60;
+    drop(settings);
     if target.is_none() && deduplication == HostDeduplication::Auto {
         let incoming: Option<(i64,)> = sqlx::query_as("SELECT id FROM hosts WHERE monit_id = ?")
             .bind(&monit_id)
@@ -586,7 +589,7 @@ async fn ingest_locked(
             )
             .bind(&hostname)
             .bind(&monit_id)
-            .bind(ts - 3600)
+            .bind(ts - deduplication_delay)
             .fetch_all(&state.db)
             .await?;
             if let [(old_id,)] = stale_hosts.as_slice()
@@ -616,7 +619,7 @@ async fn ingest_locked(
         )
         .bind(&hostname)
         .bind(&monit_id)
-        .bind(ts - 3600)
+        .bind(ts - deduplication_delay)
         .fetch_all(&mut *tx)
         .await?;
         if let [(old_id, old_online)] = candidates.as_slice() {

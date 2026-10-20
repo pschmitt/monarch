@@ -384,7 +384,8 @@ interface Settings {
   action_url_template: string;            // "" = unset, see GET /api/hosts/access
   action_url_template_managed: boolean;   // pinned by the config file, read only
   gravatar: boolean;                      // Gravatar fallback for profile pictures (default: true)
-  host_deduplication: "auto" | "confirm" | "off"; // default: auto; same hostname, idle for 1h
+  host_deduplication: "auto" | "confirm" | "off"; // default: auto
+  host_deduplication_delay_minutes: number; // default: 60; range: 1–10080
   collector_url: string;                  // e.g. https://monarch.example.com/collector
 }
 ```

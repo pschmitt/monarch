@@ -224,8 +224,10 @@ pub struct Settings {
     /// Fall back to Gravatar (fetched by the server) for users with an email
     /// address and no uploaded profile picture. On by default.
     pub gravatar: bool,
-    /// How to handle a new Monit ID for a host that has been silent for an hour.
+    /// How to handle a new Monit ID for a host that has been silent long enough.
     pub host_deduplication: HostDeduplication,
+    /// Minutes a host must be silent before it can be considered replaced.
+    pub host_deduplication_delay_minutes: u32,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,6 +270,7 @@ impl Default for Settings {
             action_url_template: String::new(),
             gravatar: true,
             host_deduplication: HostDeduplication::Auto,
+            host_deduplication_delay_minutes: 60,
         }
     }
 }

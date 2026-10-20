@@ -288,8 +288,10 @@ export interface Settings {
   action_url_template_managed: boolean;
   /** Fall back to Gravatar (proxied by the server) for users with an email. */
   gravatar: boolean;
-  /** How to handle a new Monit ID after a host has been silent for an hour. */
+  /** How to handle a new Monit ID after a host has been silent long enough. */
   host_deduplication: "auto" | "confirm" | "off";
+  /** Minutes a host must be silent before it can be considered replaced. */
+  host_deduplication_delay_minutes: number;
   collector_url: string;
 }
 
