@@ -10,17 +10,18 @@
     "build": "vite build",
     "build:mock": "VITE_MOCK=1 vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings --tsgo"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^26.6.4",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.0",
+    "typescript": "^6.0.3",
     "vite": "^8.3.3"
   },
   "dependencies": {
