@@ -61,11 +61,11 @@ pub async fn query(
             .map(|(ts, v)| json!([ts, v, null, null]))
             .collect()
         } else {
-            sqlx::query_as::<_, (i64, f64, i64, f64, f64)>(&format!(
+            sqlx::query_as::<_, (i64, f64, i64, f64, f64)>(sqlx::AssertSqlSafe(format!(
                 "SELECT b.bucket, b.sum, b.count, b.min, b.max FROM {table} b JOIN series r ON r.id = b.series_id
                  WHERE r.host_id = ? AND r.service = ? AND r.metric = ? AND b.bucket BETWEEN ? AND ?
                  ORDER BY b.bucket"
-            ))
+            )))
             .bind(q.host)
             .bind(&q.service)
             .bind(metric)

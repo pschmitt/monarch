@@ -23,9 +23,11 @@ use crate::{
 pub async fn users(State(state): State<SharedState>, user: User) -> ApiResult<Json<Vec<User>>> {
     user.require(Role::Admin)?;
     Ok(Json(
-        sqlx::query_as(&format!("{USER_SELECT} ORDER BY username"))
-            .fetch_all(&state.db)
-            .await?,
+        sqlx::query_as(sqlx::AssertSqlSafe(format!(
+            "{USER_SELECT} ORDER BY username"
+        )))
+        .fetch_all(&state.db)
+        .await?,
     ))
 }
 
@@ -106,7 +108,7 @@ async fn admin_count(state: &SharedState) -> ApiResult<i64> {
 }
 
 async fn fetch_user(state: &SharedState, id: i64) -> ApiResult<User> {
-    sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
+    sqlx::query_as(sqlx::AssertSqlSafe(format!("{USER_SELECT} WHERE id = ?")))
         .bind(id)
         .fetch_optional(&state.db)
         .await?

@@ -6,7 +6,7 @@ use axum::{
     extract::FromRequestParts,
     http::{HeaderMap, StatusCode, header, request::Parts},
 };
-use rand::RngCore;
+use rand::Rng;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use sqlx::{FromRow, SqlitePool};
@@ -129,10 +129,12 @@ pub async fn check_credentials(
     if !ok {
         return Ok(None);
     }
-    Ok(sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(
+        sqlx::query_as(sqlx::AssertSqlSafe(format!("{USER_SELECT} WHERE id = ?")))
+            .bind(id)
+            .fetch_optional(db)
+            .await?,
+    )
 }
 
 fn token_hash(token: &str) -> String {
@@ -232,10 +234,10 @@ pub async fn user_from_headers(
     if let Some(token) = bearer_token(headers) {
         let ts = now();
         let hash = token_hash(token);
-        let user: Option<User> = sqlx::query_as(&format!(
+        let user: Option<User> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
             "{USER_SELECT} WHERE id = (SELECT user_id FROM api_tokens
              WHERE token_hash = ? AND (expires_at IS NULL OR expires_at > ?))"
-        ))
+        )))
         .bind(&hash)
         .bind(ts)
         .fetch_optional(&state.db)
@@ -253,9 +255,9 @@ pub async fn user_from_headers(
     let Some(token) = session_token(headers) else {
         return Ok(None);
     };
-    Ok(sqlx::query_as(&format!(
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{USER_SELECT} WHERE id = (SELECT user_id FROM sessions WHERE token_hash = ? AND expires_at > ?)"
-    ))
+    )))
     .bind(token_hash(&token))
     .bind(now())
     .fetch_optional(&state.db)
@@ -313,8 +315,10 @@ pub async fn create_user(
     .execute(db)
     .await?
     .last_insert_rowid();
-    Ok(sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
-        .bind(id)
-        .fetch_one(db)
-        .await?)
+    Ok(
+        sqlx::query_as(sqlx::AssertSqlSafe(format!("{USER_SELECT} WHERE id = ?")))
+            .bind(id)
+            .fetch_one(db)
+            .await?,
+    )
 }
