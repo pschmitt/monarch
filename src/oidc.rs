@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use rand::RngCore;
+use rand::Rng;
 use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -419,10 +419,11 @@ async fn upsert_user(
             .last_insert_rowid()
         }
     };
-    Ok(
-        sqlx::query_as(&format!("{} WHERE id = ?", crate::auth::USER_SELECT))
-            .bind(id)
-            .fetch_one(db)
-            .await?,
-    )
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{} WHERE id = ?",
+        crate::auth::USER_SELECT
+    )))
+    .bind(id)
+    .fetch_one(db)
+    .await?)
 }

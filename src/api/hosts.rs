@@ -171,10 +171,10 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
         .bind(since)
         .fetch_one(&state.db)
         .await?;
-    let recent: Vec<EventRow> = sqlx::query_as(&format!(
+    let recent: Vec<EventRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{} ORDER BY e.created_at DESC LIMIT 15",
         views::EVENT_SELECT
-    ))
+    )))
     .fetch_all(&state.db)
     .await?;
     let start = ts - ts.rem_euclid(3600) - 23 * 3600;
@@ -359,11 +359,13 @@ pub async fn update(
             }
             v = Some(u.trim_end_matches('/').to_owned());
         }
-        sqlx::query(&format!("UPDATE hosts SET {column} = ? WHERE id = ?"))
-            .bind(v)
-            .bind(id)
-            .execute(&state.db)
-            .await?;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "UPDATE hosts SET {column} = ? WHERE id = ?"
+        )))
+        .bind(v)
+        .bind(id)
+        .execute(&state.db)
+        .await?;
     }
     let h = load_host(&state, id).await?;
     let detail = host_detail(&state, &h).await?;
@@ -515,10 +517,10 @@ pub async fn service(
         &h.servicegroups(),
         counts.get(&s.name).copied().unwrap_or(0),
     );
-    let events: Vec<EventRow> = sqlx::query_as(&format!(
+    let events: Vec<EventRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "{} WHERE e.host_id = ? AND e.service = ? ORDER BY e.created_at DESC LIMIT 25",
         views::EVENT_SELECT
-    ))
+    )))
     .bind(id)
     .bind(&name)
     .fetch_all(&state.db)

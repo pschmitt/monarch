@@ -478,10 +478,12 @@ pub fn event_json(e: &EventRow) -> Value {
 }
 
 pub async fn fetch_event(db: &SqlitePool, id: i64) -> Result<Option<EventRow>> {
-    Ok(sqlx::query_as(&format!("{EVENT_SELECT} WHERE e.id = ?"))
-        .bind(id)
-        .fetch_optional(db)
-        .await?)
+    Ok(sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "{EVENT_SELECT} WHERE e.id = ?"
+    )))
+    .bind(id)
+    .fetch_optional(db)
+    .await?)
 }
 
 #[derive(Debug, Clone, FromRow)]

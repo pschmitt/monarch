@@ -68,7 +68,7 @@ pub async fn list(
     sql.push_str(" ORDER BY e.id DESC LIMIT ?");
     binds.push(json!(limit + 1));
 
-    let mut query = sqlx::query_as::<_, EventRow>(&sql);
+    let mut query = sqlx::query_as::<_, EventRow>(sqlx::AssertSqlSafe(sql.as_str()));
     for b in &binds {
         query = match b {
             Value::Number(n) => query.bind(n.as_i64()),

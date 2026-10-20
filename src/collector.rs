@@ -200,12 +200,12 @@ async fn record_sample(
         return Ok(());
     }
     for (table, width) in [("rollup_5m", 300), ("rollup_1h", 3600)] {
-        sqlx::query(&format!(
+        sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {table} (series_id, bucket, sum, count, min, max) VALUES (?, ?, ?, 1, ?, ?)
              ON CONFLICT (series_id, bucket) DO UPDATE SET
                sum = sum + excluded.sum, count = count + 1,
                min = MIN(min, excluded.min), max = MAX(max, excluded.max)"
-        ))
+        )))
         .bind(sid)
         .bind(ts - ts.rem_euclid(width))
         .bind(value)

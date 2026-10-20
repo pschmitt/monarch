@@ -121,7 +121,7 @@ pub async fn get(
 }
 
 async fn user_json(state: &SharedState, id: i64) -> ApiResult<Json<User>> {
-    sqlx::query_as(&format!("{USER_SELECT} WHERE id = ?"))
+    sqlx::query_as(sqlx::AssertSqlSafe(format!("{USER_SELECT} WHERE id = ?")))
         .bind(id)
         .fetch_optional(&state.db)
         .await?
