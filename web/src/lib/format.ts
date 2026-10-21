@@ -155,6 +155,7 @@ export function serviceTone(s: ServiceState): Tone {
       return "bad";
     case "pending":
     case "init":
+    case "unmonitored":
       return "warn";
     default:
       return "muted";

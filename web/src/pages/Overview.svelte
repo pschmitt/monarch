@@ -87,10 +87,11 @@
       <h1 class="mt-1 text-2xl font-semibold tracking-tight text-fg sm:text-[28px]">
         {#if !data}
           Fleet overview
-        {:else if data.services.failed === 0 && hostCounts.offline === 0}
+        {:else if data.services.failed === 0 && data.services.unmonitored === 0 && hostCounts.offline === 0}
           Everything is <span class="text-gradient">running smoothly</span>
         {:else}
-          <span class="text-bad">{data.services.failed + hostCounts.offline}</span> thing{data.services.failed + hostCounts.offline === 1 ? "" : "s"} need{data.services.failed + hostCounts.offline === 1 ? "s" : ""} your attention
+          {@const attention = data.services.failed + data.services.unmonitored + hostCounts.offline}
+          <span class="text-bad">{attention}</span> thing{attention === 1 ? "" : "s"} need{attention === 1 ? "s" : ""} your attention
         {/if}
       </h1>
     </div>
@@ -126,7 +127,7 @@
         </div>
         <div class="mt-2.5"><UsageBar value={healthPct} tone={data.services.failed ? "warn" : "ok"} height={4} /></div>
         <div class="mt-2 flex flex-wrap gap-x-3 text-[11px] text-fg-3">
-          <span>{data.services.unmonitored} unmonitored</span><span>{data.services.pending} pending</span>
+          <span class={data.services.unmonitored > 0 ? "text-warn" : ""}>{data.services.unmonitored} unmonitored</span><span>{data.services.pending} pending</span>
         </div>
       {:else}<Skeleton class="mt-3 h-9 w-24" /><Skeleton class="mt-3 h-3 w-full" />{/if}
     </a>

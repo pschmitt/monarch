@@ -95,7 +95,7 @@
           class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateF === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateF = id as ServiceState | "")}
         >
-          {label}<span class="num text-[10px] {id === 'failed' && counts.failed ? 'text-bad' : 'text-fg-3'}">{counts[id as keyof typeof counts]}</span>
+          {label}<span class="num text-[10px] {id === 'failed' && counts.failed ? 'text-bad' : id === 'unmonitored' && counts.unmonitored ? 'text-warn' : 'text-fg-3'}">{counts[id as keyof typeof counts]}</span>
         </button>
       {/each}
     </div>

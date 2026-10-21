@@ -157,8 +157,8 @@
       </div>
 
       <div class="relative mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {#each [["Services", counts.total, "fg"], ["Healthy", counts.ok, "ok"], ["Failed", counts.failed, "bad"], ["Pending", counts.pending, "warn"], ["Unmonitored", counts.unmonitored, "muted"]] as [label, n, t] (label)}
-          <a href={hostHref(host.id, "services") + (t === "fg" ? "" : `?state=${t === "bad" ? "failed" : t === "warn" ? "pending" : t === "muted" ? "unmonitored" : "ok"}`)} class="{t === 'fg' ? 'col-span-2 sm:col-span-1' : ''} rounded-xl border border-line bg-surface-2/50 px-3.5 py-2.5 transition-colors hover:border-line-strong tone-{t === 'fg' ? 'info' : t}">
+        {#each [["Services", counts.total, "fg"], ["Healthy", counts.ok, "ok"], ["Failed", counts.failed, "bad"], ["Pending", counts.pending, "warn"], ["Unmonitored", counts.unmonitored, "warn"]] as [label, n, t] (label)}
+          <a href={hostHref(host.id, "services") + (t === "fg" ? "" : `?state=${label === "Unmonitored" ? "unmonitored" : t === "bad" ? "failed" : t === "warn" ? "pending" : "ok"}`)} class="{t === 'fg' ? 'col-span-2 sm:col-span-1' : ''} rounded-xl border border-line bg-surface-2/50 px-3.5 py-2.5 transition-colors hover:border-line-strong tone-{t === 'fg' ? 'info' : t}">
             <div class="text-[11px] text-fg-3">{label}</div>
             <div class="num mt-0.5 text-xl font-semibold {t !== 'fg' && (n as number) > 0 ? 'text-tone' : 'text-fg'}">{n}</div>
           </a>

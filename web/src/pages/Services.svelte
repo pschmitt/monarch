@@ -78,7 +78,7 @@
           class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateFilter = id)}
         >
-          {#if id}<StatusDot tone={serviceTone((id === "pending" ? "pending" : id) as ServiceState)} size={6} />{/if}{label}<span class="num text-[10px] text-fg-3">{n}</span>
+          {#if id}<StatusDot tone={serviceTone((id === "pending" ? "pending" : id) as ServiceState)} size={6} />{/if}{label}<span class="num text-[10px] {id === 'unmonitored' && n > 0 ? 'text-warn' : 'text-fg-3'}">{n}</span>
         </button>
       {/each}
     </div>
@@ -100,7 +100,7 @@
             </div>
             <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-fg-3">
               <span class="inline-flex items-center gap-1.5"><StatusDot tone={hostTone(s.host_state)} size={5} />{s.host}</span>
-              <span class={s.state === "failed" ? "text-bad" : ""}>{s.status_text}</span>
+              <span class={s.state === "failed" ? "text-bad" : s.state === "unmonitored" ? "text-warn" : ""}>{s.status_text}</span>
               {#if s.pending_action}<span class="text-warn">{s.pending_action} pending</span>{/if}
             </div>
           </div>
