@@ -85,6 +85,7 @@ export interface HostSummary {
   system: HostSystem;
   sparkline: { cpu: number[]; mem: number[] };
   failing: string[];
+  muted_services: string[];
   muted_until: number | null;
   can_act: boolean;
   source: "push" | "pull";

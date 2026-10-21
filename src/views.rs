@@ -312,6 +312,12 @@ async fn sparkline(db: &SqlitePool, host_id: i64, service: &str, metric: &str) -
 
 pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow]) -> Result<Value> {
     let c = counts(services);
+    let muted_services: Vec<String> = sqlx::query_scalar(
+        "SELECT service FROM check_alerts WHERE host_id = ? AND muted != 0 ORDER BY service",
+    )
+    .bind(h.id)
+    .fetch_all(db)
+    .await?;
     let (cpu, mem) = match system_service_name(services) {
         Some(name) => (
             sparkline(db, h.id, name, "cpu").await?,
@@ -346,6 +352,7 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
         "system": system_json(services),
         "sparkline": {"cpu": cpu, "mem": mem},
         "failing": failing,
+        "muted_services": muted_services,
         "muted_until": h.muted_until,
         "can_act": h.can_act(),
         "source": if h.target_id.is_some() && !h.recently_pushed() { "pull" } else { "push" },

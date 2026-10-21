@@ -2,14 +2,17 @@
   import { onMount } from "svelte";
   import crown from "../../../public/favicon.svg?raw";
   import { faviconPreference } from "../favicon.svelte";
-  import { fleet } from "../state.svelte";
+  import { clock, fleet } from "../state.svelte";
 
   let { authed }: { authed: boolean } = $props();
 
-  // An unreachable host is one issue; its stale service failures aren't counted again.
-  const issues = $derived(Object.values(fleet.hosts).reduce(
-    (total, host) => total + (!host.online || host.state === "offline" ? 1 : Math.max(host.services.failed, host.state === "degraded" ? 1 : 0)), 0,
-  ));
+  // An unreachable host is one issue; don't count alerts silenced at host or check level.
+  const issues = $derived(Object.values(fleet.hosts).reduce((total, host) => {
+    if (host.muted_until && host.muted_until > clock.now) return total;
+    if (!host.online || host.state === "offline") return total + 1;
+    const muted = new Set(host.muted_services);
+    return total + host.failing.filter((service) => !muted.has(service)).length;
+  }, 0));
   const unknown = $derived(!fleet.loaded || fleet.loadError || fleet.status !== "live");
   const label = $derived(unknown ? "Fleet status unavailable" : issues ? `${issues} fleet issue${issues === 1 ? "" : "s"}` : "Fleet healthy");
   let baseImage = $state<HTMLImageElement | null>(null);

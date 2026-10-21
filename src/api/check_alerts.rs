@@ -73,6 +73,13 @@ fn default_json(host_id: i64, service: &str) -> Value {
     })
 }
 
+async fn publish_host(state: &SharedState, host_id: i64) -> anyhow::Result<()> {
+    if let Some(host) = crate::views::host_summary_by_id(&state.db, host_id).await? {
+        state.publish(json!({"type": "host", "host": host}));
+    }
+    Ok(())
+}
+
 #[derive(FromRow)]
 struct ListRow {
     host_id: i64,
@@ -170,6 +177,7 @@ pub async fn put(
             .bind(&service)
             .execute(&state.db)
             .await?;
+        publish_host(&state, host_id).await?;
         return Ok(Json(default_json(host_id, &service)));
     }
     sqlx::query(
@@ -198,6 +206,7 @@ pub async fn put(
     .bind(now())
     .execute(&state.db)
     .await?;
+    publish_host(&state, host_id).await?;
     let a = fetch(&state, host_id, &service)
         .await?
         .ok_or_else(|| ApiError::not_found("check alert"))?;
@@ -215,5 +224,6 @@ pub async fn delete(
         .bind(&service)
         .execute(&state.db)
         .await?;
+    publish_host(&state, host_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

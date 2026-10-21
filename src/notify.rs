@@ -178,17 +178,8 @@ pub fn route<'a>(channels: &'a [ChannelRow], e: &EventRow) -> Vec<&'a ChannelRow
 }
 
 async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
-    if let Some(host_id) = e.host_id {
-        let muted: Option<(Option<i64>,)> =
-            sqlx::query_as("SELECT muted_until FROM hosts WHERE id = ?")
-                .bind(host_id)
-                .fetch_optional(&state.db)
-                .await?;
-        if let Some((Some(until),)) = muted
-            && until > now()
-        {
-            return Ok(());
-        }
+    if is_silenced(state, e).await? {
+        return Ok(());
     }
     let kind = crate::monit::model::event_kind(e.event_type);
     // Settings of this very check beat the generic ones.
@@ -198,9 +189,6 @@ async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
         }
         _ => None,
     };
-    if check.as_ref().is_some_and(|c| c.muted != 0) {
-        return Ok(());
-    }
     let kind_enabled = match check.as_ref().and_then(|c| c.events()) {
         Some(kinds) => kinds.iter().any(|k| k == kind),
         None => !state
@@ -233,6 +221,24 @@ async fn dispatch_inner(state: &SharedState, e: &EventRow) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Check current silence settings so events queued before a mute aren't delivered afterward.
+async fn is_silenced(state: &SharedState, e: &EventRow) -> Result<bool> {
+    let Some(host_id) = e.host_id else {
+        return Ok(false);
+    };
+    let row: Option<(Option<i64>, i64)> = sqlx::query_as(
+        "SELECT h.muted_until, COALESCE(a.muted, 0)
+         FROM hosts h
+         LEFT JOIN check_alerts a ON a.host_id = h.id AND a.service = ?
+         WHERE h.id = ?",
+    )
+    .bind(e.service.as_deref())
+    .bind(host_id)
+    .fetch_optional(&state.db)
+    .await?;
+    Ok(row.is_some_and(|(until, muted)| until.is_some_and(|t| t > now()) || muted != 0))
 }
 
 /// Send a notification and record the outcome on the channel.
@@ -275,12 +281,21 @@ fn enqueue(state: &SharedState, c: &ChannelRow, e: &EventRow, window: Duration) 
 }
 
 async fn flush_channel(state: &SharedState, id: i64) -> Result<()> {
-    let events = state
+    let queued = state
         .pending
         .lock()
         .unwrap()
         .remove(&id)
         .unwrap_or_default();
+    if queued.is_empty() {
+        return Ok(());
+    }
+    let mut events = Vec::with_capacity(queued.len());
+    for event in queued {
+        if !is_silenced(state, &event).await? {
+            events.push(event);
+        }
+    }
     if events.is_empty() {
         return Ok(());
     }

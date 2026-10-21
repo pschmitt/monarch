@@ -448,6 +448,7 @@ function buildFleet(): MockHost[] {
       },
       sparkline: { cpu: spark(spec.load, spec.load * 0.4 + 2, spec.name + "c"), mem: spark(spec.mem, 1.5, spec.name + "m") },
       failing,
+      muted_services: [],
       muted_until: null,
       can_act: spec.name !== "rofl-14",
       source: PULL[spec.name] ? "pull" : "push",

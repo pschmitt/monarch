@@ -83,6 +83,7 @@ interface HostSummary {
   };
   sparkline: { cpu: number[]; mem: number[] }; // last ~60 raw samples, oldest first
   failing: string[];           // names of failed services
+  muted_services: string[];    // checks whose notifications are muted
   muted_until: number | null;
   can_act: boolean;            // true when we know how to reach the monit httpd
 }
