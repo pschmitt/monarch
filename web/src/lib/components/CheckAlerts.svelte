@@ -81,8 +81,8 @@
 
       <label class="flex items-center justify-between gap-4 text-[13px] text-fg-2">
         <span>
-          Mute this check
-          <span class="block text-[11px] text-fg-3">No notifications at all. Events are still recorded.</span>
+          Mute this check forever
+          <span class="block text-[11px] text-fg-3">No notifications are sent until you unmute it. Events are still recorded.</span>
         </span>
         <Switch bind:checked={muted} label="Mute this check" />
       </label>

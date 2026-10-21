@@ -8,7 +8,7 @@
 
   // An unreachable host is one issue; don't count alerts silenced at host or check level.
   const issues = $derived(Object.values(fleet.hosts).reduce((total, host) => {
-    if (host.muted_until && host.muted_until > clock.now) return total;
+    if (host.muted_until === "forever" || (typeof host.muted_until === "number" && host.muted_until > clock.now)) return total;
     if (!host.online || host.state === "offline") return total + 1;
     const muted = new Set(host.muted_services);
     return total + host.failing.filter((service) => !muted.has(service)).length;

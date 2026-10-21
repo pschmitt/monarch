@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BellOff, Clock } from "@lucide/svelte";
+  import { BellOff, Clock, EyeOff } from "@lucide/svelte";
   import type { HostSummary } from "../types";
   import { ago, duration, hostName, hostStateLabel, hostTone, kb, osLabel, pct } from "../format";
   import { clock } from "../state.svelte";
@@ -10,7 +10,7 @@
 
   let { host }: { host: HostSummary } = $props();
   const tone = $derived(hostTone(host.state));
-  const muted = $derived(!!host.muted_until && host.muted_until > clock.now);
+  const muted = $derived(host.muted_until === "forever" || (typeof host.muted_until === "number" && host.muted_until > clock.now));
 </script>
 
 <a
@@ -29,6 +29,9 @@
         {#if muted}<BellOff size={13} class="text-fg-3" />{/if}
       </div>
       <div class="mt-1 truncate text-xs text-fg-3">{osLabel(host.os)}</div>
+      {#if host.services.unmonitored > 0}
+        <span class="tone-warn mt-1.5 inline-flex items-center gap-1 rounded-md bg-tone-soft px-1.5 py-0.5 text-[10px] font-medium text-tone"><EyeOff size={11} />{host.services.unmonitored} unmonitored</span>
+      {/if}
     </div>
     <span class="text-[11px] font-medium text-tone">{hostStateLabel[host.state]}</span>
   </div>

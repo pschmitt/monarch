@@ -17,7 +17,8 @@
   let override_username = $state(initial.override_username ?? "");
   let override_password = $state("");
   let tls_skip_verify = $state(initial.tls_skip_verify);
-  let muted_until = $state(toLocalInput(initial.muted_until));
+  let muted_forever = $state(initial.muted_until === "forever");
+  let muted_until = $state(toLocalInput(typeof initial.muted_until === "number" ? initial.muted_until : null));
   let saving = $state(false);
   let testing = $state(false);
   let test = $state<{ ok: boolean; message: string; latency_ms: number | null } | null>(null);
@@ -29,7 +30,7 @@
       const patch: Record<string, unknown> = {
         display_name,
         description,
-        muted_until: muted_until ? Math.floor(new Date(muted_until).getTime() / 1000) : null,
+        muted_until: muted_forever ? "forever" : muted_until ? Math.floor(new Date(muted_until).getTime() / 1000) : null,
       };
       // Pulled hosts are reached through their connection; overrides only apply to push hosts.
       if (host.source !== "pull") {
@@ -48,7 +49,14 @@
   }
 
   async function mute(hours: number) {
+    muted_forever = false;
     muted_until = toLocalInput(Date.now() / 1000 + hours * 3600);
+    await save();
+  }
+
+  async function muteForever() {
+    muted_forever = true;
+    muted_until = "";
     await save();
   }
 
@@ -186,21 +194,27 @@
         <BellOff size={15} class="text-fg-3" />
         <h3 class="card-title">Mute notifications</h3>
       </div>
-      <p class="text-xs text-fg-3">Events are still recorded, but no notifications are sent until the given time.</p>
+      <p class="text-xs text-fg-3">Events are still recorded. Choose a duration or mute forever until you unmute this host.</p>
       <div class="flex flex-wrap gap-2">
         {#each [[1, "1 hour"], [8, "8 hours"], [24, "1 day"], [168, "1 week"]] as [h, label] (h)}
           <button type="button" class="btn btn-sm" onclick={() => mute(h as number)}>{label}</button>
         {/each}
+        <button type="button" class="btn btn-sm" onclick={muteForever}>Forever</button>
       </div>
       <div>
         <label class="label" for="mu">Muted until</label>
-        <input id="mu" type="datetime-local" class="input num" bind:value={muted_until} />
+        {#if muted_forever}
+          <div id="mu" class="input num text-fg-2" aria-live="polite">Forever · until manually unmuted</div>
+        {:else}
+          <input id="mu" type="datetime-local" class="input num" bind:value={muted_until} oninput={() => (muted_forever = false)} />
+        {/if}
       </div>
-      {#if muted_until}
+      {#if muted_until || muted_forever}
         <button
           type="button"
           class="btn btn-sm btn-ghost"
           onclick={() => {
+            muted_forever = false;
             muted_until = "";
             save();
           }}>Unmute now</button

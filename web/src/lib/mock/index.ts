@@ -827,6 +827,9 @@ export function createMock(): MockTransport {
       failing: svcs
         .filter((x) => x.s.state === "failed")
         .map((x) => ({ host_id: x.h.id, host: x.h.hostname, service: x.s.name, type: x.s.type, status_text: x.s.status_text, since: x.s.state_since })),
+      unmonitored: svcs
+        .filter((x) => x.s.state === "unmonitored")
+        .map((x) => ({ host_id: x.h.id, host: x.h.hostname, service: x.s.name, type: x.s.type, status_text: x.s.status_text, since: x.s.state_since })),
       top_cpu: [...procs]
         .sort((a, b) => b.s.data.cpu.percent - a.s.data.cpu.percent)
         .slice(0, 8)

@@ -110,6 +110,7 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
     let (mut online, mut offline, mut degraded) = (0, 0, 0);
     let (mut total, mut ok, mut failed, mut unmonitored, mut pending) = (0, 0, 0, 0, 0);
     let mut failing = Vec::new();
+    let mut unmonitored_services = Vec::new();
     let mut procs = Vec::new();
     let mut fss = Vec::new();
     for (h, services) in &hosts {
@@ -140,6 +141,18 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
                     }),
                 ));
             }
+            if s.state == "unmonitored" {
+                unmonitored_services.push((
+                    h.name().to_lowercase(),
+                    s.name.to_lowercase(),
+                    json!({
+                        "host_id": h.id, "host": h.name(), "service": s.name,
+                        "type": model::service_type_name(s.type_id),
+                        "status_text": model::status_text(s.type_id, s.status, s.monitor, s.pending_action),
+                        "since": s.state_since,
+                    }),
+                ));
+            }
             match s.type_id {
                 3 if data["pid"].as_i64().unwrap_or(0) > 0 => procs.push(json!({
                     "host_id": h.id, "host": h.name(), "service": s.name,
@@ -156,6 +169,7 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
         }
     }
     failing.sort_by_key(|(since, _)| since.unwrap_or(i64::MAX));
+    unmonitored_services.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
     let mut top_cpu = procs.clone();
     top_cpu.sort_by(|a, b| desc(f(&a["cpu"]), f(&b["cpu"])));
     top_cpu.truncate(8);
@@ -203,6 +217,7 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
         "services": {"total": total, "ok": ok, "failed": failed, "unmonitored": unmonitored, "pending": pending},
         "events_24h": events_24h,
         "failing": failing.into_iter().map(|(_, v)| v).collect::<Vec<_>>(),
+        "unmonitored": unmonitored_services.into_iter().map(|(_, _, v)| v).collect::<Vec<_>>(),
         "top_cpu": top_cpu,
         "top_mem": top_mem,
         "filesystems": fss,
@@ -357,13 +372,15 @@ pub async fn update(
                 continue;
             }
             "muted_until" => {
-                let v =
-                    match value {
-                        Value::Null => None,
-                        v => Some(v.as_i64().ok_or_else(|| {
-                            ApiError::bad_request("muted_until must be a timestamp")
-                        })?),
-                    };
+                let v = match value {
+                    Value::Null => None,
+                    Value::String(s) if s == "forever" => Some(i64::MAX),
+                    v => Some(v.as_i64().ok_or_else(|| {
+                        ApiError::bad_request(
+                            "muted_until must be a timestamp, \"forever\", or null",
+                        )
+                    })?),
+                };
                 sqlx::query("UPDATE hosts SET muted_until = ? WHERE id = ?")
                     .bind(v)
                     .bind(id)

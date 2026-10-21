@@ -330,6 +330,10 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
         .filter(|s| s.state == "failed")
         .map(|s| s.name.as_str())
         .collect();
+    let muted_until = match h.muted_until {
+        Some(i64::MAX) => json!("forever"),
+        until => json!(until),
+    };
     Ok(json!({
         "id": h.id,
         "monit_id": h.monit_id,
@@ -353,7 +357,7 @@ pub async fn host_summary(db: &SqlitePool, h: &HostRow, services: &[ServiceRow])
         "sparkline": {"cpu": cpu, "mem": mem},
         "failing": failing,
         "muted_services": muted_services,
-        "muted_until": h.muted_until,
+        "muted_until": muted_until,
         "can_act": h.can_act(),
         "source": if h.target_id.is_some() && !h.recently_pushed() { "pull" } else { "push" },
         "target_id": h.target_id,

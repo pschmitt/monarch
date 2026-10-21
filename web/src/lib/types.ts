@@ -86,7 +86,7 @@ export interface HostSummary {
   sparkline: { cpu: number[]; mem: number[] };
   failing: string[];
   muted_services: string[];
-  muted_until: number | null;
+  muted_until: number | "forever" | null;
   can_act: boolean;
   source: "push" | "pull";
   target_id: number | null;
@@ -229,6 +229,7 @@ export interface Overview {
   services: ServiceCounts;
   events_24h: number;
   failing: ServiceRef[];
+  unmonitored: ServiceRef[];
   top_cpu: ProcessRef[];
   top_mem: ProcessRef[];
   filesystems: FilesystemRef[];

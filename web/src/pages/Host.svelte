@@ -79,7 +79,7 @@
   });
   const hstate = $derived(live?.state ?? host?.state ?? "ok");
   const lastSeen = $derived(live?.last_seen ?? host?.last_seen ?? 0);
-  const muted = $derived(!!host?.muted_until && host.muted_until > clock.now);
+  const muted = $derived(host?.muted_until === "forever" || (typeof host?.muted_until === "number" && host.muted_until > clock.now));
 
   $effect(() => {
     if (host) document.title = `${hostName(host)} · Monarch`;
@@ -118,7 +118,10 @@
             <StatusDot tone={hostTone(hstate)} pulse={hstate !== "ok"} size={10} />
             <h1 class="truncate text-2xl font-semibold tracking-tight text-fg sm:text-[28px]">{hostName(host)}</h1>
             <Badge tone={hostTone(hstate)}>{hostStateLabel[hstate]}</Badge>
-            {#if muted}<Badge tone="muted"><BellOff size={12} /> muted until {datetime(host.muted_until)}</Badge>{/if}
+            {#if muted}
+              {#if host.muted_until === "forever"}<Badge tone="muted"><BellOff size={12} /> muted forever</Badge>
+              {:else if typeof host.muted_until === "number"}<Badge tone="muted"><BellOff size={12} /> muted until {datetime(host.muted_until)}</Badge>{/if}
+            {/if}
             {#if host.source === "pull"}
               <a
                 href={can("admin") ? "/settings/hosts" : undefined}

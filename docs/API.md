@@ -37,6 +37,7 @@ interface Overview {
   services: { total: number; ok: number; failed: number; unmonitored: number; pending: number };
   events_24h: number;               // number of events in the last 24h
   failing: ServiceRef[];            // all currently failed services, worst first
+  unmonitored: ServiceRef[];        // services whose Monit checks are disabled
   top_cpu: ProcessRef[];            // top 8 processes by cpu percent (fleet-wide)
   top_mem: ProcessRef[];            // top 8 processes by memory kB
   filesystems: FilesystemRef[];     // top 8 filesystems by space percent
@@ -84,7 +85,7 @@ interface HostSummary {
   sparkline: { cpu: number[]; mem: number[] }; // last ~60 raw samples, oldest first
   failing: string[];           // names of failed services
   muted_services: string[];    // checks whose notifications are muted
-  muted_until: number | null;
+  muted_until: number | "forever" | null;
   can_act: boolean;            // true when we know how to reach the monit httpd
 }
 ```
@@ -124,7 +125,7 @@ interface HostDetail extends HostSummary {
 
 `PATCH /api/hosts/:id` (admin) body (all optional):
 `{"display_name","description","override_url","override_username","override_password","tls_skip_verify","muted_until"}`
-→ `HostDetail`. Empty string clears a field. `muted_until: null` unmutes.
+→ `HostDetail`. Empty string clears a field. `muted_until: null` unmutes; `"forever"` silences notifications until manually unmuted.
 
 `DELETE /api/hosts/:id` (admin) → `204`.
 
@@ -327,7 +328,7 @@ other enabled channel's filter claims. `filter.events: null` means all kinds, `[
 `filter.group_minutes` overrides the global `settings.group_minutes` (default 10; 0 = send at once):
 events for a channel are collected for that long and sent as one message.
 
-Per-check overrides (beat the generic settings; admin to change):
+Per-check overrides (beat the generic settings; admin to change). Setting `muted: true` silences that check until it is manually unmuted:
 `GET /api/checks/alerts` lists them, `GET|PUT|DELETE /api/hosts/:id/services/:name/alerts`
 with `{"muted": bool, "events": string[]|null, "channels": number[]|null}`.
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Activity, ArrowRight, Plus, CircleCheckBig, Cpu, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
+  import { Activity, ArrowRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
   import { ago, compact, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
@@ -197,6 +197,34 @@
                   <div class="num text-right text-[11px] text-fg-3">
                     {#if f.since}failing for<br /><span class="text-fg-2">{ago(f.since, clock.now).replace(" ago", "")}</span>{/if}
                   </div>
+                  <ArrowRight size={15} class="text-fg-3 transition-transform group-hover:translate-x-0.5" />
+                </a>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+
+      {#if data && data.unmonitored.length}
+        <section class="card tone-warn overflow-hidden">
+          <div class="flex items-center justify-between border-b border-line px-5 py-3.5">
+            <div class="flex items-center gap-2.5">
+              <EyeOff size={15} class="text-warn" />
+              <h2 class="card-title">Unmonitored services</h2>
+              <span class="num rounded-md bg-tone-soft px-1.5 text-[11px] font-semibold text-tone">{data.unmonitored.length}</span>
+            </div>
+            <a href="/services?state=unmonitored" class="flex items-center gap-1 text-xs text-fg-3 hover:text-fg">View all <ArrowRight size={13} /></a>
+          </div>
+          <ul class="divide-y divide-[var(--mn-line)]">
+            {#each data.unmonitored as s (`${s.host_id}/${s.service}`)}
+              <li>
+                <a href={serviceHref(s.host_id, s.service)} class="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-hover">
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-tone-soft text-tone"><ServiceIcon type={s.type} size={15} /></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-[13px]"><span class="font-semibold text-fg">{s.service}</span> <span class="text-fg-3">on</span> <span class="text-fg-2">{s.host}</span></div>
+                    <div class="truncate text-xs text-tone">{s.status_text} <span class="text-fg-3">· {serviceTypeLabel[s.type]}</span></div>
+                  </div>
+                  {#if s.since}<span class="num shrink-0 text-xs text-fg-3">{ago(s.since, clock.now).replace(" ago", "")}</span>{/if}
                   <ArrowRight size={15} class="text-fg-3 transition-transform group-hover:translate-x-0.5" />
                 </a>
               </li>
