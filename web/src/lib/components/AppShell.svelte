@@ -20,8 +20,9 @@
   } from "@lucide/svelte";
   import { isMock } from "../api";
   import { router } from "../router.svelte";
-  import { can, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
+  import { can, clock, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import { faviconPreference, setFaviconMode } from "../favicon.svelte";
+  import { activeFailingHostCount, activeFailingServiceCount } from "../silence";
   import ChangePassword from "./ChangePassword.svelte";
   import ApiTokens from "./ApiTokens.svelte";
   import Avatar from "./Avatar.svelte";
@@ -37,8 +38,8 @@
   let tokensOpen = $state(false);
   let pictureOpen = $state(false);
 
-  const failingHosts = $derived(Object.values(fleet.hosts).filter((h) => h.state !== "ok").length);
-  const failingServices = $derived(Object.values(fleet.hosts).reduce((n, h) => n + h.services.failed, 0));
+  const failingHosts = $derived(activeFailingHostCount(Object.values(fleet.hosts), clock.now));
+  const failingServices = $derived(activeFailingServiceCount(Object.values(fleet.hosts), clock.now));
   const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
 
   const nav = $derived([
