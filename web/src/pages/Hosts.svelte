@@ -183,7 +183,7 @@
                 <div class="flex flex-wrap items-center gap-1.5">
                   <Badge tone={hostTone(h.state)} size="sm">{hostStateLabel[h.state]}</Badge>
                   {#if isHostSilenced(h, clock.now)}
-                    <Badge tone="muted" size="sm"><BellOff size={12} />Silenced</Badge>
+                    <span class="inline-flex items-center text-fg-3" title="Silenced" aria-label="Silenced"><BellOff size={13} /></span>
                   {/if}
                 </div>
               </td>
