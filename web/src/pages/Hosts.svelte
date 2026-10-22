@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { ArrowDown, ArrowDownToLine, ArrowUp, LayoutGrid, List, Plus, Search, ServerOff } from "@lucide/svelte";
+  import { ArrowDown, ArrowDownToLine, ArrowUp, BellOff, LayoutGrid, List, Plus, Search, ServerOff } from "@lucide/svelte";
   import type { HostSummary } from "../lib/types";
   import { ago, duration, hostName, hostStateLabel, hostTone, osLabel, pct } from "../lib/format";
   import { fuzzy } from "../lib/fuzzy";
   import { clock, fleet, ui } from "../lib/state.svelte";
+  import { isHostSilenced } from "../lib/silence";
   import { router, hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -178,7 +179,14 @@
                   </div>
                 </a>
               </td>
-              <td><Badge tone={hostTone(h.state)} size="sm">{hostStateLabel[h.state]}</Badge></td>
+              <td>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <Badge tone={hostTone(h.state)} size="sm">{hostStateLabel[h.state]}</Badge>
+                  {#if isHostSilenced(h, clock.now)}
+                    <Badge tone="muted" size="sm"><BellOff size={12} />Silenced</Badge>
+                  {/if}
+                </div>
+              </td>
               <td>
                 <div class="num text-xs">
                   {#if h.services.failed}<span class="font-semibold text-bad">{h.services.failed} failed</span><span class="text-fg-3"> · </span>{/if}
