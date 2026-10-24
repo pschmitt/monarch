@@ -483,10 +483,9 @@
     cursor: default;
     transition: opacity 160ms ease, stroke-width 160ms ease, filter 160ms ease;
   }
-  .health-segment:hover,
   .health-segment.dimmed,
   .health-legend.dimmed {
-    opacity: 0.35;
+    opacity: 0.68;
   }
   .health-legend {
     position: relative;
