@@ -195,9 +195,9 @@
   </div>
 
   <!-- fleet health summary -->
-  <section class="card fleet-health p-5 sm:p-6">
-    <div class="grid items-center gap-5 sm:grid-cols-[144px_minmax(0,1fr)] sm:gap-7">
-      <div class="relative mx-auto h-36 w-36">
+  <section class="card fleet-health p-4 sm:p-5">
+    <div class="grid items-center gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-5">
+      <div class="relative mx-auto h-28 w-28">
         <svg viewBox="0 0 128 128" class="h-full w-full" role="img" aria-label="Host health: {hostCounts.total} total, {hostCounts.offline} offline, {hostCounts.degraded} degraded">
           <circle cx="64" cy="64" r="46" class="health-track" fill="none" stroke-width="13" />
           {#each hostHealthSegments as segment (segment.key)}
@@ -225,7 +225,7 @@
 
       <div class="min-w-0">
         <div class="eyebrow">Fleet health</div>
-        <h2 class="mt-1 text-lg font-semibold tracking-tight text-fg">
+        <h2 class="mt-0.5 text-lg font-semibold tracking-tight text-fg">
           {#if !hostCounts.total}
             Waiting for hosts
           {:else if hostCounts.offline}
@@ -236,9 +236,9 @@
             All hosts are healthy
           {/if}
         </h2>
-        <p class="mt-1 text-xs text-fg-3">Live status across every node reporting to Monarch</p>
+        <p class="mt-0.5 text-xs text-fg-3">Live status across every node reporting to Monarch</p>
 
-        <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div class="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
           {#each hostHealthSegments as segment (segment.key)}
             <button
               type="button"
