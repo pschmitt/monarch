@@ -60,6 +60,27 @@
     };
   });
 
+  const hostHealthSegments = $derived.by(() => {
+    const healthy = Math.max(0, hostCounts.total - hostCounts.degraded - hostCounts.offline);
+    const circumference = 2 * Math.PI * 46;
+    let offset = 0;
+    return [
+      { key: "healthy", label: "Healthy", count: healthy, color: "var(--mn-ok)" },
+      { key: "degraded", label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)" },
+      { key: "offline", label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)" },
+    ].map((segment) => {
+      const length = hostCounts.total ? (segment.count / hostCounts.total) * circumference : 0;
+      const result = {
+        ...segment,
+        dasharray: `${length} ${circumference - length}`,
+        dashoffset: -offset,
+      };
+      offset += length;
+      return result;
+    });
+  });
+  let hoveredHostState = $state<string | null>(null);
+
   const recent = $derived.by((): MonarchEvent[] => {
     const seen = new Set<number>();
     const out: MonarchEvent[] = [];
@@ -172,6 +193,70 @@
       {:else}<Skeleton class="mt-3 h-9 w-20" />{/if}
     </a>
   </div>
+
+  <!-- fleet health summary -->
+  <section class="card fleet-health p-5 sm:p-6">
+    <div class="grid items-center gap-5 sm:grid-cols-[144px_minmax(0,1fr)] sm:gap-7">
+      <div class="relative mx-auto h-36 w-36">
+        <svg viewBox="0 0 128 128" class="h-full w-full" role="img" aria-label="Host health: {hostCounts.total} total, {hostCounts.offline} offline, {hostCounts.degraded} degraded">
+          <circle cx="64" cy="64" r="46" class="health-track" fill="none" stroke-width="13" />
+          {#each hostHealthSegments as segment (segment.key)}
+            <circle
+              cx="64"
+              cy="64"
+              r="46"
+              class="health-segment {hoveredHostState && hoveredHostState !== segment.key ? 'dimmed' : ''}"
+              fill="none"
+              stroke={segment.color}
+              stroke-width="13"
+              stroke-dasharray={segment.dasharray}
+              stroke-dashoffset={segment.dashoffset}
+              transform="rotate(-90 64 64)"
+            >
+              <title>{segment.label}: {segment.count}</title>
+            </circle>
+          {/each}
+        </svg>
+        <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span class="num text-3xl font-semibold leading-none text-fg">{hostCounts.total}</span>
+          <span class="mt-1 text-[10px] font-semibold tracking-[0.16em] text-fg-3">HOSTS</span>
+        </div>
+      </div>
+
+      <div class="min-w-0">
+        <div class="eyebrow">Fleet health</div>
+        <h2 class="mt-1 text-lg font-semibold tracking-tight text-fg">
+          {#if !hostCounts.total}
+            Waiting for hosts
+          {:else if hostCounts.offline}
+            {hostCounts.offline} host{hostCounts.offline === 1 ? " is" : "s are"} offline
+          {:else if hostCounts.degraded}
+            {hostCounts.degraded} host{hostCounts.degraded === 1 ? " needs" : "s need"} attention
+          {:else}
+            All hosts are healthy
+          {/if}
+        </h2>
+        <p class="mt-1 text-xs text-fg-3">Live status across every node reporting to Monarch</p>
+
+        <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {#each hostHealthSegments as segment (segment.key)}
+            <button
+              type="button"
+              class="health-legend {hoveredHostState && hoveredHostState !== segment.key ? 'dimmed' : ''}"
+              onmouseenter={() => (hoveredHostState = segment.key)}
+              onmouseleave={() => (hoveredHostState = null)}
+              onfocus={() => (hoveredHostState = segment.key)}
+              onblur={() => (hoveredHostState = null)}
+            >
+              <span class="health-dot" style="--health-color:{segment.color}"></span>
+              <span class="text-xs text-fg-2">{segment.label}</span>
+              <strong class="num text-xs text-fg">{segment.count}</strong>
+            </button>
+          {/each}
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
     <div class="min-w-0 space-y-6">
@@ -371,6 +456,51 @@
 </div>
 
 <style>
+  .fleet-health {
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+  }
+  .fleet-health:hover {
+    border-color: var(--mn-line-strong);
+    box-shadow: 0 2px 0 rgb(255 255 255 / 0.04) inset, 0 24px 44px -26px rgb(0 0 0 / 0.8);
+  }
+  .health-track {
+    stroke: var(--mn-line-strong);
+  }
+  .health-segment {
+    cursor: default;
+    transition: opacity 160ms ease, stroke-width 160ms ease, filter 160ms ease;
+  }
+  .health-segment:hover,
+  .health-segment.dimmed,
+  .health-legend.dimmed {
+    opacity: 0.35;
+  }
+  .health-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: default;
+    border-radius: 0.625rem;
+    font: inherit;
+    padding: 0.35rem 0.5rem;
+    text-align: left;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
+  .health-legend:hover,
+  .health-legend:focus-visible {
+    background: var(--mn-surface-hover);
+  }
+  .health-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 9999px;
+    background: var(--health-color);
+    box-shadow: 0 0 10px color-mix(in oklab, var(--health-color) 55%, transparent);
+  }
   .kpi::before {
     content: "";
     position: absolute;
