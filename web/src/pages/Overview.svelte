@@ -65,9 +65,9 @@
     const circumference = 2 * Math.PI * 46;
     let offset = 0;
     return [
-      { key: "healthy", label: "Healthy", count: healthy, color: "var(--mn-ok)" },
-      { key: "degraded", label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)" },
-      { key: "offline", label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)" },
+      { key: "healthy", label: "Healthy", count: healthy, color: "var(--mn-ok)", hosts: hosts.filter((host) => host.state === "ok") },
+      { key: "degraded", label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)", hosts: hosts.filter((host) => host.state === "degraded") },
+      { key: "offline", label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)", hosts: hosts.filter((host) => host.state === "offline") },
     ].map((segment) => {
       const length = hostCounts.total ? (segment.count / hostCounts.total) * circumference : 0;
       const result = {
@@ -213,7 +213,7 @@
               stroke-dashoffset={segment.dashoffset}
               transform="rotate(-90 64 64)"
             >
-              <title>{segment.label}: {segment.count}</title>
+              <title>{segment.label}: {segment.count}{segment.hosts.length ? `\n${segment.hosts.map((host) => host.hostname).join("\n")}` : ""}</title>
             </circle>
           {/each}
         </svg>
@@ -243,6 +243,7 @@
             <button
               type="button"
               class="health-legend {hoveredHostState && hoveredHostState !== segment.key ? 'dimmed' : ''}"
+              aria-label="{segment.label}: {segment.count} hosts"
               onmouseenter={() => (hoveredHostState = segment.key)}
               onmouseleave={() => (hoveredHostState = null)}
               onfocus={() => (hoveredHostState = segment.key)}
@@ -251,6 +252,18 @@
               <span class="health-dot" style="--health-color:{segment.color}"></span>
               <span class="text-xs text-fg-2">{segment.label}</span>
               <strong class="num text-xs text-fg">{segment.count}</strong>
+              <span class="health-tooltip" role="tooltip">
+                <span class="health-tooltip-title">{segment.label} hosts</span>
+                {#if segment.hosts.length}
+                  <span class="health-tooltip-list">
+                    {#each segment.hosts as host (host.id)}
+                      <span>{host.hostname}</span>
+                    {/each}
+                  </span>
+                {:else}
+                  <span class="health-tooltip-empty">No hosts</span>
+                {/if}
+              </span>
             </button>
           {/each}
         </div>
@@ -476,6 +489,8 @@
     opacity: 0.35;
   }
   .health-legend {
+    position: relative;
+    z-index: 0;
     display: flex;
     align-items: center;
     gap: 0.375rem;
@@ -492,6 +507,60 @@
   .health-legend:hover,
   .health-legend:focus-visible {
     background: var(--mn-surface-hover);
+    z-index: 2;
+  }
+  .health-tooltip {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 0.45rem);
+    left: 0;
+    display: grid;
+    width: max-content;
+    min-width: 9rem;
+    max-width: min(18rem, 80vw);
+    gap: 0.45rem;
+    border: 1px solid var(--mn-line-strong);
+    border-radius: 0.75rem;
+    background: var(--mn-surface);
+    padding: 0.65rem 0.75rem;
+    box-shadow: 0 12px 28px rgb(0 0 0 / 0.35);
+    color: var(--mn-fg);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-3px);
+    transition: opacity 140ms ease, transform 140ms ease;
+    visibility: hidden;
+  }
+  .health-legend:hover .health-tooltip,
+  .health-legend:focus-visible .health-tooltip {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+  .health-tooltip-title {
+    color: var(--mn-fg-2);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .health-tooltip-list {
+    display: grid;
+    max-height: 12rem;
+    gap: 0.25rem;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+  .health-tooltip-empty {
+    color: var(--mn-fg-3);
+    font-size: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .health-legend:last-child .health-tooltip {
+      right: 0;
+      left: auto;
+    }
   }
   .health-dot {
     width: 0.5rem;
