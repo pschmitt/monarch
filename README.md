@@ -1,5 +1,7 @@
 <p align="center"><img src="docs/logo.svg" alt="Monarch" width="320"></p>
 
+[![nixbot](https://nixbot.brkn.lol/repos/github/pschmitt/monarch/badge.svg?branch=main)](https://nixbot.brkn.lol/repos/github/pschmitt/monarch)
+
 <p align="center">
   <a href="https://github.com/pschmitt/monarch/actions/workflows/ci.yml"><img src="https://github.com/pschmitt/monarch/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
