@@ -1,4 +1,8 @@
-{ lib, buildNpmPackage }:
+{
+  lib,
+  buildNpmPackage,
+  importNpmLock,
+}:
 buildNpmPackage {
   pname = "monarch-web";
   version = "0.1.0";
@@ -12,7 +16,8 @@ buildNpmPackage {
       ]
     );
   };
-  npmDepsHash = "sha256-ltBuhNELUO6m0xGuq8XnnfC9ZLnRZBVRVyNO5RWcykM=";
+  npmDeps = importNpmLock { npmRoot = ../web; };
+  npmConfigHook = importNpmLock.npmConfigHook;
   installPhase = ''
     runHook preInstall
     cp -r dist $out
