@@ -17,7 +17,7 @@ buildNpmPackage {
     );
   };
   npmDeps = importNpmLock { npmRoot = ../web; };
-  npmConfigHook = importNpmLock.npmConfigHook;
+  inherit (importNpmLock) npmConfigHook;
   installPhase = ''
     runHook preInstall
     cp -r dist $out
