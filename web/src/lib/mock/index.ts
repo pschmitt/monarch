@@ -75,19 +75,19 @@ const PROCS_COMMON = ["monit", "sshd", "tailscaled", "systemd-journald", "nscd",
 
 const SPECS: HostSpec[] = [
   {
-    name: "rofl-10",
+    name: "web-01",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.9",
     cpus: 8,
     memGb: 32,
-    groups: ["rofl", "docker"],
-    extraProcs: ["dockerd", "containerd", "nginx", "postgresql", "redis", "hermes-agent", "signal-cli", "vaultwarden", "immich-server", "n8n", "paperless", "jellyfin", "authelia", "sonarr", "radarr", "prowlarr"],
+    groups: ["prod", "docker"],
+    extraProcs: ["dockerd", "containerd", "nginx", "postgresql", "redis", "vaultwarden", "immich-server", "n8n", "paperless", "jellyfin", "authelia", "sonarr", "radarr", "prowlarr"],
     failing: {
       "systemd services": {
         text: "Status failed",
         exit: 1,
-        output: "🚨 Failed systemd services detected:\nrbw-auto-sync.service",
+        output: "🚨 Failed systemd services detected:\nbackup-sync.service",
       },
     },
     unmonitored: ["jellyfin"],
@@ -95,81 +95,81 @@ const SPECS: HostSpec[] = [
     mem: 38,
   },
   {
-    name: "rofl-11",
+    name: "git-01",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.9",
     cpus: 4,
     memGb: 16,
-    groups: ["rofl"],
+    groups: ["prod"],
     extraProcs: ["nginx", "dockerd", "containerd", "gitea", "postgresql"],
     load: 3,
     mem: 11,
   },
   {
-    name: "rofl-12",
+    name: "iot-01",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.9",
     cpus: 4,
     memGb: 16,
-    groups: ["rofl", "docker"],
+    groups: ["prod", "docker"],
     extraProcs: ["dockerd", "containerd", "nginx", "home-assistant-proxy", "mosquitto"],
     pending: ["mosquitto"],
     load: 6,
     mem: 49,
   },
   {
-    name: "rofl-13",
+    name: "build-01",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.9",
     cpus: 32,
     memGb: 64,
-    groups: ["rofl", "builders"],
+    groups: ["prod", "builders"],
     extraProcs: ["nix-daemon", "dockerd", "containerd", "browserless", "attic"],
     load: 22,
     mem: 9,
   },
   {
-    name: "rofl-14",
+    name: "build-02",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.8",
     cpus: 32,
     memGb: 64,
-    groups: ["rofl", "builders"],
+    groups: ["prod", "builders"],
     extraProcs: ["nix-daemon", "dockerd", "browserless"],
     offline: true,
     load: 4,
     mem: 18,
   },
   {
-    name: "oci-01",
+    name: "edge-01",
     arch: "aarch64",
     os: "Linux",
     release: "7.2.9",
     cpus: 2,
     memGb: 12,
-    groups: ["oci", "edge"],
+    groups: ["cloud", "edge"],
     extraProcs: ["nginx", "dockerd", "containerd", "adguard", "wireguard"],
     load: 3,
     mem: 10,
   },
   {
-    name: "oci-03",
+    name: "edge-02",
     arch: "aarch64",
     os: "Linux",
     release: "7.2.9",
     cpus: 4,
     memGb: 24,
-    groups: ["oci"],
+    groups: ["cloud"],
     extraProcs: ["nginx", "mmonit", "restic-rest-server", "postgresql"],
     load: 6,
     mem: 43,
   },
   {
-    name: "fnuc",
+    name: "hv-01",
     arch: "x86_64",
     os: "Linux",
     release: "7.2.8",
@@ -189,7 +189,7 @@ const SPECS: HostSpec[] = [
     mem: 75,
   },
   {
-    name: "turris",
+    name: "gw-01",
     arch: "armv7l",
     os: "Linux",
     release: "5.15.148",
@@ -206,7 +206,7 @@ const SPECS: HostSpec[] = [
 ];
 
 // Hosts polled by Monarch (pull mode): hostname -> target id.
-const PULL: Record<string, number> = { turris: 1, "rofl-14": 2 };
+const PULL: Record<string, number> = { "gw-01": 1, "build-02": 2 };
 
 interface MockHost {
   summary: HostSummary;
@@ -264,7 +264,7 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
     load: [r2((spec.load / 100) * spec.cpus * 1.1, 2), r2((spec.load / 100) * spec.cpus, 2), r2((spec.load / 100) * spec.cpus * 0.9, 2)],
     cpu: { user: r2(cpuUser), system: r2(cpuSys), nice: 0, wait: r2(cpuWait), hardirq: 0.1, softirq: 0.3, steal: 0, guest: 0, guestnice: 0, total: r2(spec.load) },
     memory: { percent: spec.mem, kb: Math.round((memTotal * spec.mem) / 100) },
-    swap: { percent: spec.name === "fnuc" ? 12.4 : 0, kb: spec.name === "fnuc" ? 1_048_576 : 0 },
+    swap: { percent: spec.name === "hv-01" ? 12.4 : 0, kb: spec.name === "hv-01" ? 1_048_576 : 0 },
     fd: { allocated: Math.floor(4000 + rand() * 20000), unused: 0, maximum: 9223372036854775807 },
   });
 
@@ -299,7 +299,7 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
                 : p === "postgresql"
                   ? [{ hostname: "127.0.0.1", port: 5432, protocol: "PGSQL", type: "TCP", request: null, response_ms: r2(0.3 + rand(), 3), cert_valid_days: null }]
                   : p === "adguard"
-                    ? [{ hostname: "10.5.0.5", port: 15353, protocol: "DNS", type: "UDP", request: null, response_ms: 5.322, cert_valid_days: null }]
+                    ? [{ hostname: "10.0.0.53", port: 15353, protocol: "DNS", type: "UDP", request: null, response_ms: 5.322, cert_valid_days: null }]
                     : [],
             unix: p === "monit" ? [] : [],
           },
@@ -319,17 +319,17 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
     exit_status: spec.failing?.["reboot required"] ? 1 : 0,
     output: spec.failing?.["reboot required"]?.output ?? "Reboot not required",
   }, ["nixos"]);
-  if (spec.name.startsWith("rofl") || spec.name.startsWith("oci")) {
+  if (spec.name.startsWith("web") || spec.name.startsWith("edge")) {
     add("restic backup", "program", { started: t - 3600 * 7, exit_status: 0, output: "snapshot 3f1c9a2e saved\nAdded to the repository: 182.442 MiB (61.007 MiB stored)\nprocessed 48213 files, 21.390 GiB in 2:41" }, ["backup"]);
   }
 
   // filesystems
   const fss: [string, string, number, number][] = [
-    ["rootfs", "btrfs", 256 * 1024, spec.name === "fnuc" ? 81.4 : 30 + rand() * 40],
+    ["rootfs", "btrfs", 256 * 1024, spec.name === "hv-01" ? 81.4 : 30 + rand() * 40],
     ["boot", "vfat", 1024, 40 + rand() * 45],
   ];
-  if (spec.name === "rofl-10" || spec.name === "rofl-13") fss.push(["data", "xfs", 4 * 1024 * 1024, spec.name === "rofl-10" ? 92.7 : 58.2]);
-  if (spec.name === "turris") fss.splice(0, fss.length, ["rootfs", "btrfs", 7400, 46.3], ["msata-ssd", "xfs", 238_000, 2.2]);
+  if (spec.name === "web-01" || spec.name === "build-01") fss.push(["data", "xfs", 4 * 1024 * 1024, spec.name === "web-01" ? 92.7 : 58.2]);
+  if (spec.name === "gw-01") fss.splice(0, fss.length, ["rootfs", "btrfs", 7400, 46.3], ["msata-ssd", "xfs", 238_000, 2.2]);
   for (const [name, fstype, totalMb, percent] of fss) {
     add(name, "filesystem", {
       fstype,
@@ -346,7 +346,7 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
 
   // net
   add("main-nic", "net", {
-    link: { state: 1, speed: spec.name === "turris" ? 1_000_000_000 : 10_000_000_000, duplex: 1 },
+    link: { state: 1, speed: spec.name === "gw-01" ? 1_000_000_000 : 10_000_000_000, duplex: 1 },
     download: { packets: Math.round(rand() * 4000), bytes: Math.round(rand() * 4_000_000), errors: 0, packets_total: 6871178852, bytes_total: 5788824451893, errors_total: 0 },
     upload: { packets: Math.round(rand() * 3000), bytes: Math.round(rand() * 2_400_000), errors: 0, packets_total: 5861952232, bytes_total: 4786511961365, errors_total: 0 },
   }, ["network"]);
@@ -360,7 +360,7 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
   add("tailscale-magicdns", "host", { icmp: [{ type: "Ping", response_ms: r2(0.4 + rand(), 3) }], ports: [], unix: [] }, ["network"]);
   add(`${spec.name}-https`, "host", {
     icmp: [],
-    ports: [{ hostname: `${spec.name}.brkn.lol`, port: 443, protocol: "HTTP", type: "TCP", request: "/healthz", response_ms: r2(20 + rand() * 70, 3), cert_valid_days: Math.floor(20 + rand() * 60) }],
+    ports: [{ hostname: `${spec.name}.example.com`, port: 443, protocol: "HTTP", type: "TCP", request: "/healthz", response_ms: r2(20 + rand() * 70, 3), cert_valid_days: Math.floor(20 + rand() * 60) }],
     unix: [],
   }, ["web"]);
   add("monit.service", "host", { icmp: [], ports: [{ hostname: "127.0.0.1", port: 2812, protocol: "HTTP", type: "TCP", request: "/", response_ms: 4.9, cert_valid_days: null }], unix: [] }, ["monit"]);
@@ -368,7 +368,7 @@ function makeServices(spec: HostSpec, hostId: number, t: number): Service[] {
   // files / dirs / fifo
   add("/etc/passwd", "file", { mode: "644", uid: 0, gid: 0, size: 2861, hardlinks: 1, timestamps: { access: t - 400, change: t - 86400 * 3, modify: t - 86400 * 3 }, checksum: { type: "SHA1", value: "8f2c1d6b0e4a9b3c7d5e1f0a2b4c6d8e0f1a3b5c" } }, ["security"]);
   add("/var/lib/acme", "directory", { mode: "750", uid: 0, gid: 0, size: null, hardlinks: 12, timestamps: { access: t - 900, change: t - 86400 * 9, modify: t - 86400 * 9 }, checksum: null }, ["security"]);
-  if (spec.name === "fnuc") add("/run/hass.fifo", "fifo", { mode: "600", uid: 0, gid: 0, hardlinks: 1, timestamps: { access: t - 100, change: t - 86400, modify: t - 100 } });
+  if (spec.name === "hv-01") add("/run/hass.fifo", "fifo", { mode: "600", uid: 0, gid: 0, hardlinks: 1, timestamps: { access: t - 100, change: t - 86400, modify: t - 100 } });
 
   return out;
 }
@@ -420,7 +420,7 @@ function buildFleet(): MockHost[] {
       monit_id: hash(spec.name).toString(16).padStart(8, "0").repeat(4),
       hostname: spec.name,
       display_name: null,
-      description: spec.name === "fnuc" ? "Home hypervisor — runs the Home Assistant VM" : null,
+      description: spec.name === "hv-01" ? "Home hypervisor — runs the Home Assistant VM" : null,
       state,
       online: !spec.offline,
       last_seen: spec.offline ? t - 3600 * 5 - 120 : t - rand() * 40,
@@ -431,7 +431,7 @@ function buildFleet(): MockHost[] {
       os: { name: spec.os, release: spec.release, version: "#1-NixOS SMP PREEMPT_DYNAMIC Sat Oct  3 10:43:16 UTC 2026", machine: spec.arch },
       cpu_count: spec.cpus,
       mem_total_kb: spec.memGb * 1024 * 1024,
-      swap_total_kb: spec.name === "fnuc" ? 8 * 1024 * 1024 : 0,
+      swap_total_kb: spec.name === "hv-01" ? 8 * 1024 * 1024 : 0,
       hostgroups: spec.groups,
       services: c,
       system: {
@@ -450,7 +450,7 @@ function buildFleet(): MockHost[] {
       failing,
       muted_services: [],
       muted_until: null,
-      can_act: spec.name !== "rofl-14",
+      can_act: spec.name !== "build-02",
       source: PULL[spec.name] ? "pull" : "push",
       target_id: PULL[spec.name] ?? null,
     };
@@ -461,14 +461,14 @@ function buildFleet(): MockHost[] {
       controlfile: "/etc/monitrc",
       incarnation: Math.floor(t - 3600 * 9.6),
       startdelay: 0,
-      httpd: { address: spec.name === "turris" ? null : `100.64.0.${10 + i}`, port: 2812, ssl: false, unixsocket: null },
+      httpd: { address: spec.name === "gw-01" ? null : `100.64.0.${10 + i}`, port: 2812, ssl: false, unixsocket: null },
       remote_addr: `100.64.0.${10 + i}`,
-      monit_url: spec.name === "turris" ? null : `http://100.64.0.${10 + i}:2812`,
-      monit_url_source: spec.name === "turris" ? null : "reported",
+      monit_url: spec.name === "gw-01" ? null : `http://100.64.0.${10 + i}:2812`,
+      monit_url_source: spec.name === "gw-01" ? null : "reported",
       override_url: null,
       override_username: null,
       has_override_password: false,
-      has_reported_credentials: spec.name !== "turris",
+      has_reported_credentials: spec.name !== "gw-01",
       tls_skip_verify: true,
       servicegroups: groups,
       services,
@@ -512,8 +512,8 @@ function buildEvents(fleet: MockHost[]): MonarchEvent[] {
             : "status succeeded (0)"
           : kind === "connection"
             ? state === "failed"
-              ? `failed protocol test [HTTP] at [${h.hostname}.brkn.lol]:443 [TCP/IP TLS] -- HTTP error: Server returned status 502`
-              : `connection succeeded to [${h.hostname}.brkn.lol]:443 [TCP/IP TLS]`
+              ? `failed protocol test [HTTP] at [${h.hostname}.example.com]:443 [TCP/IP TLS] -- HTTP error: Server returned status 502`
+              : `connection succeeded to [${h.hostname}.example.com]:443 [TCP/IP TLS]`
             : kind === "resource"
               ? state === "failed"
                 ? `cpu usage of ${r2(80 + rand() * 19)}% matches resource limit [cpu usage > 80.0%]`
@@ -540,7 +540,7 @@ function buildEvents(fleet: MockHost[]): MonarchEvent[] {
       message: msg,
       created_at: t - i * (60 + rand() * 900) - rand() * 60,
       source: kind === "heartbeat" ? "monarch" : "monit",
-      acked_by: rand() < 0.3 ? "pschmitt" : null,
+      acked_by: rand() < 0.3 ? "alex" : null,
       acked_at: null,
     });
   }
@@ -695,7 +695,7 @@ export function createMock(): MockTransport {
   const fleet = buildFleet();
   let events = buildEvents(fleet);
   let users: User[] = [
-    { id: 1, username: "pschmitt", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false, email: null, avatar: null },
+    { id: 1, username: "alex", role: "admin", created_at: now() - 86400 * 400, last_login: now() - 120, auth_source: "local", sso: false, email: null, avatar: null },
     { id: 2, username: "anika", role: "operator", created_at: now() - 86400 * 120, last_login: now() - 86400 * 2, auth_source: "oidc", sso: true, email: null, avatar: null },
     { id: 3, username: "homeassistant", role: "viewer", created_at: now() - 86400 * 90, last_login: now() - 60, auth_source: "local", sso: false, email: null, avatar: null },
     { id: 4, username: "monit", role: "collector", created_at: now() - 86400 * 400, last_login: null, auth_source: "local", sso: false, email: null, avatar: null },
@@ -706,7 +706,7 @@ export function createMock(): MockTransport {
       name: "Signal via ntfy",
       kind: "ntfy",
       enabled: true, default: false,
-      config: { url: "https://ntfy.brkn.lol/monarch", token: "********" },
+      config: { url: "https://ntfy.example.com/monarch", token: "********" },
       filter: { hosts: null, services: null, states: ["failed", "succeeded"], include_heartbeat: true, events: null, group_minutes: null },
       last_status: "ok",
       last_sent_at: now() - 3600,
@@ -717,8 +717,8 @@ export function createMock(): MockTransport {
       name: "Ops mailbox",
       kind: "email",
       enabled: false, default: false,
-      config: { smtp_url: "********", from: "monarch@brkn.lol", to: "ops@brkn.lol" },
-      filter: { hosts: "^(rofl|oci)-", services: null, states: ["failed"], include_heartbeat: true, events: null, group_minutes: null },
+      config: { smtp_url: "********", from: "monarch@example.com", to: "ops@example.com" },
+      filter: { hosts: "^(web|edge)-", services: null, states: ["failed"], include_heartbeat: true, events: null, group_minutes: null },
       last_status: null,
       last_sent_at: null,
       created_at: now() - 86400 * 12,
@@ -728,7 +728,7 @@ export function createMock(): MockTransport {
       name: "n8n webhook",
       kind: "webhook",
       enabled: true, default: false,
-      config: { url: "https://n8n.brkn.lol/webhook/monarch", method: "POST", headers: "X-Token: ********" },
+      config: { url: "https://n8n.example.com/webhook/monarch", method: "POST", headers: "X-Token: ********" },
       filter: { hosts: null, services: "backup|reboot", states: ["failed", "succeeded", "changed"], include_heartbeat: false, events: null, group_minutes: null },
       last_status: "HTTP 500: workflow inactive",
       last_sent_at: now() - 86400,
@@ -739,23 +739,23 @@ export function createMock(): MockTransport {
   let targets: Target[] = [
     {
       id: 1,
-      name: "turris",
+      name: "gw-01",
       url: "http://127.0.0.1:2812",
       username: "admin",
       has_password: true,
-      ssh: { destination: "root@turris.lan", port: 22 },
+      ssh: { destination: "root@gw-01.example.lan", port: 22 },
       interval: 30,
       tls_skip_verify: true,
       enabled: true,
       managed: true,
-      host_id: hostIdOf("turris"),
+      host_id: hostIdOf("gw-01"),
       last_status: "ok",
       last_polled_at: now() - 12,
       created_at: now() - 86400 * 60,
     },
     {
       id: 2,
-      name: "rofl-14",
+      name: "build-02",
       url: "https://100.64.0.14:2812",
       username: "monarch",
       has_password: true,
@@ -764,7 +764,7 @@ export function createMock(): MockTransport {
       tls_skip_verify: true,
       enabled: true,
       managed: false,
-      host_id: hostIdOf("rofl-14"),
+      host_id: hostIdOf("build-02"),
       last_status: "dial tcp 100.64.0.14:2812: connect: no route to host",
       last_polled_at: now() - 41,
       created_at: now() - 86400 * 20,
@@ -780,7 +780,7 @@ export function createMock(): MockTransport {
   };
 
   let settings: Settings = {
-    public_url: "https://monarch.brkn.lol",
+    public_url: "https://monarch.example.com",
     retention: { raw_hours: 48, rollup_5m_days: 30, rollup_1h_days: 400, events_days: 90 },
     heartbeat_grace: 3,
     disabled_events: [] as string[],
@@ -790,7 +790,7 @@ export function createMock(): MockTransport {
     gravatar: true,
     host_deduplication: "auto",
     host_deduplication_delay_minutes: 60,
-    collector_url: "https://monarch.brkn.lol/collector",
+    collector_url: "https://monarch.example.com/collector",
   };
   let me: User | null = users[0];
   const setupRequired = new URLSearchParams(location.search).has("setup");

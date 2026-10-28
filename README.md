@@ -1,9 +1,8 @@
 <p align="center"><img src="docs/logo.svg" alt="Monarch" width="320"></p>
 
-[![nixbot](https://nixbot.brkn.lol/repos/github/pschmitt/monarch/badge.svg?branch=main)](https://nixbot.brkn.lol/repos/github/pschmitt/monarch)
-
 <p align="center">
   <a href="https://github.com/pschmitt/monarch/actions/workflows/ci.yml"><img src="https://github.com/pschmitt/monarch/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://nixbot.brkn.lol/repos/github/pschmitt/monarch"><img src="https://nixbot.brkn.lol/repos/github/pschmitt/monarch/badge.svg?branch=main" alt="nixbot"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
 </p>
 
@@ -16,6 +15,11 @@ Monarch is a drop-in, GPL-licensed alternative to M/Monit: point your Monit
 agents at it and get a fast, beautiful overview of your whole fleet, with
 history charts, events, notifications and remote service control. No license
 keys, no host limits.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
+  <img src="docs/screenshots/overview-light.png" alt="Monarch overview: fleet health, failing services and recent events">
+</picture>
 
 - **Speaks Monit's native protocol**: agents report via `set mmonit …/collector`, so no agent changes are needed
 - **Or pulls**: add hosts from the UI (or declaratively) and Monarch polls their Monit HTTP interface,
