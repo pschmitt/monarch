@@ -6,6 +6,7 @@
     LayoutDashboard,
     LogOut,
     Moon,
+    Palette,
     PanelLeft,
     Plus,
     Search,
@@ -17,7 +18,7 @@
   import { fuzzy } from "../fuzzy";
   import { hostName, hostTone, serviceTone } from "../format";
   import { router, hostHref, serviceHref } from "../router.svelte";
-  import { can, fleet, hostList, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
+  import { can, fleet, hostList, setThemeStyle, theme, themeStyles, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import type { Service } from "../types";
   import ServiceIcon from "./ServiceIcon.svelte";
   import StatusDot from "./StatusDot.svelte";
@@ -82,9 +83,14 @@
       { id: "p:hosts", group: "Pages", label: "Hosts", icon: Server, run: nav("/hosts") },
       { id: "p:events", group: "Pages", label: "Events", icon: Activity, run: nav("/events") },
     ];
+    base.push(
+      { id: "p:settings", group: "Pages", label: "Settings", icon: Settings, run: nav("/settings") },
+      { id: "p:profile", group: "Pages", label: "Settings › Profile", icon: Settings, run: nav("/settings/profile") },
+      { id: "p:tokens", group: "Pages", label: "Settings › API tokens", icon: Settings, run: nav("/settings/tokens") },
+      { id: "p:appearance", group: "Pages", label: "Settings › Appearance", hint: "theme, mode, favicon", icon: Settings, run: nav("/settings/appearance") },
+    );
     if (can("admin")) {
       base.push(
-        { id: "p:settings", group: "Pages", label: "Settings", icon: Settings, run: nav("/settings") },
         { id: "p:users", group: "Pages", label: "Settings › Users", icon: Settings, run: nav("/settings/users") },
         { id: "p:notify", group: "Pages", label: "Settings › Notifications", icon: Settings, run: nav("/settings/notifications") },
         { id: "p:collector", group: "Pages", label: "Settings › Collector", icon: Settings, run: nav("/settings/collector") },
@@ -93,7 +99,10 @@
     }
     const actions: Item[] = [
       { id: "a:addhost", group: "Actions", label: "Add host", hint: "push snippet or pull connection", icon: Plus, run: () => (ui.addHost = true) },
-      { id: "a:theme", group: "Actions", label: theme.value === "dark" ? "Switch to light theme" : "Switch to dark theme", icon: theme.value === "dark" ? Sun : Moon, run: toggleTheme },
+      { id: "a:theme", group: "Actions", label: theme.value === "dark" ? "Switch to light mode" : "Switch to dark mode", icon: theme.value === "dark" ? Sun : Moon, run: toggleTheme },
+      ...themeStyles
+        .filter((st) => st.id !== theme.style)
+        .map((st): Item => ({ id: `a:style:${st.id}`, group: "Actions", label: `Use ${st.label} theme`, icon: Palette, run: () => setThemeStyle(st.id) })),
       { id: "a:sidebar", group: "Actions", label: "Toggle sidebar", icon: PanelLeft, run: toggleSidebar },
       { id: "a:logout", group: "Actions", label: "Sign out", icon: LogOut, run: onlogout },
     ];

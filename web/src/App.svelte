@@ -107,7 +107,7 @@
         {:else if router.route.name === "events"}
           <Events />
         {:else if router.route.name === "settings"}
-          <Settings section={router.route.params.section ?? "general"} />
+          <Settings section={router.route.params.section} />
         {:else if router.route.name === "login" || router.route.name === "setup"}
           <div></div>
         {:else}

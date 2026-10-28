@@ -68,6 +68,65 @@
   color-scheme: only light;
 }
 
+/* "Simple" style, inspired by nixbot: flat, opaque surfaces in the Nix logo
+   blue, no gradients, glows or glass. Combines with the dark/light classes. */
+:root[data-style="simple"] {
+  --mn-bg: #131619;
+  --mn-bg-2: #131619;
+  --mn-surface: #1b2025;
+  --mn-surface-solid: #1b2025;
+  --mn-surface-2: #22282e;
+  --mn-surface-hover: rgb(130 170 255 / 0.06);
+  --mn-line: #2d3338;
+  --mn-line-strong: #3d454c;
+  --mn-fg: #e8e6e3;
+  --mn-fg-2: #c2c5c9;
+  --mn-fg-3: #9aa0a6;
+  --mn-accent: #7ca4e0;
+  --mn-accent-2: #7ca4e0;
+  --mn-accent-fill: #5277c3;
+  --mn-accent-fg: #ffffff;
+  --mn-ok: #81c995;
+  --mn-warn: #fdd663;
+  --mn-bad: #f28b82;
+  --mn-info: #8ab4f8;
+  --mn-muted: #9aa0a6;
+  --mn-glow-1: transparent;
+  --mn-glow-2: transparent;
+  --mn-shadow: none;
+  --mn-chart-grid: rgb(255 255 255 / 0.06);
+  --mn-chart-axis: #9aa0a6;
+  --mn-glass: #1b2025;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
+}
+
+:root.light[data-style="simple"] {
+  --mn-bg: #fcfcfb;
+  --mn-bg-2: #fcfcfb;
+  --mn-surface: #f4f5f7;
+  --mn-surface-solid: #f4f5f7;
+  --mn-surface-2: #eaecef;
+  --mn-surface-hover: rgb(82 119 195 / 0.06);
+  --mn-line: #dde2e8;
+  --mn-line-strong: #c6cdd5;
+  --mn-fg: #24292e;
+  --mn-fg-2: #474e55;
+  --mn-fg-3: #6c757d;
+  --mn-accent: #5277c3;
+  --mn-accent-2: #5277c3;
+  --mn-accent-fill: #5277c3;
+  --mn-ok: #2e7d32;
+  --mn-warn: #e65100;
+  --mn-bad: #c62828;
+  --mn-info: #1565c0;
+  --mn-muted: #6c757d;
+  --mn-chart-grid: rgb(36 41 46 / 0.07);
+  --mn-chart-axis: #6c757d;
+  --mn-glass: #f4f5f7;
+}
+
 @theme inline {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
@@ -379,6 +438,71 @@
   .scroll-fade {
     mask-image: linear-gradient(to bottom, black calc(100% - 24px), transparent);
   }
+
+  /* ---------------------------------------------------- simple style */
+
+  :root[data-style="simple"] {
+    font-family: system-ui, sans-serif;
+    font-feature-settings: normal;
+  }
+  :root[data-style="simple"] body::before {
+    background: var(--mn-bg);
+  }
+  :root[data-style="simple"] .card {
+    border-radius: 8px;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  :root[data-style="simple"] .card-hover:hover {
+    transform: none;
+  }
+  :root[data-style="simple"] .text-gradient {
+    background: none;
+    color: var(--mn-accent);
+  }
+  :root[data-style="simple"] .bg-accent-gradient {
+    background: var(--mn-accent-fill);
+  }
+  :root[data-style="simple"] :is(.btn, .input) {
+    border-radius: 6px;
+  }
+  :root[data-style="simple"] .btn-sm {
+    border-radius: 4px;
+  }
+  :root[data-style="simple"] .btn:active:not(:disabled) {
+    transform: none;
+  }
+  :root[data-style="simple"] .btn-primary {
+    color: var(--mn-accent-fg);
+    background: var(--mn-accent-fill);
+    box-shadow: none;
+  }
+  :root[data-style="simple"] .btn-primary:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--mn-accent-fill) 88%, #000);
+  }
+  :root[data-style="simple"] .btn-danger {
+    background: var(--mn-bad);
+  }
+  :root[data-style="simple"] .btn-danger:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--mn-bad) 88%, #000);
+  }
+  :root[data-style="simple"] .input {
+    background: var(--mn-bg);
+  }
+  :root[data-style="simple"] .kbd {
+    border-bottom-width: 1px;
+    border-radius: 4px;
+  }
+  :root[data-style="simple"] .skeleton {
+    background: var(--mn-surface-2);
+    animation: pulse-soft 1.4s ease-in-out infinite;
+  }
+  :root[data-style="simple"] .kpi::before {
+    display: none;
+  }
+  :root[data-style="simple"] .health-dot {
+    box-shadow: none;
+  }
 }
 
 @layer utilities {
@@ -414,6 +538,17 @@
   }
   .glow-tone {
     box-shadow: 0 0 12px 0 color-mix(in oklab, var(--tone) 60%, transparent);
+  }
+  /* Simple style: drop glass, glows and the purely decorative blobs. */
+  :root[data-style="simple"] :is(.backdrop-blur, .backdrop-blur-sm, .backdrop-blur-xl) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  :root[data-style="simple"] .glow-tone {
+    box-shadow: none;
+  }
+  :root[data-style="simple"] :is(.deco, .blur-xl, .blur-2xl, .blur-3xl) {
+    display: none;
   }
   .animate-in {
     animation: fade-up 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both;

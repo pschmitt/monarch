@@ -30,6 +30,13 @@ setInterval(() => (clock.now = Date.now() / 1000), 1000);
 // ---------------------------------------------------------------- theme
 
 export type Theme = "dark" | "light";
+// The style is independent of the dark/light mode: "simple" (the default) is
+// flat and opaque, "monarch" the glassy look with gradients.
+export type ThemeStyle = "monarch" | "simple";
+export const themeStyles: { id: ThemeStyle; label: string }[] = [
+  { id: "simple", label: "Simple" },
+  { id: "monarch", label: "Monarch" },
+];
 function initialTheme(): Theme {
   try {
     return localStorage.getItem("monarch.theme") === "light" ? "light" : "dark";
@@ -37,18 +44,40 @@ function initialTheme(): Theme {
     return "dark";
   }
 }
-export const theme = $state<{ value: Theme }>({ value: initialTheme() });
-export function setTheme(t: Theme) {
-  theme.value = t;
+function initialStyle(): ThemeStyle {
+  try {
+    return localStorage.getItem("monarch.theme-style") === "monarch" ? "monarch" : "simple";
+  } catch {
+    return "simple";
+  }
+}
+export const theme = $state<{ value: Theme; style: ThemeStyle }>({ value: initialTheme(), style: initialStyle() });
+function applyTheme(update: () => void) {
   const root = document.documentElement;
   root.classList.add("theme-switching");
-  root.classList.remove("dark", "light");
-  root.classList.add(t);
+  update();
   // Re-enable transitions once the new colors have been painted.
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "dark" ? "#07080c" : "#f6f7fb");
+  // Read back the page background so the browser chrome matches every style.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", getComputedStyle(root).getPropertyValue("--mn-bg").trim());
+}
+export function setTheme(t: Theme) {
+  theme.value = t;
+  applyTheme(() => {
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(t);
+  });
   try {
     localStorage.setItem("monarch.theme", t);
+  } catch {
+    /* private mode */
+  }
+}
+export function setThemeStyle(s: ThemeStyle) {
+  theme.style = s;
+  applyTheme(() => (document.documentElement.dataset.style = s));
+  try {
+    localStorage.setItem("monarch.theme-style", s);
   } catch {
     /* private mode */
   }

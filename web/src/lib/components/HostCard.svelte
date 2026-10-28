@@ -18,7 +18,7 @@
   class="card card-hover group relative flex flex-col overflow-hidden p-4 tone-{tone} {host.state === 'offline' ? 'opacity-80' : ''}"
 >
   {#if host.state !== "ok"}
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-px" style="background: linear-gradient(90deg, transparent, var(--tone), transparent)"></div>
+    <div class="deco pointer-events-none absolute inset-x-0 top-0 h-px" style="background: linear-gradient(90deg, transparent, var(--tone), transparent)"></div>
     <div class="pointer-events-none absolute -top-16 left-1/2 h-24 w-2/3 -translate-x-1/2 rounded-full bg-tone opacity-[0.08] blur-2xl"></div>
   {/if}
   <div class="flex items-start justify-between gap-3">

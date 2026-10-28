@@ -213,6 +213,7 @@
   $effect(() => {
     // rebuild on structural changes + theme switch
     void theme.value;
+    void theme.style;
     void series.length;
     void stacked;
     void height;

@@ -49,7 +49,7 @@
 
 <div class="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-10">
   <!-- animated backdrop -->
-  <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+  <div class="deco pointer-events-none absolute inset-0" aria-hidden="true">
     <div class="blob absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full opacity-40 blur-3xl" style="background: radial-gradient(circle, var(--mn-accent), transparent 65%)"></div>
     <div class="blob2 absolute -right-40 -bottom-48 h-[560px] w-[560px] rounded-full opacity-30 blur-3xl" style="background: radial-gradient(circle, var(--mn-accent-2), transparent 65%)"></div>
     <div class="absolute inset-0 grid-bg"></div>

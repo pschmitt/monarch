@@ -4,39 +4,27 @@
     Activity,
     ChevronsLeft,
     ChevronsRight,
-    ImageUp,
     LayoutDashboard,
     ListChecks,
     LogOut,
     Menu as MenuIcon,
     Moon,
-    Pencil,
     Search,
     Server,
     Settings,
-    KeyRound,
     Sun,
     UserRound,
   } from "@lucide/svelte";
   import { isMock } from "../api";
   import { router } from "../router.svelte";
-  import { can, clock, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
-  import { faviconPreference, setFaviconMode } from "../favicon.svelte";
+  import { clock, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import { activeFailingHostCount, activeFailingServiceCount } from "../silence";
-  import ChangePassword from "./ChangePassword.svelte";
-  import ApiTokens from "./ApiTokens.svelte";
   import Avatar from "./Avatar.svelte";
-  import ChangeUsername from "./ChangeUsername.svelte";
   import Logo from "./Logo.svelte";
   import Menu from "./Menu.svelte";
-  import ProfilePicture from "./ProfilePicture.svelte";
   import StatusDot from "./StatusDot.svelte";
 
   let { children, onlogout }: { children: Snippet; onlogout: () => void } = $props();
-  let pwOpen = $state(false);
-  let nameOpen = $state(false);
-  let tokensOpen = $state(false);
-  let pictureOpen = $state(false);
 
   const failingHosts = $derived(activeFailingHostCount(Object.values(fleet.hosts), clock.now));
   const failingServices = $derived(activeFailingServiceCount(Object.values(fleet.hosts), clock.now));
@@ -53,7 +41,7 @@
     },
     { href: "/services", label: "Services", icon: ListChecks, active: router.route.name === "services", badge: failingServices },
     { href: "/events", label: "Events", icon: Activity, active: router.route.name === "events", badge: unseen },
-    ...(can("admin") ? [{ href: "/settings", label: "Settings", icon: Settings, active: router.route.name === "settings", badge: 0 }] : []),
+    { href: "/settings", label: "Settings", icon: Settings, active: router.route.name === "settings", badge: 0 },
   ]);
 
   const liveTone = $derived(fleet.status === "live" ? "ok" : fleet.status === "connecting" ? "warn" : "bad");
@@ -160,23 +148,14 @@
             <StatusDot tone={liveTone} pulse={fleet.status === "live"} size={7} />
             {liveLabel}
           </div>
-          <button class="btn btn-ghost btn-icon" onclick={toggleTheme} aria-label="Toggle theme">
+          <button class="btn btn-ghost btn-icon" onclick={toggleTheme} aria-label="Toggle dark mode">
             {#if theme.value === "dark"}<Sun size={17} />{:else}<Moon size={17} />{/if}
           </button>
           <Menu
             label="User menu"
             items={[
               { label: `Signed in as ${session.me?.user?.username ?? "?"}${session.me?.user?.sso ? " (SSO)" : ""}`, icon: UserRound, disabled: true, onselect: () => {} },
-              ...(session.me?.user?.auth_source === "oidc"
-                ? []
-                : [
-                    ...(session.me?.user?.sso ? [] : [{ label: "Edit profile", icon: Pencil, onselect: () => (nameOpen = true) }]),
-                    { label: "Change password", icon: KeyRound, onselect: () => (pwOpen = true) },
-                  ]),
-              { label: "Profile picture", icon: ImageUp, onselect: () => (pictureOpen = true) },
-              { label: "API tokens", icon: KeyRound, onselect: () => (tokensOpen = true) },
-              ...(can("admin") ? [{ label: "Settings", icon: Settings, onselect: () => router.go("/settings") }] : []),
-              { label: faviconPreference.mode === "count" ? "Favicon: issue count (switch to dots)" : "Favicon: dots (switch to count)", icon: Activity, onselect: () => setFaviconMode(faviconPreference.mode === "count" ? "binary" : "count") },
+              { label: "Account settings", icon: Settings, onselect: () => router.go("/settings/profile") },
               "sep" as const,
               { label: "Sign out", icon: LogOut, danger: true, onselect: onlogout },
             ]}
@@ -194,8 +173,3 @@
     </main>
   </div>
 </div>
-
-<ChangePassword bind:open={pwOpen} />
-<ChangeUsername bind:open={nameOpen} />
-<ApiTokens bind:open={tokensOpen} />
-<ProfilePicture bind:open={pictureOpen} />
