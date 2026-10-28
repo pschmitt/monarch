@@ -15,8 +15,9 @@
   let { section: requested }: { section?: string } = $props();
 
   const admin = $derived(can("admin"));
-  // Accounts signed in through single sign-on have no local password.
-  const localPassword = $derived(session.me?.user?.auth_source !== "oidc");
+  // Accounts with a single sign-on identity manage their credentials at the
+  // IdP, and a password is useless when password login is turned off.
+  const localPassword = $derived(!session.me?.user?.sso && (session.me?.password_login ?? true));
 
   // Account sections are for everyone; the server-wide ones only for admins.
   const groups = $derived([

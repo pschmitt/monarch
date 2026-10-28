@@ -66,7 +66,7 @@
     <div class="max-w-sm">
       <label class="label" for="ac-email">Email</label>
       <input id="ac-email" class="input" type="email" bind:value={email} placeholder="you@example.com" autocomplete="email" disabled={!editable} />
-      <p class="hint">Used for notifications addressed to your role. Leave empty to remove it.</p>
+      <p class="hint">Used for notifications addressed to your role. {editable ? "Leave empty to remove it." : `Comes from ${session.me?.oidc?.name ?? "single sign-on"}.`}</p>
     </div>
     {#if editable}
       <div class="flex justify-end">
