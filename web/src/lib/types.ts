@@ -305,6 +305,8 @@ export interface ServiceListItem {
   type: ServiceType;
   type_id: number;
   state: ServiceState;
+  /** The host is offline, so `state` is from its last report. */
+  stale: boolean;
   status_text: string;
   state_since: number | null;
   pending_action: string | null;
@@ -312,8 +314,8 @@ export interface ServiceListItem {
 
 export interface ServicesResponse {
   services: ServiceListItem[];
-  /** Per state, ignoring the state filter (for tab badges). */
-  counts: Partial<Record<ServiceState, number>>;
+  /** Per state (offline hosts' services under "stale"), ignoring the state filter (for tab badges). */
+  counts: Partial<Record<ServiceState | "stale", number>>;
 }
 
 export interface CheckAlert {

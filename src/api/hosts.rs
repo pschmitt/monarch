@@ -48,7 +48,8 @@ pub async fn services_list(
         "pending" => 1,
         "init" => 2,
         "unmonitored" => 3,
-        _ => 4,
+        "ok" => 4,
+        _ => 5, // stale: services of offline hosts go last
     };
     let mut counts: std::collections::BTreeMap<String, i64> = std::collections::BTreeMap::new();
     let mut rows: Vec<(i64, String, String, Value)> = Vec::new();
@@ -58,6 +59,10 @@ pub async fn services_list(
         }
         let host_name = h.name().to_owned();
         let host_state = views::host_state(&h, &services);
+        // An offline host's services only hold the state of its last report.
+        // They are listed under their own "stale" bucket instead of counting
+        // as failed, pending, unmonitored or ok.
+        let stale = host_state == "offline";
         for s in &services {
             if let Some(n) = &needle
                 && !s.name.to_lowercase().contains(n)
@@ -65,12 +70,13 @@ pub async fn services_list(
             {
                 continue;
             }
-            *counts.entry(s.state.clone()).or_default() += 1;
-            if wanted.is_some_and(|w| w != s.state) {
+            let bucket = if stale { "stale" } else { s.state.as_str() };
+            *counts.entry(bucket.to_owned()).or_default() += 1;
+            if wanted.is_some_and(|w| w != bucket) {
                 continue;
             }
             rows.push((
-                rank(&s.state),
+                rank(bucket),
                 host_name.to_lowercase(),
                 s.name.to_lowercase(),
                 json!({
@@ -81,6 +87,7 @@ pub async fn services_list(
                     "type": model::service_type_name(s.type_id),
                     "type_id": s.type_id,
                     "state": s.state,
+                    "stale": stale,
                     "status_text": model::status_text(s.type_id, s.status, s.monitor, s.pending_action),
                     "state_since": s.state_since,
                     "pending_action": if s.pending_action != 0 { model::action_name(s.pending_action) } else { None },

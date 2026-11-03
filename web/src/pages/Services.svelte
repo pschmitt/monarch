@@ -13,7 +13,7 @@
   let q = $state(q0.get("q") ?? "");
   let stateFilter = $state(q0.get("state") ?? "");
   let services = $state<ServiceListItem[] | null>(null);
-  let counts = $state<Partial<Record<ServiceState, number>>>({});
+  let counts = $state<Partial<Record<ServiceState | "stale", number>>>({});
   let gen = 0;
 
   $effect(() => {
@@ -58,6 +58,8 @@
     ["pending", "Pending", (counts.pending ?? 0) + (counts.init ?? 0)],
     ["unmonitored", "Unmonitored", counts.unmonitored ?? 0],
     ["ok", "Healthy", counts.ok ?? 0],
+    // services of offline hosts; only shown when there are any (or it is selected)
+    ...(counts.stale || stateFilter === "stale" ? [["stale", "Stale", counts.stale ?? 0] as [string, string, number]] : []),
   ]);
 </script>
 
@@ -78,7 +80,7 @@
           class="flex h-8 items-center gap-1.5 rounded-[9px] px-2.5 font-medium transition-colors {stateFilter === id ? 'bg-surface-solid text-fg shadow-sm ring-1 ring-[var(--mn-line-strong)]' : 'text-fg-3 hover:text-fg-2'}"
           onclick={() => (stateFilter = id)}
         >
-          {#if id}<StatusDot tone={serviceTone((id === "pending" ? "pending" : id) as ServiceState)} size={6} />{/if}{label}<span class="num text-[10px] {id === 'unmonitored' && n > 0 ? 'text-warn' : 'text-fg-3'}">{n}</span>
+          {#if id === "stale"}<StatusDot tone="muted" size={6} />{:else if id}<StatusDot tone={serviceTone(id as ServiceState)} size={6} />{/if}{label}<span class="num text-[10px] {id === 'unmonitored' && n > 0 ? 'text-warn' : 'text-fg-3'}">{n}</span>
         </button>
       {/each}
     </div>
@@ -91,16 +93,16 @@
   {:else}
     <div class="card divide-y divide-[var(--mn-line)] overflow-hidden">
       {#each services as s (`${s.host_id}/${s.name}`)}
-        <a class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--mn-surface-hover)] sm:px-5" href={serviceHref(s.host_id, s.name)}>
+        <a class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--mn-surface-hover)] sm:px-5 {s.stale ? 'opacity-60' : ''}" href={serviceHref(s.host_id, s.name)} title={s.stale ? "Host is offline: last reported state" : undefined}>
           <ServiceIcon type={s.type} size={18} />
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <StatusDot tone={serviceTone(s.state)} size={7} pulse={s.state === "failed"} />
+              <StatusDot tone={s.stale ? "muted" : serviceTone(s.state)} size={7} pulse={!s.stale && s.state === "failed"} />
               <span class="truncate font-medium text-fg">{s.name}</span>
             </div>
             <div class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-fg-3">
               <span class="inline-flex items-center gap-1.5"><StatusDot tone={hostTone(s.host_state)} size={5} />{s.host}</span>
-              <span class={s.state === "failed" ? "text-bad" : s.state === "unmonitored" ? "text-warn" : ""}>{s.status_text}</span>
+              {#if s.stale}<span>host offline · last: {s.status_text}</span>{:else}<span class={s.state === "failed" ? "text-bad" : s.state === "unmonitored" ? "text-warn" : ""}>{s.status_text}</span>{/if}
               {#if s.pending_action}<span class="text-warn">{s.pending_action} pending</span>{/if}
             </div>
           </div>
