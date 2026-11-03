@@ -8,6 +8,7 @@ export const ACTIONS: { id: ServiceAction; label: string; danger?: boolean }[] =
   { id: "restart", label: "Restart" },
   { id: "monitor", label: "Monitor" },
   { id: "unmonitor", label: "Unmonitor", danger: true },
+  { id: "remonitor", label: "Remonitor" },
 ];
 
 const verbs: Record<ServiceAction, string> = {
@@ -16,6 +17,7 @@ const verbs: Record<ServiceAction, string> = {
   restart: "Restart",
   monitor: "Enable monitoring for",
   unmonitor: "Disable monitoring for",
+  remonitor: "Reset monitoring for",
 };
 
 /** Ask for confirmation, run a monit action and report the outcome. Returns true on success. */
@@ -23,7 +25,10 @@ export async function runAction(hostId: number, hostLabel: string, services: str
   const what = services.length === 1 ? `“${services[0]}”` : `${services.length} services`;
   const ok = await confirm({
     title: `${verbs[action]} ${what}?`,
-    body: `Monarch will ask Monit on ${hostLabel} to ${action} ${services.length === 1 ? "this service" : "these services"}. The new state shows up with the next report.`,
+    body:
+      action === "remonitor"
+        ? `Monarch will ask Monit on ${hostLabel} to unmonitor and then monitor ${services.length === 1 ? "this service" : "these services"} again, which resets the check. The new state shows up with the next report.`
+        : `Monarch will ask Monit on ${hostLabel} to ${action} ${services.length === 1 ? "this service" : "these services"}. The new state shows up with the next report.`,
     confirm: ACTIONS.find((a) => a.id === action)!.label,
     danger: action === "stop" || action === "unmonitor",
   });

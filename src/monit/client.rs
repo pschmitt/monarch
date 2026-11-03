@@ -218,21 +218,27 @@ fn parse_response(raw: &[u8]) -> Result<Response> {
 /// Run `action` on the given services. Monit protects POSTs with a
 /// double-submit CSRF cookie, so we simply pick a token and send it both as
 /// cookie and form parameter.
+///
+/// `remonitor` is ours, not Monit's: it unmonitors the services and monitors
+/// them again, which resets their failure state and counters.
 pub async fn do_action(t: &Target, services: &[String], action: &str) -> Result<()> {
-    let token = Alphanumeric.sample_string(&mut rand::rng(), 32);
-    let mut form: Vec<(&str, &str)> = vec![("securitytoken", &token), ("action", action)];
-    for s in services {
-        form.push(("service", s));
+    if action != "remonitor" {
+        return check_action(post_action(t, services, action).await?);
     }
-    let body = serde_urlencoded::to_string(&form)?;
-    let res = request(
-        t,
-        "POST",
-        "/_doaction",
-        Some(body),
-        Some(format!("securitytoken={token}")),
-    )
-    .await?;
+    check_action(post_action(t, services, "unmonitor").await?)?;
+    // Monit refuses a new action (503) while the previous one is still
+    // pending, so retry until it has processed the unmonitor.
+    let deadline = Instant::now() + TIMEOUT;
+    loop {
+        let res = post_action(t, services, "monitor").await?;
+        if res.status != 503 || Instant::now() >= deadline {
+            return check_action(res);
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+}
+
+fn check_action(res: Response) -> Result<()> {
     if (200..400).contains(&res.status) {
         return Ok(());
     }
@@ -241,6 +247,23 @@ pub async fn do_action(t: &Target, services: &[String], action: &str) -> Result<
         res.status,
         extract_error(&String::from_utf8_lossy(&res.body))
     )
+}
+
+async fn post_action(t: &Target, services: &[String], action: &str) -> Result<Response> {
+    let token = Alphanumeric.sample_string(&mut rand::rng(), 32);
+    let mut form: Vec<(&str, &str)> = vec![("securitytoken", &token), ("action", action)];
+    for s in services {
+        form.push(("service", s));
+    }
+    let body = serde_urlencoded::to_string(&form)?;
+    request(
+        t,
+        "POST",
+        "/_doaction",
+        Some(body),
+        Some(format!("securitytoken={token}")),
+    )
+    .await
 }
 
 /// Fetch the full status document (same format Monit posts to its collector).

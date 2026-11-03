@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Ellipsis, Eye, EyeOff, Play, RotateCw, Search, SearchX, Square, X } from "@lucide/svelte";
+  import { Ellipsis, Eye, EyeOff, Play, RefreshCcw, RotateCw, Search, SearchX, Square, X } from "@lucide/svelte";
   import type { HostDetail, Service, ServiceAction, ServiceState, ServiceType } from "../../lib/types";
   import { ago, hostName, serviceTone, serviceTypeLabel, serviceTypeOrder } from "../../lib/format";
   import { fuzzy } from "../../lib/fuzzy";
@@ -21,7 +21,7 @@
   let selected = $state<Set<string>>(new Set());
 
   const canAct = $derived(can("operator") && host.can_act);
-  const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff };
+  const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff, remonitor: RefreshCcw };
 
   const filtered = $derived.by(() => {
     let list = host.services;
@@ -68,7 +68,7 @@
       label: a.label,
       icon: icons[a.id],
       danger: a.danger,
-      disabled: (a.id === "monitor" && s.state !== "unmonitored") || (a.id === "unmonitor" && s.state === "unmonitored"),
+      disabled: (a.id === "monitor" && s.state !== "unmonitored") || ((a.id === "unmonitor" || a.id === "remonitor") && s.state === "unmonitored"),
       onselect: () => act([s.name], a.id),
     }));
     return items;

@@ -349,7 +349,7 @@ export type StreamMessage =
   | { type: "target"; target: Target }
   | { type: "ping"; ts: number };
 
-export type ServiceAction = "start" | "stop" | "restart" | "monitor" | "unmonitor";
+export type ServiceAction = "start" | "stop" | "restart" | "monitor" | "unmonitor" | "remonitor";
 
 export interface Target {
   id: number;

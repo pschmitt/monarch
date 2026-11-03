@@ -204,7 +204,8 @@ interface UnixSocket { path: string; protocol: string; response_ms: number | nul
 `GET /api/hosts/:id/services/:name` → `Service & {"host": HostSummary, "recent_events": Event[]}`
 (`:name` is URL-encoded service name).
 
-`POST /api/hosts/:id/services/:name/action` (operator) body `{"action": "start"|"stop"|"restart"|"monitor"|"unmonitor"}`
+`POST /api/hosts/:id/services/:name/action` (operator) body `{"action": "start"|"stop"|"restart"|"monitor"|"unmonitor"|"remonitor"}`
+(`remonitor` unmonitors and then monitors again, resetting the check)
 → `{"ok": true}` or `502 {"error": "..."}`.
 
 `POST /api/hosts/:id/action` (operator) body `{"action": ..., "services": string[]}` → bulk variant.

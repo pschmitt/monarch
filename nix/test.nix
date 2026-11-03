@@ -158,6 +158,15 @@
         "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts/1/services/hello | jq -e '.state == \"unmonitored\"'",
         timeout=30,
     )
+    # remonitor = unmonitor + monitor; it ends with the check monitored again.
+    machine.succeed(
+        "curl -sf -b /tmp/cj -H 'content-type: application/json' -d '{\"action\":\"remonitor\"}' "
+        + "http://127.0.0.1:8080/api/hosts/1/services/hello/action"
+    )
+    machine.wait_until_succeeds(
+        "curl -sf -b /tmp/cj http://127.0.0.1:8080/api/hosts/1/services/hello | jq -e '.state != \"unmonitored\"'",
+        timeout=30,
+    )
 
     # Per-check alert settings override the generic ones and show up in the overview.
     ca = "http://127.0.0.1:8080/api/hosts/1/services/hello/alerts"

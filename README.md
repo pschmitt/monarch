@@ -27,7 +27,7 @@ keys, no host limits.
 - **Live dashboard**: hosts, services and events update in real time (Server-Sent Events)
 - **History**: CPU, memory, load, filesystem, network, process and response-time metrics with automatic
   downsampling (raw → 5 min → 1 h)
-- **Remote control**: start, stop, restart, monitor and unmonitor services through the agent's Monit HTTP interface
+- **Remote control**: start, stop, restart, monitor, unmonitor and remonitor (reset) services through the agent's Monit HTTP interface
 - **Events**: full event log with search, filters and acknowledgements; offline detection when an agent goes silent
 - **Notifications**: webhook, ntfy, Gotify, Slack, Discord, Telegram and e-mail, with per-channel host/service/state filters
 - **Users and roles**: admin, operator, viewer and collector-only accounts, plus **single sign-on via OpenID

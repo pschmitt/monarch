@@ -57,7 +57,14 @@ pub fn action_name(a: i64) -> Option<&'static str> {
         .and_then(|i| ACTIONS.get(i).copied())
 }
 
-pub const USER_ACTIONS: [&str; 5] = ["start", "stop", "restart", "monitor", "unmonitor"];
+pub const USER_ACTIONS: [&str; 6] = [
+    "start",
+    "stop",
+    "restart",
+    "monitor",
+    "unmonitor",
+    "remonitor",
+];
 
 /// Monit event bits (`Event_Type` in monit's `event.h`), with the failure
 /// label, the recovery label and a short identifier.

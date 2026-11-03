@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bell, Braces, ChevronRight, Eye, EyeOff, Play, RotateCw, SearchX, Square } from "@lucide/svelte";
+  import { Bell, Braces, ChevronRight, Eye, EyeOff, Play, RefreshCcw, RotateCw, SearchX, Square } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
   import type { ServiceAction, ServiceDetail } from "../lib/types";
   import { ago, datetime, hostName, serviceTone, serviceTypeLabel } from "../lib/format";
@@ -50,7 +50,7 @@
     if (svc) document.title = `${svc.name} · ${hostName(svc.host)} · Monarch`;
   });
 
-  const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff };
+  const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff, remonitor: RefreshCcw };
   const canAct = $derived(!!svc && can("operator") && svc.host.can_act);
   const charts = $derived(svc ? chartsFor(svc) : []);
 
@@ -105,7 +105,7 @@
           {#if canAct}
             {#each ACTIONS as a (a.id)}
               {@const Icon = icons[a.id]}
-              {#if !(a.id === "monitor" && svc.state !== "unmonitored") && !(a.id === "unmonitor" && svc.state === "unmonitored")}
+              {#if !(a.id === "monitor" && svc.state !== "unmonitored") && !((a.id === "unmonitor" || a.id === "remonitor") && svc.state === "unmonitored")}
                 <button class="btn btn-sm {a.danger ? 'hover:text-bad' : ''}" onclick={() => act(a.id)}><Icon size={13} />{a.label}</button>
               {/if}
             {/each}
