@@ -21,6 +21,13 @@
     open = false;
     onclose?.();
   }
+  // Render at <body> level: a transformed ancestor (e.g. the page's
+  // `animate-in` wrapper) would otherwise become the containing block of
+  // `position: fixed` and push the dialog far down long pages.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.remove() };
+  }
   function onkey(e: KeyboardEvent) {
     if (open && e.key === "Escape") {
       e.stopPropagation();
@@ -32,7 +39,7 @@
 <svelte:window onkeydown={onkey} />
 
 {#if open}
-  <div class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="presentation">
+  <div use:portal class="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="presentation">
     <button class="absolute inset-0 cursor-default bg-[var(--mn-scrim)] backdrop-blur-sm" style="animation: fade-up 160ms both" aria-label="Close dialog" onclick={close}></button>
     <div
       role="dialog"
