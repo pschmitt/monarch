@@ -60,14 +60,10 @@ jobs:
         include:
           - system: x86_64-linux
             runner: ubuntu-latest
-          - system: aarch64-linux
-            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
-      # GitHub's hosted ARM64 runner does not expose KVM; run the VM test on x86_64.
       - name: Enable KVM
-        if: matrix.system == 'x86_64-linux'
         run: |
           test -c /dev/kvm
           sudo chmod 0666 /dev/kvm
@@ -78,5 +74,21 @@ jobs:
       - name: Build
         run: nix build -L '.#monarch' '.#monarch-static'
       - name: NixOS VM test
-        if: matrix.system == 'x86_64-linux'
         run: nix build -L '.#checks.${{ matrix.system }}.nixos'
+
+  # aarch64-linux packages and checks, built natively on GitHub's arm runners
+  # (nixbot on x86_64 would have to emulate them) and pushed to the niks3 S3
+  # cache; see pschmitt/ci-workflows. The arm runners have no KVM, so the NixOS
+  # VM test only runs on x86_64 (job nix above).
+  nix-aarch64:
+    permissions:
+      contents: read
+      id-token: write
+    uses: pschmitt/ci-workflows/.github/workflows/nix-aarch64.yaml@main
+    with:
+      exclude-checks: '["nixos"]'
+      pin-prefix: gh-monarch-main
+    secrets:
+      s3_store: ${{ secrets.NIKS3_S3_STORE }}
+      s3_access_key: ${{ secrets.NIKS3_S3_ACCESS_KEY }}
+      s3_secret_key: ${{ secrets.NIKS3_S3_SECRET_KEY }}

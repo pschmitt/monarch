@@ -24,8 +24,10 @@
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
-      # Linux package builds and checks run on the self-hosted nixbot.
-      hydraJobs = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: {
+      # x86_64-linux package builds and checks run on the self-hosted nixbot.
+      # aarch64-linux builds natively on GitHub's arm runners (the nix-aarch64
+      # job of .github/workflows/ci.yml); the build nodes could only emulate it.
+      hydraJobs = nixpkgs.lib.genAttrs [ "x86_64-linux" ] (system: {
         packages = self.packages.${system} or { };
         # Builders have no /dev/kvm; the VM test stays on GitHub Actions.
         checks = builtins.removeAttrs (self.checks.${system} or { }) [ "nixos" ];
