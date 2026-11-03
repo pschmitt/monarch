@@ -805,9 +805,10 @@ export function createMock(): MockTransport {
 
   const overview = (): Overview => {
     const hosts = fleet.map((h) => h.summary);
-    const svcs = fleet.flatMap((h) => h.detail.services.map((s) => ({ s, h: h.detail })));
+    // Like the backend: an offline host's services are stale, leave them out.
+    const svcs = fleet.filter((h) => h.summary.online).flatMap((h) => h.detail.services.map((s) => ({ s, h: h.detail })));
     const c = { total: 0, ok: 0, failed: 0, unmonitored: 0, pending: 0 };
-    for (const h of hosts) for (const k of Object.keys(c) as (keyof typeof c)[]) c[k] += h.services[k];
+    for (const h of hosts.filter((h) => h.online)) for (const k of Object.keys(c) as (keyof typeof c)[]) c[k] += h.services[k];
     const procs = svcs.filter((x) => x.s.type === "process" && x.s.data.cpu);
     const t = now();
     const activity = Array.from({ length: 24 }, (_, i) => {

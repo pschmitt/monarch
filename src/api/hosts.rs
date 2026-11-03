@@ -115,7 +115,13 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
     let mut fss = Vec::new();
     for (h, services) in &hosts {
         match views::host_state(h, services) {
-            "offline" => offline += 1,
+            // An offline host's services only hold the state of its last
+            // report; the host itself is what needs attention, so leave its
+            // stale services out of the counts and lists below.
+            "offline" => {
+                offline += 1;
+                continue;
+            }
             "degraded" => {
                 online += 1;
                 degraded += 1

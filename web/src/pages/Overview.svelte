@@ -2,9 +2,9 @@
   import { Activity, ArrowRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
-  import { ago, compact, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
+  import { ago, compact, hostName, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
   import { clock, fleet, hostList, toastError, ui } from "../lib/state.svelte";
-  import { serviceHref } from "../lib/router.svelte";
+  import { hostHref, serviceHref } from "../lib/router.svelte";
   import Empty from "../lib/components/Empty.svelte";
   import EventRow from "../lib/components/EventRow.svelte";
   import HostCard from "../lib/components/HostCard.svelte";
@@ -47,6 +47,11 @@
       return rank[a.state] - rank[b.state] || a.hostname.localeCompare(b.hostname, undefined, { numeric: true });
     }),
   );
+
+  // Offline hosts head "Needs attention"; their services are left out of the
+  // overview because they only hold the state of the last report.
+  const offlineHosts = $derived(hosts.filter((h) => h.state === "offline").sort((a, b) => a.last_seen - b.last_seen));
+  const attentionCount = $derived((data?.failing.length ?? 0) + offlineHosts.length);
 
   // Live hosts take precedence over the (possibly stale) overview snapshot.
   const hostCounts = $derived.by(() => {
@@ -274,16 +279,29 @@
   <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
     <div class="min-w-0 space-y-6">
       <!-- needs attention -->
-      {#if data && data.failing.length}
+      {#if data && attentionCount}
         <section class="card tone-bad overflow-hidden">
           <div class="flex items-center justify-between border-b border-line px-5 py-3.5">
             <div class="flex items-center gap-2.5">
               <StatusDot tone="bad" pulse />
               <h2 class="card-title">Needs attention</h2>
-              <span class="num rounded-md bg-tone-soft px-1.5 text-[11px] font-semibold text-tone">{data.failing.length}</span>
+              <span class="num rounded-md bg-tone-soft px-1.5 text-[11px] font-semibold text-tone">{attentionCount}</span>
             </div>
           </div>
           <ul class="divide-y divide-[var(--mn-line)]">
+            {#each offlineHosts as h (h.id)}
+              <li>
+                <a href={hostHref(h.id)} class="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-hover">
+                  <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-tone-soft text-tone"><Server size={15} /></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-[13px] font-semibold text-fg">{hostName(h)}</div>
+                    <div class="truncate text-xs text-tone">Offline <span class="text-fg-3">· Host</span></div>
+                  </div>
+                  <div class="num text-right text-[11px] text-fg-3">last seen<br /><span class="text-fg-2">{ago(h.last_seen, clock.now)}</span></div>
+                  <ArrowRight size={15} class="text-fg-3 transition-transform group-hover:translate-x-0.5" />
+                </a>
+              </li>
+            {/each}
             {#each data.failing as f (f.host_id + f.service)}
               <li>
                 <a href={serviceHref(f.host_id, f.service)} class="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-hover">

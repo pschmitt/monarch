@@ -34,11 +34,11 @@ interface User { id: number; username: string; role: Role; created_at: number; l
 ```ts
 interface Overview {
   hosts: { total: number; online: number; offline: number; degraded: number };
-  services: { total: number; ok: number; failed: number; unmonitored: number; pending: number };
+  services: { total: number; ok: number; failed: number; unmonitored: number; pending: number }; // online hosts only
   events_24h: number;               // number of events in the last 24h
-  failing: ServiceRef[];            // all currently failed services, worst first
-  unmonitored: ServiceRef[];        // services whose Monit checks are disabled
-  top_cpu: ProcessRef[];            // top 8 processes by cpu percent (fleet-wide)
+  failing: ServiceRef[];            // failed services of online hosts, longest-failing first
+  unmonitored: ServiceRef[];        // services of online hosts whose Monit checks are disabled
+  top_cpu: ProcessRef[];            // top 8 processes by cpu percent (online hosts)
   top_mem: ProcessRef[];            // top 8 processes by memory kB
   filesystems: FilesystemRef[];     // top 8 filesystems by space percent
   recent_events: Event[];           // latest 15 events
