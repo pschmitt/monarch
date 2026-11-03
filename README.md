@@ -6,246 +6,91 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0"></a>
 </p>
 
-> [!NOTE]
-> **Don't be a dick!** Monarch is an independent, clean-room Rust reimplementation of [M/Monit](https://mmonit.com/), and using Monarch does not require an M/Monit license. Please support Tildeslash, the people behind M/Monit, by [buying an M/Monit license](https://mmonit.com/shop/) if you find their work useful.
+<h1 align="center">Monarch</h1>
 
-**A modern, open source central dashboard for [Monit](https://mmonit.com/monit/) agents.**
-
-Monarch is a drop-in, GPL-licensed alternative to M/Monit: point your Monit
-agents at it and get a fast, beautiful overview of your whole fleet, with
-history charts, events, notifications and remote service control. No license
-keys, no host limits.
+<p align="center">An open source central dashboard for <a href="https://mmonit.com/monit/">Monit</a> agents.</p>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
   <img src="docs/screenshots/overview-light.png" alt="Monarch overview: fleet health, failing services and recent events">
 </picture>
 
-- **Speaks Monit's native protocol**: agents report via `set mmonit …/collector`, so no agent changes are needed
-- **Or pulls**: add hosts from the UI (or declaratively) and Monarch polls their Monit HTTP interface,
-  directly or **tunnelled through SSH**, so `set httpd` can stay bound to localhost
-- **Live dashboard**: hosts, services and events update in real time (Server-Sent Events)
-- **History**: CPU, memory, load, filesystem, network, process and response-time metrics with automatic
-  downsampling (raw → 5 min → 1 h)
-- **Remote control**: start, stop, restart, monitor, unmonitor and remonitor (reset) services through the agent's Monit HTTP interface
-- **Events**: full event log with search, filters and acknowledgements; offline detection when an agent goes silent
-- **Notifications**: webhook, ntfy, Gotify, Slack, Discord, Telegram and e-mail, with per-channel host/service/state filters
-- **Users and roles**: admin, operator, viewer and collector-only accounts, plus **single sign-on via OpenID
-  Connect** (Authelia, Authentik, Keycloak, …) with roles mapped from groups
-- **M/Monit-compatible API subset**: tools written for M/Monit (for example the
-  [Home Assistant M/Monit integration](https://github.com/pschmitt/homeassistant-mmonit)) keep working
-- **A single binary**: Rust (axum + SQLite) with the Svelte UI embedded, and a NixOS module
+> [!NOTE]
+> **Don't be a dick!** Monarch is an independent, clean-room Rust
+> reimplementation of [M/Monit](https://mmonit.com/), and using Monarch does not
+> require an M/Monit license. Please support Tildeslash, the people behind
+> M/Monit, by [buying an M/Monit license](https://mmonit.com/shop/) if you find
+> their work useful.
 
-## Quick start
+Monarch is a GPL-licensed alternative to M/Monit. Point your Monit agents at
+it and get one view of the whole fleet, with history charts, events,
+notifications and remote service control. There are no license keys and no
+host limits.
 
-### Binaries and container image
+## Features
 
-Static Linux binaries (x86_64, aarch64) are attached to each
-[release](https://github.com/pschmitt/monarch/releases), and a multi-arch image
-is published as `ghcr.io/pschmitt/monarch`:
+- **Native Monit protocol**: agents report with `set mmonit …/collector`, so
+  no agent changes are needed. See [Monit agents](docs/agents.md).
+- **Pull mode**: Monarch polls an agent's Monit HTTP interface, directly or
+  through SSH, so `set httpd` can stay bound to localhost. See
+  [pull mode](docs/pull-mode.md).
+- **Live dashboard**: hosts, services and events update in real time over
+  Server-Sent Events, and the [favicon](docs/favicon.md) shows the fleet state.
+- **History**: CPU, memory, load, filesystem, network, process and
+  response-time metrics, downsampled from raw to 5 min to 1 h.
+- **Remote control**: start, stop, restart, monitor, unmonitor and remonitor
+  services through the agent's Monit HTTP interface.
+- **Events**: an event log with search, filters and acknowledgements, plus
+  offline detection when an agent goes silent.
+- **Notifications**: webhook, ntfy, Gotify, Slack, Discord, Telegram and
+  e-mail, with per-channel host, service and state filters.
+- **Users and roles**: admin, operator, viewer and collector-only accounts,
+  and OpenID Connect sign-in with roles mapped from groups. See
+  [single sign-on](docs/oidc.md).
+- **M/Monit-compatible API subset**: tools written for M/Monit, such as the
+  [Home Assistant M/Monit integration](https://github.com/pschmitt/homeassistant-mmonit),
+  keep working.
+- **Single binary**: Rust (axum, SQLite) with the Svelte UI embedded, plus a
+  NixOS module.
+
+## Install
 
 ```sh
 docker run -p 8080:8080 -v monarch:/data ghcr.io/pschmitt/monarch
 ```
 
-### Nix
+Static binaries, `nix run` and the NixOS module are in
+[docs/install.md](docs/install.md).
 
-```sh
-nix run github:pschmitt/monarch -- --help
-MONARCH_LISTEN=0.0.0.0:8080 nix run github:pschmitt/monarch
-```
+## Quick start
 
-Open `http://<host>:8080`; on first visit you are asked to create the admin
-account.
-
-### NixOS
-
-```nix
-{
-  inputs.monarch.url = "github:pschmitt/monarch";
-
-  outputs = { nixpkgs, monarch, ... }: {
-    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-      modules = [
-        monarch.nixosModules.default
-        {
-          services.monarch = {
-            enable = true;
-            settings = {
-              listen = "127.0.0.1:8080";
-              public_url = "https://monarch.example.com";
-            };
-            # optional, otherwise the web UI asks for an admin account on first visit
-            initialAdmin.passwordFile = "/run/secrets/monarch-admin";
-            # declaratively managed accounts, e.g. the one Monit agents report with
-            ensureUsers = [
-              { username = "monit"; role = "collector"; passwordFile = "/run/secrets/monarch-collector"; }
-            ];
-          };
-        }
-      ];
-    };
-  };
-}
-```
-
-### Pointing Monit at Monarch
-
-Add this to each agent's `monitrc`:
+Open `http://<host>:8080` and create the admin account. Then add a `collector`
+account under *Settings → Users* and point each agent's `monitrc` at Monarch:
 
 ```
-set mmonit https://USER:PASSWORD@monarch.example.com/collector
-
-# Optional, but needed for start/stop/restart from the UI. Monit sends these
-# credentials along with each report ("register credentials" is the default).
-set httpd port 2812
+set mmonit https://monit:PASSWORD@monarch.example.com/collector   # report to Monarch
+set httpd port 2812                                                # needed for service actions
   allow monit:changeme
 ```
 
-`USER:PASSWORD` is any Monarch account. A dedicated account with the
-`collector` role (it cannot sign in to the UI) is recommended. Monit supports
-several `set mmonit` lines, so Monarch can run next to an existing M/Monit
-while you try it out.
+Reload Monit (`monit reload`) and the host shows up within one poll cycle.
+[docs/agents.md](docs/agents.md) covers agents behind NAT or a VPN.
 
-For service actions, Monarch connects to the address Monit announces for its
-HTTP interface (or to the address the report came from when Monit listens on
-all interfaces). If that is not reachable (NAT, agents reachable only over a
-VPN such as Tailscale), set an *action URL template* under *Settings → Hosts*,
-e.g. `http://{short_hostname}.tailnet.ts.net:{port}` (placeholders:
-`{hostname}`, `{short_hostname}`, `{scheme}`, `{port}`, `{address}`), or
-pin it with `action_url_template` in the config file. A per-host URL and
-credential override (*Settings → Hosts*, or the host's settings) takes
-precedence over the template.
+## Documentation
 
-### Pull mode (Monarch polls the agent)
-
-*Hosts → Add host → Monarch pulls from agent*, or declaratively:
-
-```nix
-services.monarch = {
-  ssh.privateKeyFile = "/run/secrets/monarch-ssh-key";
-  targets = [
-    {
-      name = "router";
-      url = "http://127.0.0.1:2812";        # as seen from the SSH host
-      username = "monit";
-      passwordFile = "/run/secrets/monit-httpd";
-      ssh.destination = "root@router.lan";
-      interval = 30;
-    }
-  ];
-};
-```
-
-Pulled status documents carry no events, so Monarch derives them from state
-changes between polls. Actions use the same connection.
-
-### Single sign-on (OIDC)
-
-Register a confidential client with the redirect URI
-`https://<public_url>/api/auth/oidc/callback`, then:
-
-```nix
-services.monarch = {
-  oidc.clientSecretFile = "/run/secrets/monarch-oidc-secret";
-  settings.oidc = {
-    issuer = "https://auth.example.com";
-    client_id = "monarch";
-    display_name = "Authelia";
-    admin_groups = [ "admins" ];
-    operator_groups = [ "ops" ];
-    default_role = "viewer";   # or "none" to deny everyone else
-    link_local_users = true;   # first sign-in adopts the local account with the same username
-  };
-  # settings.disable_password_login = true;
-};
-```
-
-## Configuration
-
-Monarch reads an optional TOML file (`--config` / `MONARCH_CONFIG`):
-
-```toml
-listen = "127.0.0.1:8080"
-database = "/var/lib/monarch/monarch.db"
-public_url = "https://monarch.example.com"
-collector_allow_anonymous = false
-# Optional sender filtering. IPs/CIDRs match the request address; hostnames
-# and domains match Monit's reported hostname (domains include subdomains).
-# A non-empty allowlist requires a match; denylist matches always take priority.
-collector_allowlist = [ "10.20.0.0/16", "example.com" ]
-collector_denylist = [ "192.0.2.10", "blocked.example.net" ]
-session_days = 30
-initial_admin_user = "admin"
-initial_admin_password_file = "/run/secrets/monarch-admin"
-
-# created on startup; role and password are reset to these values
-[[ensure_users]]
-username = "monit"
-role = "collector"           # default
-password_file = "/run/secrets/monarch-collector"
-```
-
-Environment overrides: `MONARCH_LISTEN`, `MONARCH_DATABASE`, `MONARCH_PUBLIC_URL`,
-`MONARCH_ACTION_URL_TEMPLATE`, `MONARCH_INITIAL_ADMIN_USER`, `MONARCH_INITIAL_ADMIN_PASSWORD_FILE`, `MONARCH_LOG`
-(tracing filter, default `info`).
-
-Retention, the offline grace period and the public URL can be changed at
-runtime under *Settings*.
-
-User management from the CLI (the password is read from stdin):
-
-```sh
-echo 'hunter22hunter22' | monarch user-add alice --role operator
-echo 'n3w-passw0rd' | monarch passwd alice
-```
-
-### Reverse proxy
-
-On NixOS, `services.monarch.nginx = { enable = true; domain = "monarch.example.com"; };` sets up an ACME-enabled nginx virtual host with the settings below.
-
-Monarch works behind nginx or similar. Forward `X-Forwarded-For` (used to find
-agents' addresses) and `X-Forwarded-Proto` (for secure cookies), and disable
-buffering for `/api/stream`:
-
-```nginx
-location / {
-  proxy_pass http://127.0.0.1:8080;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-  proxy_buffering off;
-}
-```
-
-## API
-
-See [docs/API.md](docs/API.md).
-
-## Development
-
-```sh
-nix develop
-(cd web && npm ci && npm run dev)      # UI on :5173, proxies /api to :8080
-cargo run                              # backend on :8080
-(cd web && VITE_MOCK=1 npm run dev)    # UI with mock data, no backend needed
-cargo test
-nix flake check                        # includes a NixOS VM test with a real Monit agent
-```
+| Topic | |
+| --- | --- |
+| [Install](docs/install.md) | Binaries, container image, Nix and the NixOS module |
+| [Monit agents](docs/agents.md) | `set mmonit`, collector accounts and service action URLs |
+| [Pull mode](docs/pull-mode.md) | Poll agents directly or through SSH |
+| [Configuration](docs/configuration.md) | Config file, environment variables and CLI user management |
+| [Single sign-on](docs/oidc.md) | OpenID Connect and group-to-role mapping |
+| [Reverse proxy](docs/reverse-proxy.md) | nginx settings and the NixOS nginx option |
+| [Fleet status favicon](docs/favicon.md) | What the browser tab icon shows |
+| [API](docs/API.md) | HTTP API used by the web UI |
+| [Development](docs/development.md) | Dev shell, mock UI and tests |
 
 ## License
 
 [GPL-3.0-or-later](LICENSE). Monarch is not affiliated with Tildeslash Ltd.,
 the authors of Monit and M/Monit.
-
-### Fleet status favicon
-
-The browser tab overlays the Monarch crown with a green dot when the fleet is
-healthy, or a red issue count (capped at `99+`). Each offline host counts as one
-issue; online hosts contribute their failed services, with at least one issue
-for a degraded host. An amber `!` means status is unavailable, including initial
-loading, connection loss, or a failed fleet refresh. Signing out restores the
-plain crown.
-
-Use **User menu → Favicon** to switch between the issue count and binary
-red/green dots. This preference is saved in the current browser and is available
-to every dashboard user.
