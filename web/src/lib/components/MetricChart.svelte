@@ -3,7 +3,7 @@
   import { api } from "../api";
   import Chart, { type ChartSeries } from "./Chart.svelte";
   import { rangeSeconds } from "./RangePicker.svelte";
-  import { ChartNoAxesColumn } from "@lucide/svelte";
+  import { Activity, ChartNoAxesColumn, CircleAlert, Cpu, File, Gauge, HardDrive, MemoryStick, Network, Terminal, Timer, Workflow } from "@lucide/svelte";
 
   interface MetricDef {
     key: string;
@@ -80,12 +80,23 @@
   });
 
   const hasData = $derived(!!data && data.x.length > 1 && data.series.some((s) => s.values.some((v) => v !== null)));
+  const metricIcons: Record<string, typeof Cpu> = {
+    cpu: Cpu, cpu_user: Cpu,
+    mem_kb: MemoryStick, mem_percent: MemoryStick,
+    load1: Gauge,
+    space_percent: HardDrive, read_bps: HardDrive,
+    threads: Workflow,
+    rx_bps: Network, rx_pps: Activity, rx_errors: CircleAlert,
+    port_ms: Timer, icmp_ms: Timer,
+    exit_status: Terminal, size: File,
+  };
+  const TitleIcon = $derived(metricIcons[metrics[0]?.key] ?? ChartNoAxesColumn);
 </script>
 
 <div class="card flex min-w-0 flex-col p-4 sm:p-5">
   <div class="mb-3 flex items-start justify-between gap-3">
     <div class="min-w-0">
-      <div class="card-title">{title}</div>
+      <div class="card-title flex items-center gap-2"><TitleIcon size={16} class="shrink-0 text-accent-2" aria-hidden="true" />{title}</div>
       <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         {#each metrics as m (m.key)}
           <span class="flex items-center gap-1.5 text-[11px] text-fg-3">

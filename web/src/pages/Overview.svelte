@@ -2,7 +2,7 @@
   import { Activity, ArrowRight, ChevronRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
-  import { ago, compact, hostName, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
+  import { ago, compact, hostName, kb, mb, pct, serviceTypeLabel, usageTone } from "../lib/format";
   import { clock, fleet, hostList, toastError, ui } from "../lib/state.svelte";
   import { hostHref, serviceHref } from "../lib/router.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -66,25 +66,20 @@
   });
 
   const hostHealthSegments = $derived.by(() => {
-    const healthy = Math.max(0, hostCounts.total - hostCounts.degraded - hostCounts.offline);
-    const circumference = 2 * Math.PI * 46;
+    const total = hostCounts.total;
+    const circumference = 2 * Math.PI * 20;
     let offset = 0;
     return [
-      { key: "healthy", label: "Healthy", count: healthy, color: "var(--mn-ok)", hosts: hosts.filter((host) => host.state === "ok") },
-      { key: "degraded", label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)", hosts: hosts.filter((host) => host.state === "degraded") },
-      { key: "offline", label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)", hosts: hosts.filter((host) => host.state === "offline") },
+      { label: "Healthy", count: Math.max(0, total - hostCounts.degraded - hostCounts.offline), color: "var(--mn-ok)" },
+      { label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)" },
+      { label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)" },
     ].map((segment) => {
-      const length = hostCounts.total ? (segment.count / hostCounts.total) * circumference : 0;
-      const result = {
-        ...segment,
-        dasharray: `${length} ${circumference - length}`,
-        dashoffset: -offset,
-      };
+      const length = total ? segment.count / total * circumference : 0;
+      const result = { ...segment, length, offset };
       offset += length;
       return result;
     });
   });
-  let hoveredHostState = $state<string | null>(null);
 
   const recent = $derived.by((): MonarchEvent[] => {
     const seen = new Set<number>();
@@ -129,7 +124,13 @@
     <a href="/hosts" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Hosts</span>
-        <span class="kpi-icon"><Server size={16} /></span>
+        <svg class="h-11 w-11 shrink-0" viewBox="0 0 48 48" role="img" aria-label="Host health: {hostCounts.total - hostCounts.degraded - hostCounts.offline} healthy, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--mn-line-strong)" stroke-width="5" />
+          {#each hostHealthSegments as segment (segment.label)}
+            <circle cx="24" cy="24" r="20" fill="none" stroke={segment.color} stroke-width="5" stroke-dasharray="{segment.length} {2 * Math.PI * 20 - segment.length}" stroke-dashoffset={-segment.offset} transform="rotate(-90 24 24)"><title>{segment.label}: {segment.count}</title></circle>
+          {/each}
+          <text x="24" y="25" dominant-baseline="middle" text-anchor="middle" fill="var(--mn-fg)" font-size="14" font-weight="600">{hostCounts.total}</text>
+        </svg>
       </div>
       <div class="mt-3 flex items-baseline gap-1.5">
         <span class="num text-2xl font-semibold tracking-tight sm:text-3xl text-fg">{hostCounts.online}</span>
@@ -197,107 +198,6 @@
         </div>
       {:else}<Skeleton class="mt-3 h-9 w-20" />{/if}
     </a>
-  </div>
-
-  <div class="grid items-stretch gap-6 xl:grid-cols-2 xl:gap-x-4">
-  <!-- fleet health summary -->
-  <section class="card fleet-health p-4 sm:p-5">
-    <div class="grid items-center gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-5">
-      <div class="relative mx-auto h-28 w-28">
-        <svg viewBox="0 0 128 128" class="h-full w-full" role="img" aria-label="Host health: {hostCounts.total} total, {hostCounts.offline} offline, {hostCounts.degraded} degraded">
-          <circle cx="64" cy="64" r="46" class="health-track" fill="none" stroke-width="13" />
-          {#each hostHealthSegments as segment (segment.key)}
-            <circle
-              cx="64"
-              cy="64"
-              r="46"
-              class="health-segment {hoveredHostState && hoveredHostState !== segment.key ? 'dimmed' : ''}"
-              fill="none"
-              stroke={segment.color}
-              stroke-width="13"
-              stroke-dasharray={segment.dasharray}
-              stroke-dashoffset={segment.dashoffset}
-              transform="rotate(-90 64 64)"
-            >
-              <title>{segment.label}: {segment.count}{segment.hosts.length ? `\n${segment.hosts.map((host) => host.hostname).join("\n")}` : ""}</title>
-            </circle>
-          {/each}
-        </svg>
-        <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span class="num text-3xl font-semibold leading-none text-fg">{hostCounts.total}</span>
-          <span class="mt-1 text-[10px] font-semibold tracking-[0.16em] text-fg-3">HOSTS</span>
-        </div>
-      </div>
-
-      <div class="min-w-0">
-        <div class="eyebrow">Fleet health</div>
-        <h2 class="mt-0.5 text-lg font-semibold tracking-tight text-fg">
-          {#if !hostCounts.total}
-            Waiting for hosts
-          {:else if hostCounts.offline}
-            {hostCounts.offline} host{hostCounts.offline === 1 ? " is" : "s are"} offline
-          {:else if hostCounts.degraded}
-            {hostCounts.degraded} host{hostCounts.degraded === 1 ? " needs" : "s need"} attention
-          {:else}
-            All hosts are healthy
-          {/if}
-        </h2>
-        <p class="mt-0.5 text-xs text-fg-3">Live status across every node reporting to Monarch</p>
-
-        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-          {#each hostHealthSegments as segment (segment.key)}
-            <button
-              type="button"
-              class="health-legend {hoveredHostState && hoveredHostState !== segment.key ? 'dimmed' : ''}"
-              aria-label="{segment.label}: {segment.count} hosts"
-              onmouseenter={() => (hoveredHostState = segment.key)}
-              onmouseleave={() => (hoveredHostState = null)}
-              onfocus={() => (hoveredHostState = segment.key)}
-              onblur={() => (hoveredHostState = null)}
-            >
-              <span class="health-dot" style="--health-color:{segment.color}"></span>
-              <span class="text-xs text-fg-2">{segment.label}</span>
-              <strong class="num text-xs text-fg">{segment.count}</strong>
-              <span class="health-tooltip" role="tooltip">
-                <span class="health-tooltip-title">{segment.label} hosts</span>
-                {#if segment.hosts.length}
-                  <span class="health-tooltip-list">
-                    {#each segment.hosts as host (host.id)}
-                      <span>{host.hostname}</span>
-                    {/each}
-                  </span>
-                {:else}
-                  <span class="health-tooltip-empty">No hosts</span>
-                {/if}
-              </span>
-            </button>
-          {/each}
-        </div>
-      </div>
-    </div>
-  </section>
-
-      {#if data}
-        <section class="card min-w-0 p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="card-title">Event activity</h2>
-            <span class="text-[11px] text-fg-3">last 24 hours</span>
-          </div>
-          <div class="flex h-28 items-end gap-[3px]">
-            {#each data.activity as a (a.ts)}
-              {@const total = a.ok + a.failed}
-              <div class="group relative flex h-full flex-1 flex-col justify-end" title="{timeShort(a.ts)} — {a.failed} failed, {a.ok} other">
-                <div class="rounded-t-[3px] bg-[color-mix(in_oklab,var(--mn-accent-2)_55%,transparent)] transition-opacity group-hover:opacity-100" style="height:{(a.ok / activityMax) * 100}%"></div>
-                <div class="bg-bad {a.ok ? '' : 'rounded-t-[3px]'}" style="height:{(a.failed / activityMax) * 100}%"></div>
-                {#if total === 0}<div class="h-px bg-[var(--mn-line-strong)]"></div>{/if}
-              </div>
-            {/each}
-          </div>
-          <div class="num mt-2 flex justify-between text-[10px] text-fg-3">
-            <span>{timeShort(data.activity[0]?.ts ?? 0)}</span><span>{timeShort(data.activity[12]?.ts ?? 0)}</span><span>now</span>
-          </div>
-        </section>
-      {/if}
   </div>
 
   <div class="overview-details-grid grid min-h-[240px] gap-6 xl:grid-cols-2 xl:gap-x-4">
@@ -501,104 +401,6 @@
 <style>
   .fleet-disclosure > summary { list-style: none; }
   .fleet-disclosure > summary::-webkit-details-marker { display: none; }
-  .fleet-health {
-    transition: border-color 180ms ease, box-shadow 180ms ease;
-  }
-  .fleet-health:hover {
-    border-color: var(--mn-line-strong);
-    box-shadow: 0 2px 0 rgb(255 255 255 / 0.04) inset, 0 24px 44px -26px rgb(0 0 0 / 0.8);
-  }
-  .health-track {
-    stroke: var(--mn-line-strong);
-  }
-  .health-segment {
-    cursor: default;
-    transition: opacity 160ms ease, stroke-width 160ms ease, filter 160ms ease;
-  }
-  .health-segment.dimmed,
-  .health-legend.dimmed {
-    opacity: 0.68;
-  }
-  .health-legend {
-    position: relative;
-    z-index: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    cursor: default;
-    border-radius: 0.625rem;
-    font: inherit;
-    padding: 0.35rem 0.5rem;
-    text-align: left;
-    transition: background-color 150ms ease, opacity 150ms ease;
-  }
-  .health-legend:hover,
-  .health-legend:focus-visible {
-    background: var(--mn-surface-hover);
-    z-index: 2;
-  }
-  .health-tooltip {
-    position: absolute;
-    z-index: 5;
-    top: calc(100% + 0.45rem);
-    left: 0;
-    display: grid;
-    width: max-content;
-    min-width: 9rem;
-    max-width: min(18rem, 80vw);
-    gap: 0.45rem;
-    border: 1px solid var(--mn-line-strong);
-    border-radius: 0.75rem;
-    background: var(--mn-surface);
-    padding: 0.65rem 0.75rem;
-    box-shadow: 0 12px 28px rgb(0 0 0 / 0.35);
-    color: var(--mn-fg);
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-3px);
-    transition: opacity 140ms ease, transform 140ms ease;
-    visibility: hidden;
-  }
-  .health-legend:hover .health-tooltip,
-  .health-legend:focus-visible .health-tooltip {
-    opacity: 1;
-    transform: translateY(0);
-    visibility: visible;
-  }
-  .health-tooltip-title {
-    color: var(--mn-fg-2);
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .health-tooltip-list {
-    display: grid;
-    max-height: 12rem;
-    gap: 0.25rem;
-    overflow-y: auto;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-  }
-  .health-tooltip-empty {
-    color: var(--mn-fg-3);
-    font-size: 0.75rem;
-  }
-  .health-legend:last-child .health-tooltip {
-    right: 0;
-    left: auto;
-  }
-  .health-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    flex: none;
-    border-radius: 9999px;
-    background: var(--health-color);
-    box-shadow: 0 0 10px color-mix(in oklab, var(--health-color) 55%, transparent);
-  }
   .kpi::before {
     content: "";
     position: absolute;
