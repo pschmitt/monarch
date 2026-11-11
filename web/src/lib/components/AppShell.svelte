@@ -94,7 +94,7 @@
     </nav>
 
     <div class="space-y-2 p-3">
-      {#if !collapsed || mobile}
+      {#if !character && (!collapsed || mobile)}
         <div class="rounded-xl border border-line bg-surface-2/60 p-3">
           <div class="flex items-center gap-2 text-xs">
             <StatusDot tone={liveTone} pulse={fleet.status === "live"} />
