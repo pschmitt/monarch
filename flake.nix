@@ -43,6 +43,7 @@
           };
         in
         {
+          monarchctl = pkgs.callPackage ./nix/cli.nix { inherit craneLib; };
           inherit monarch web;
           default = monarch;
         }
@@ -51,6 +52,9 @@
           monarch-static = pkgs.pkgsStatic.callPackage ./nix/package.nix {
             craneLib = crane.mkLib pkgs.pkgsStatic;
             inherit web;
+          };
+          monarchctl-static = pkgs.pkgsStatic.callPackage ./nix/cli.nix {
+            craneLib = crane.mkLib pkgs.pkgsStatic;
           };
           image = pkgs.dockerTools.buildLayeredImage {
             name = "ghcr.io/pschmitt/monarch";
@@ -78,6 +82,9 @@
         monarch = final.callPackage ./nix/package.nix {
           craneLib = crane.mkLib final;
         };
+        monarchctl = final.callPackage ./nix/cli.nix {
+          craneLib = crane.mkLib final;
+        };
       };
 
       nixosModules.default = {
@@ -85,10 +92,16 @@
         nixpkgs.overlays = [ self.overlays.default ];
       };
 
+      # The command line client; not part of nixosModules.default.
+      nixosModules.monarchctl = {
+        imports = [ ./nix/cli-module.nix ];
+        nixpkgs.overlays = [ self.overlays.default ];
+      };
+
       checks = forAllSystems (
         pkgs:
         {
-          inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) monarch;
+          inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) monarch monarchctl;
         }
         // nixpkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           nixos = pkgs.testers.runNixOSTest (import ./nix/test.nix { inherit self; });
