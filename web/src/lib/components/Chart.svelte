@@ -13,6 +13,7 @@
   import "uplot/dist/uPlot.min.css";
   import { onDestroy } from "svelte";
   import { theme } from "../state.svelte";
+  import { timeShort } from "../format";
 
   let {
     x,
@@ -110,8 +111,7 @@
   function timeFmt(ts: number, range: number): string {
     const d = new Date(ts * 1000);
     if (span > 2 * 86400) return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    if (range < 15 * 60) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return timeShort(ts, range < 15 * 60);
   }
 
   function build() {
@@ -240,7 +240,7 @@
   onDestroy(() => plot?.destroy());
 
   function fullTime(ts: number) {
-    return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    return new Date(ts * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hourCycle: "h23", hour: "2-digit", minute: "2-digit" });
   }
 </script>
 

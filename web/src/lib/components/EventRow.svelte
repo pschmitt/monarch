@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowRightLeft, CircleCheck, CircleX, HeartPulse, Check, Circle, ArrowUpRight } from "@lucide/svelte";
   import type { MonarchEvent } from "../types";
-  import { ago, datetime, eventStateLabel, eventTone } from "../format";
+  import { ago, datetime, timeShort, eventStateLabel, eventTone } from "../format";
   import { clock } from "../state.svelte";
   import { hostHref, serviceHref } from "../router.svelte";
   import Modal from "./Modal.svelte";
@@ -41,7 +41,7 @@
         <input type="checkbox" class="timeline-select" checked={selected} onchange={() => ontoggle?.()} aria-label="Select event from {event.host ?? 'unknown host'}" />
       {/if}
       <time class="timeline-time num" title={datetime(event.created_at)} datetime={new Date(event.created_at * 1000).toISOString()}>
-        {new Date(event.created_at * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+        {timeShort(event.created_at)}
         <span>{ago(event.created_at, clock.now)}</span>
       </time>
       <span class="timeline-marker" aria-hidden="true"><Icon size={14} /></span>

@@ -2,7 +2,7 @@
   import { ArrowRightLeft, Check, Circle, Clock3, ExternalLink, HeartPulse, X } from "@lucide/svelte";
   import { api } from "../../api";
   import type { EventState, MonarchEvent } from "../../types";
-  import { ago, datetime, eventStateLabel } from "../../format";
+  import { ago, datetime, timeShort, eventStateLabel } from "../../format";
   import { can, toastError } from "../../state.svelte";
   import { hostHref, serviceHref } from "../../router.svelte";
   import Modal from "../Modal.svelte";
@@ -70,7 +70,7 @@
           onclick={() => { selectedId = shown.id; modalOpen = true; }}
           aria-label="View event details: {shown.message}"
         >
-          <time class="c-timeline-time" datetime={new Date(shown.created_at * 1000).toISOString()}>{new Date(shown.created_at * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</time>
+          <time class="c-timeline-time" datetime={new Date(shown.created_at * 1000).toISOString()}>{timeShort(shown.created_at)}</time>
           <span class="c-timeline-marker c-event-{stateTone}" aria-hidden="true"><Icon size={17} strokeWidth={2.3} /></span>
           <span class="c-timeline-copy">
             <span class="c-timeline-heading">

@@ -107,11 +107,12 @@ export function datetime(ts: number | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    hourCycle: "h23",
   });
 }
 
-export function timeShort(ts: number): string {
-  return new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+export function timeShort(ts: number, seconds = false): string {
+  return new Date(ts * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: seconds ? "2-digit" : undefined, hourCycle: "h23" });
 }
 
 export function toLocalInput(ts: number | null | undefined): string {
