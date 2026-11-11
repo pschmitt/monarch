@@ -19,7 +19,11 @@
       try {
         const t = localStorage.getItem("monarch.theme");
         if (t === "light") document.documentElement.classList.replace("dark", "light");
-        if (localStorage.getItem("monarch.theme-style") === "monarch") document.documentElement.dataset.style = "monarch";
+        const style = localStorage.getItem("monarch.theme-style");
+        if (style === "simple" || style === "monarch" || style === "character") document.documentElement.dataset.style = style;
+        if (style === "character") {
+          document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t === "light" ? "#f5f7fa" : "#21172f");
+        }
       } catch {}
     </script>
   </head>

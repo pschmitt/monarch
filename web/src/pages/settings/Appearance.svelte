@@ -1,11 +1,12 @@
 <script lang="ts">
   import { Check, Moon, Sun } from "@lucide/svelte";
-  import { faviconPreference, setFaviconMode, type FaviconMode } from "../../lib/favicon.svelte";
+  import { faviconPreference, setFaviconCountSource, setFaviconMode, type FaviconCountSource, type FaviconMode } from "../../lib/favicon.svelte";
   import { setTheme, setThemeStyle, theme, themeStyles, type Theme } from "../../lib/state.svelte";
 
   const styleDesc: Record<string, string> = {
     monarch: "Glass surfaces, gradients and glows.",
     simple: "Flat and opaque, inspired by nixbot.",
+    character: "A brighter lilac and apricot look, with a spacious navigation shell.",
   };
   const modes: { id: Theme; label: string; icon: typeof Sun }[] = [
     { id: "dark", label: "Dark", icon: Moon },
@@ -14,6 +15,11 @@
   const faviconModes: { id: FaviconMode; label: string }[] = [
     { id: "count", label: "Issue count" },
     { id: "binary", label: "Status dot" },
+  ];
+  const faviconCountSources: { id: FaviconCountSource; label: string; description: string }[] = [
+    { id: "issues", label: "Fleet issues", description: "Counts failed services and offline hosts, matching the current count behavior." },
+    { id: "hosts", label: "Hosts", description: "Counts distinct unhealthy hosts. Offline hosts are included." },
+    { id: "services", label: "Services", description: "Counts active failures on online hosts. Offline hosts and their stale service states still flag the icon but are excluded from this count." },
   ];
 </script>
 
@@ -70,5 +76,29 @@
         </button>
       {/each}
     </div>
+    {#if faviconPreference.mode === "count"}
+      <div>
+        <h3 class="text-[13px] font-medium text-fg">Count</h3>
+        <p class="mt-1 text-xs text-fg-3">Choose what the number in the browser tab counts.</p>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Favicon count source">
+          {#each faviconCountSources as source (source.id)}
+            {@const active = faviconPreference.countSource === source.id}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              class="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors {active ? 'border-accent bg-hover' : 'border-line hover:border-line-strong'}"
+              onclick={() => setFaviconCountSource(source.id)}
+            >
+              <span class="flex-1">
+                <span class="block text-[13px] font-medium text-fg">{source.label}</span>
+                <span class="mt-0.5 block text-xs text-fg-3">{source.description}</span>
+              </span>
+              {#if active}<Check size={16} class="text-accent" />{/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+    {/if}
   </section>
 </div>

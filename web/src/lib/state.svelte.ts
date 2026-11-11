@@ -30,13 +30,16 @@ setInterval(() => (clock.now = Date.now() / 1000), 1000);
 // ---------------------------------------------------------------- theme
 
 export type Theme = "dark" | "light";
-// The style is independent of the dark/light mode: "simple" (the default) is
-// flat and opaque, "monarch" the glassy look with gradients.
-export type ThemeStyle = "monarch" | "simple";
+// The style is independent of dark/light mode. Simple remains the default;
+// Monarch uses glass and gradients, while Character adds the lilac dashboard.
+export type ThemeStyle = "monarch" | "simple" | "character";
 export const themeStyles: { id: ThemeStyle; label: string }[] = [
   { id: "simple", label: "Simple" },
   { id: "monarch", label: "Monarch" },
+  { id: "character", label: "Character" },
 ];
+const isThemeStyle = (value: string | null): value is ThemeStyle =>
+  value === "simple" || value === "monarch" || value === "character";
 function initialTheme(): Theme {
   try {
     return localStorage.getItem("monarch.theme") === "light" ? "light" : "dark";
@@ -46,7 +49,8 @@ function initialTheme(): Theme {
 }
 function initialStyle(): ThemeStyle {
   try {
-    return localStorage.getItem("monarch.theme-style") === "monarch" ? "monarch" : "simple";
+    const stored = localStorage.getItem("monarch.theme-style");
+    return isThemeStyle(stored) ? stored : "simple";
   } catch {
     return "simple";
   }
@@ -74,6 +78,7 @@ export function setTheme(t: Theme) {
   }
 }
 export function setThemeStyle(s: ThemeStyle) {
+  if (!isThemeStyle(s)) return;
   theme.style = s;
   applyTheme(() => (document.documentElement.dataset.style = s));
   try {

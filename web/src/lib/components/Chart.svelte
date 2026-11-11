@@ -120,7 +120,9 @@
     if (!el || gapped.x.length === 0) return;
     const axis = cssVar("--mn-chart-axis");
     const grid = cssVar("--mn-chart-grid");
-    const font = `11px ${cssVar("--font-mono") || "monospace"}`;
+    const font = theme.style === "character"
+      ? `14px ${cssVar("--font-sans") || "sans-serif"}`
+      : `11px ${cssVar("--font-mono") || "monospace"}`;
     const ordered = stacked ? [...series.keys()].reverse() : [...series.keys()];
 
     const opts: uPlot.Options = {

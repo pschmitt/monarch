@@ -1,17 +1,19 @@
 <script lang="ts">
-  import { Ellipsis, Eye, EyeOff, Play, RefreshCcw, RotateCw, Search, SearchX, Square, X } from "@lucide/svelte";
+  import { Ellipsis, Eye, EyeOff, Play, RefreshCcw, RotateCw, ChevronRight, Search, SearchX, Square, X } from "@lucide/svelte";
   import type { HostDetail, Service, ServiceAction, ServiceState, ServiceType } from "../../lib/types";
   import { ago, hostName, serviceTone, serviceTypeLabel, serviceTypeOrder } from "../../lib/format";
   import { fuzzy } from "../../lib/fuzzy";
   import { keyMetrics } from "../../lib/service";
   import { ACTIONS, runAction } from "../../lib/actions";
-  import { can, clock } from "../../lib/state.svelte";
+  import { can, clock, fleet, theme } from "../../lib/state.svelte";
   import { router, serviceHref } from "../../lib/router.svelte";
   import Badge from "../../lib/components/Badge.svelte";
   import Empty from "../../lib/components/Empty.svelte";
   import Menu, { type MenuItem } from "../../lib/components/Menu.svelte";
   import ServiceIcon from "../../lib/components/ServiceIcon.svelte";
   import UsageBar from "../../lib/components/UsageBar.svelte";
+
+  import CharacterStatus from "../../lib/components/character/Status.svelte";
 
   let { host, onchange }: { host: HostDetail; onchange: () => void } = $props();
 
@@ -20,6 +22,7 @@
   let groupBy = $state<"type" | "group">("type");
   let selected = $state<Set<string>>(new Set());
 
+  const hostOnline = $derived(fleet.hosts[host.id]?.online ?? host.online);
   const canAct = $derived(can("operator") && host.can_act);
   const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff, remonitor: RefreshCcw };
 
@@ -129,7 +132,7 @@
   {/if}
 
   {#each sections as sec (sec.key)}
-    <section class="card overflow-hidden">
+    <section class={theme.style === "character" ? "c-service-section" : "card overflow-hidden"}>
       <div class="flex items-center gap-2.5 border-b border-line px-4 py-3 sm:px-5">
         {#if sec.type}<span class="text-fg-3"><ServiceIcon type={sec.type} size={15} /></span>{/if}
         <h3 class="card-title">{sec.label}</h3>
@@ -138,6 +141,35 @@
           <Badge tone="bad" size="sm" dot>{sec.items.filter((s) => s.state === "failed").length} failed</Badge>
         {/if}
       </div>
+      {#if theme.style === "character"}
+        {#if !hostOnline}<p class="c-meta">Host offline. These are the last reported values.</p>{/if}
+        <div class="c-card-list">
+          {#each sec.items as s (s.id)}
+            {@const metrics = keyMetrics(s)}
+            <div class="c-service-action-row">
+              {#if canAct}<input type="checkbox" checked={selected.has(s.name)} onchange={() => toggle(s.name)} aria-label="Select {s.name}" />{/if}
+              <a class="c-row" href={serviceHref(host.id, s.name)}>
+                <span class="c-row-icon"><ServiceIcon type={s.type} size={24} /></span>
+                <div class="c-row-main">
+                  <h3 class="c-row-title">{s.name}</h3>
+                  <p class="c-meta">{serviceTypeLabel[s.type]}</p>
+                  <div class="c-service-metrics">
+                    {#each metrics as m (m.label)}<span>{m.label} {m.value}</span>{/each}
+                  </div>
+                  {#if s.type === "filesystem" && s.data.space?.percent != null}<UsageBar value={s.data.space.percent} height={4} />{/if}
+                </div>
+                <CharacterStatus state={hostOnline ? s.state : "stale"} />
+                <ChevronRight size={18} aria-hidden="true" />
+              </a>
+              {#if canAct}
+                <Menu items={menuFor(s)} label="Actions for {s.name}">
+                  {#snippet trigger()}<Ellipsis size={18} />{/snippet}
+                </Menu>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else}
       <ul class="divide-y divide-[var(--mn-line)]">
         {#each sec.items as s (s.id)}
           {@const tone = serviceTone(s.state)}
@@ -178,7 +210,14 @@
             {/if}
           </li>
         {/each}
-      </ul>
+      </ul>      {/if}
     </section>
   {/each}
 </div>
+
+<style>
+  .c-service-action-row { display: flex; align-items: center; gap: 0.5rem; }
+  .c-service-action-row :global(.c-row) { flex: 1; min-width: 0; }
+  .c-service-action-row > input { width: 20px; height: 20px; accent-color: var(--mn-accent); }
+  .c-service-metrics { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; font-size: 0.875rem; color: var(--mn-fg-2); margin: 0.4rem 0; }
+</style>

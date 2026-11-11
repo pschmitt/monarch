@@ -3,10 +3,12 @@
   import { api } from "../api";
   import type { EventState, MonarchEvent } from "../types";
   import { eventStateLabel, eventTone, hostName } from "../format";
-  import { can, hostList, onLiveEvent, toast, toastError } from "../state.svelte";
+  import { can, hostList, onLiveEvent, theme, toast, toastError } from "../state.svelte";
   import Empty from "./Empty.svelte";
   import EventRow from "./EventRow.svelte";
   import StatusDot from "./StatusDot.svelte";
+
+  import CharacterTimeline from "./character/Timeline.svelte";
 
   let {
     host = null,
@@ -189,12 +191,15 @@
     </div>
   {/if}
 
-  <div class="card overflow-hidden">
+  <div class={theme.style === "character" ? "c-events-list" : "card overflow-hidden"}>
     {#if loading}
       <div class="space-y-4 p-5">{#each Array(8) as _, i (i)}<div class="flex gap-3"><div class="skeleton h-7 w-7"></div><div class="flex-1 space-y-2"><div class="skeleton h-3.5 w-1/3"></div><div class="skeleton h-3 w-2/3"></div></div></div>{/each}</div>
     {:else if events.length === 0}
       <Empty icon={Inbox} title="No events" body={q || stateF || unacked ? "Nothing matches these filters." : "Monit hasn't reported any events yet."} />
     {:else}
+      {#if theme.style === "character"}
+        <CharacterTimeline {events} />
+      {:else}
       {#each grouped as g (g.items[0].id)}
         <div class="border-b border-line bg-[var(--mn-surface-hover)] px-5 py-2 eyebrow">{g.day}</div>
         <div class="divide-y divide-[var(--mn-line)]">
@@ -210,6 +215,7 @@
           {/each}
         </div>
       {/each}
+      {/if}
       <div bind:this={sentinel} class="flex h-14 items-center justify-center text-xs text-fg-3">
         {#if loadingMore}<LoaderCircle size={16} class="animate-spin" />{:else if hasMore}<button class="btn btn-sm" onclick={() => load(false)}>Load more</button>{:else}<span>That's all — {events.length} event{events.length === 1 ? "" : "s"}</span>{/if}
       </div>

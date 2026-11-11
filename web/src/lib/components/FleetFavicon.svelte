@@ -2,14 +2,29 @@
   import { onMount } from "svelte";
   import crown from "../../../public/favicon.svg?raw";
   import { faviconPreference } from "../favicon.svelte";
-  import { activeFailureCount } from "../silence";
+  import { activeFailureCount, activeFailingHostCount, activeFailingServiceCount } from "../silence";
   import { clock, fleet } from "../state.svelte";
 
   let { authed }: { authed: boolean } = $props();
 
-  const issues = $derived(Object.values(fleet.hosts).reduce((total, host) => total + activeFailureCount(host, clock.now), 0));
+  const hosts = $derived(Object.values(fleet.hosts));
+  const issues = $derived(hosts.reduce((total, host) => total + activeFailureCount(host, clock.now), 0));
+  const unhealthyHosts = $derived(activeFailingHostCount(hosts, clock.now));
+  const failingServices = $derived(activeFailingServiceCount(hosts, clock.now));
+  const offlineHosts = $derived(hosts.filter((host) => (!host.online || host.state === "offline") && activeFailureCount(host, clock.now) > 0).length);
+  const count = $derived(faviconPreference.countSource === "hosts" ? unhealthyHosts : faviconPreference.countSource === "services" ? failingServices : issues);
   const unknown = $derived(!fleet.loaded || fleet.loadError || fleet.status !== "live");
-  const label = $derived(unknown ? "Fleet status unavailable" : issues ? `${issues} fleet issue${issues === 1 ? "" : "s"}` : "Fleet healthy");
+  const label = $derived.by(() => {
+    if (unknown) return "Fleet status unavailable";
+    if (!issues) return "Fleet healthy";
+    if (faviconPreference.countSource === "hosts") {
+      return `${count} unhealthy host${count === 1 ? "" : "s"}${offlineHosts ? `, including ${offlineHosts} offline host${offlineHosts === 1 ? "" : "s"}` : ""}`;
+    }
+    if (faviconPreference.countSource === "services") {
+      return `${count} active failing service${count === 1 ? "" : "s"}${offlineHosts ? `; ${offlineHosts} offline host issue${offlineHosts === 1 ? "" : "s"} not included in this count` : ""}`;
+    }
+    return `${count} fleet issue${count === 1 ? "" : "s"}; offline hosts count as one issue each`;
+  });
   let baseImage = $state<HTMLImageElement | null>(null);
   onMount(() => {
     const image = new Image();
@@ -20,7 +35,7 @@
 
   const href = $derived.by(() => {
     if (!authed) return "/favicon.svg";
-    const text = unknown ? "!" : issues && faviconPreference.mode === "count" ? (issues > 99 ? "99+" : String(issues)) : "";
+    const text = unknown ? "!" : issues && faviconPreference.mode === "count" ? (count > 99 ? "99+" : String(count)) : "";
     if (!baseImage) return "/favicon.svg";
     // Match Element's high-resolution canvas, badge proportions and optical text centering.
     const size = 144;

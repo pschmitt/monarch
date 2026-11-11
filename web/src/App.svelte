@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api, onUnauthorized } from "./lib/api";
   import { router } from "./lib/router.svelte";
-  import { refreshSession, session, startLive, stopLive, toastError } from "./lib/state.svelte";
+  import { refreshSession, session, startLive, stopLive, theme, toastError } from "./lib/state.svelte";
   import AppShell from "./lib/components/AppShell.svelte";
   import AddHostModal from "./lib/components/AddHostModal.svelte";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
@@ -18,6 +18,11 @@
   import Services from "./pages/Services.svelte";
   import Settings from "./pages/Settings.svelte";
   import NotFound from "./pages/NotFound.svelte";
+
+  import CharacterOverview from "./pages/character/Overview.svelte";
+  import CharacterHosts from "./pages/character/Hosts.svelte";
+  import CharacterServices from "./pages/character/Services.svelte";
+  import CharacterEvents from "./pages/character/Events.svelte";
 
   refreshSession();
   onUnauthorized(() => {
@@ -95,17 +100,17 @@
     {#key router.route.name === "host" || router.route.name === "service" ? router.route.path.split("/").slice(0, 3).join("/") + router.route.name : router.route.name}
       <div class="animate-in">
         {#if router.route.name === "overview"}
-          <Overview />
+          {#if theme.style === "character"}<CharacterOverview />{:else}<Overview />{/if}
         {:else if router.route.name === "hosts"}
-          <Hosts />
+          {#if theme.style === "character"}<CharacterHosts />{:else}<Hosts />{/if}
         {:else if router.route.name === "services"}
-          <Services />
+          {#if theme.style === "character"}<CharacterServices />{:else}<Services />{/if}
         {:else if router.route.name === "host"}
           <Host id={+router.route.params.id} tab={router.route.params.tab ?? "overview"} />
         {:else if router.route.name === "service"}
           <Service hostId={+router.route.params.id} name={router.route.params.name} />
         {:else if router.route.name === "events"}
-          <Events />
+          {#if theme.style === "character"}<CharacterEvents />{:else}<Events />{/if}
         {:else if router.route.name === "settings"}
           <Settings section={router.route.params.section} />
         {:else if router.route.name === "login" || router.route.name === "setup"}

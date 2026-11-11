@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, ServerCrash, Tag, Terminal } from "@lucide/svelte";
+  import { ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, Server, ServerCrash, Tag, Terminal } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
   import type { HostDetail, ServiceCounts, Target } from "../lib/types";
   import { ago, datetime, duration, hostName, hostStateLabel, hostTone, kb } from "../lib/format";
-  import { clock, fleet, onLiveTarget, toastError } from "../lib/state.svelte";
+  import { clock, fleet, onLiveTarget, theme, toastError } from "../lib/state.svelte";
   import { hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -14,6 +14,9 @@
   import HostServices from "./host/HostServices.svelte";
   import HostSettings from "./host/HostSettings.svelte";
   import { can } from "../lib/state.svelte";
+
+  import CharacterHero from "../lib/components/character/Hero.svelte";
+  import CharacterStatus from "../lib/components/character/Status.svelte";
 
   let { id, tab = "overview" }: { id: number; tab?: string } = $props();
 
@@ -109,6 +112,24 @@
       <span class="text-fg-2">{hostName(host)}</span>
     </nav>
 
+    {#if theme.style === "character"}
+      <CharacterHero title={hostName(host)} description={`${hstate === "offline" ? "Last report" : "Reporting"} ${ago(lastSeen, clock.now)}`} icon={Server}>
+        <div class="c-hero-facts">
+          <CharacterStatus state={hstate} />
+          <span>Kernel {host.os.release ?? "Unknown"}</span>
+          {#if host.system.load}<span>{hstate === "offline" ? "Last reported load" : "Load average"} {host.system.load.map((n) => n.toFixed(2)).join("  ")}</span>{/if}
+          {#if muted}<span><BellOff size={16} /> Notifications silenced</span>{/if}
+        </div>
+      </CharacterHero>
+      <div class="c-summary-links">
+        <a href={hostHref(host.id, "services")}>{counts.total} services</a>
+        {#if hstate !== "offline"}
+          <a href={hostHref(host.id, "services") + "?state=failed"}>{counts.failed} failing</a>
+          <a href={hostHref(host.id, "services") + "?state=unmonitored"}>{counts.unmonitored} unmonitored</a>
+        {:else}<span>Service states are from the last report.</span>{/if}
+        <button class="btn btn-ghost" onclick={load} disabled={refreshing}><RefreshCw size={16} /> Refresh</button>
+      </div>
+    {:else}
     <!-- hero -->
     <section class="card tone-{hostTone(hstate)} relative overflow-hidden p-5 sm:p-6">
       <div class="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-tone opacity-[0.10] blur-3xl"></div>
@@ -168,6 +189,8 @@
         {/each}
       </div>
     </section>
+
+    {/if}
 
     <Tabs {tabs} active={tab} href={(t) => hostHref(host!.id, t === "overview" ? undefined : t)} />
 

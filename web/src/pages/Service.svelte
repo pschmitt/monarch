@@ -5,7 +5,7 @@
   import { ago, datetime, hostName, serviceTone, serviceTypeLabel } from "../lib/format";
   import { ACTIONS, runAction } from "../lib/actions";
   import { chartsFor } from "../lib/service";
-  import { can, clock, fleet, toastError } from "../lib/state.svelte";
+  import { can, clock, fleet, theme, toastError } from "../lib/state.svelte";
   import { hostHref } from "../lib/router.svelte";
   import Badge from "../lib/components/Badge.svelte";
   import CheckAlerts from "../lib/components/CheckAlerts.svelte";
@@ -15,6 +15,9 @@
   import RangePicker from "../lib/components/RangePicker.svelte";
   import ServiceIcon from "../lib/components/ServiceIcon.svelte";
   import ServiceDetails from "./service/ServiceDetails.svelte";
+
+  import CharacterHero from "../lib/components/character/Hero.svelte";
+  import CharacterStatus from "../lib/components/character/Status.svelte";
 
   let { hostId, name }: { hostId: number; name: string } = $props();
 
@@ -51,6 +54,7 @@
   });
 
   const icons: Record<ServiceAction, any> = { start: Play, stop: Square, restart: RotateCw, monitor: Eye, unmonitor: EyeOff, remonitor: RefreshCcw };
+  const hostOnline = $derived(fleet.hosts[hostId]?.online ?? svc?.host.online ?? false);
   const canAct = $derived(!!svc && can("operator") && svc.host.can_act);
   const charts = $derived(svc ? chartsFor(svc) : []);
 
@@ -77,6 +81,31 @@
       <span class="truncate text-fg-2">{svc.name}</span>
     </nav>
 
+    {#if theme.style === "character"}
+      <CharacterHero title={svc.name} description={`${serviceTypeLabel[svc.type]} on ${hostName(svc.host)}`}>
+        <div class="c-hero-facts">
+          <ServiceIcon type={svc.type} size={24} />
+          <CharacterStatus state={hostOnline ? svc.state : "stale"} />
+          <span>{hostOnline ? svc.status_text : "Host offline; showing last reported values"}</span>
+          <span>Collected {ago(svc.collected_at, clock.now)}</span>
+        </div>
+      </CharacterHero>
+      <div class="c-detail-actions">
+        <div class="flex flex-wrap gap-2">
+          {#if canAct}
+            {#each ACTIONS as a (a.id)}
+              {@const Icon = icons[a.id]}
+              {#if !(a.id === "monitor" && svc.state !== "unmonitored") && !((a.id === "unmonitor" || a.id === "remonitor") && svc.state === "unmonitored")}
+                <button class="btn btn-sm {a.danger ? 'hover:text-bad' : ''}" onclick={() => act(a.id)}><Icon size={13} />{a.label}</button>
+              {/if}
+            {/each}
+          {/if}
+          {#if can("admin")}
+            <button class="btn btn-sm" onclick={() => (alertsOpen = true)}><Bell size={13} />Alerts</button>
+          {/if}
+        </div>
+      </div>
+    {:else}
     <section class="card tone-{tone} relative overflow-hidden p-5 sm:p-6">
       <div class="pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full bg-tone opacity-[0.10] blur-3xl"></div>
       <div class="relative flex flex-wrap items-start justify-between gap-5">
@@ -116,6 +145,8 @@
         </div>
       </div>
     </section>
+
+    {/if}
 
     <ServiceDetails service={svc} />
 

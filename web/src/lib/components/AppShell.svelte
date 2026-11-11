@@ -36,17 +36,24 @@
       href: "/hosts",
       label: "Hosts",
       icon: Server,
-      active: ["hosts", "host", "service"].includes(router.route.name),
+      active: router.route.name === "hosts" || router.route.name === "host" || (theme.style !== "character" && router.route.name === "service"),
       badge: failingHosts,
     },
-    { href: "/services", label: "Services", icon: ListChecks, active: router.route.name === "services", badge: failingServices },
+    {
+      href: "/services",
+      label: "Services",
+      icon: ListChecks,
+      active: router.route.name === "services" || (theme.style === "character" && router.route.name === "service"),
+      badge: failingServices,
+    },
     { href: "/events", label: "Events", icon: Activity, active: router.route.name === "events", badge: unseen },
     { href: "/settings", label: "Settings", icon: Settings, active: router.route.name === "settings", badge: 0 },
   ]);
 
   const liveTone = $derived(fleet.status === "live" ? "ok" : fleet.status === "connecting" ? "warn" : "bad");
   const liveLabel = $derived(fleet.status === "live" ? "Live" : fleet.status === "connecting" ? "Connecting" : "Offline");
-  const collapsed = $derived(ui.sidebarCollapsed);
+  const character = $derived(theme.style === "character");
+  const collapsed = $derived(!character && ui.sidebarCollapsed);
 
   $effect(() => {
     void router.route.path;
@@ -99,7 +106,7 @@
           </div>
         </div>
       {/if}
-      {#if !mobile}
+      {#if !mobile && !character}
         <button class="btn btn-ghost w-full {collapsed ? 'btn-icon' : 'justify-start'}" onclick={toggleSidebar} aria-label="Toggle sidebar">
           {#if collapsed}<ChevronsRight size={16} />{:else}<ChevronsLeft size={16} /> <span class="text-xs">Collapse</span>{/if}
         </button>
@@ -108,7 +115,7 @@
   </div>
 {/snippet}
 
-<div class="flex min-h-dvh">
+<div class="flex min-h-dvh {character ? 'character-shell' : ''}">
   <!-- desktop sidebar -->
   <aside
     class="sticky top-0 hidden h-dvh shrink-0 border-r border-line bg-[var(--mn-glass)] backdrop-blur-xl transition-[width] duration-200 md:block {collapsed
@@ -173,3 +180,15 @@
     </main>
   </div>
 </div>
+
+{#if character}
+  <nav class="character-mobile-nav" aria-label="Main">
+    {#each nav as item (item.href)}
+      <a href={item.href} aria-current={item.active ? "page" : undefined}>
+        <item.icon size={20} strokeWidth={item.active ? 2 : 1.75} />
+        <span>{item.label}</span>
+        {#if item.badge > 0}<span class="character-mobile-badge">{item.badge}</span>{/if}
+      </a>
+    {/each}
+  </nav>
+{/if}
