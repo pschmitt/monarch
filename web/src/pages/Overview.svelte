@@ -199,7 +199,7 @@
     </a>
   </div>
 
-  <div class="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <div class="grid items-stretch gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
   <!-- fleet health summary -->
   <section class="card fleet-health p-4 sm:p-5">
     <div class="grid items-center gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-5">
@@ -300,7 +300,7 @@
       {/if}
   </div>
 
-  <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+  <div class="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <div class="min-w-0 space-y-6">
       <!-- needs attention -->
       {#if data && attentionCount}
