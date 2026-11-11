@@ -7,6 +7,7 @@
 
 mod app;
 mod charts;
+mod layout;
 mod pages;
 mod ui;
 

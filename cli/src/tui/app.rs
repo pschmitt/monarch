@@ -274,6 +274,8 @@ pub struct HostPage {
     pub error: Option<String>,
     pub charts: Charts,
     pub range: Range,
+    /// The chart shown when the page is too small for all of them.
+    pub chart_focus: usize,
     select_service: Option<String>,
 }
 
@@ -286,6 +288,8 @@ pub struct ServicePage {
     pub error: Option<String>,
     pub charts: Charts,
     pub range: Range,
+    /// The chart shown when the page is too small for all of them.
+    pub chart_focus: usize,
 }
 
 pub struct EventPage {
@@ -365,6 +369,7 @@ impl HostPage {
             error: None,
             charts: Charts::Loading,
             range: Range::default(),
+            chart_focus: 0,
             select_service: None,
         }
     }
@@ -477,6 +482,8 @@ pub struct App {
     pub pages: Vec<Page>,
     /// Filled in by the renderer for mouse hit testing.
     pub hits: Hits,
+    /// How far the help overlay is scrolled (clamped when drawn).
+    pub help_scroll: usize,
 
     refreshing: bool,
     last_refresh: Instant,
@@ -518,6 +525,7 @@ impl App {
             unacked_only: false,
             pages: Vec::new(),
             hits: Hits::default(),
+            help_scroll: 0,
             refreshing: false,
             last_refresh: Instant::now(),
             dirty: false,
@@ -1083,7 +1091,7 @@ impl App {
         }
         match std::mem::replace(&mut self.mode, Mode::Normal) {
             Mode::Normal => self.on_normal_key(key),
-            Mode::Help => {}
+            Mode::Help => self.on_help_key(key),
             Mode::Search => self.on_search_key(key),
             Mode::Confirm(pending) => {
                 if matches!(key.code, KeyCode::Char('y' | 'Y') | KeyCode::Enter) {
@@ -1091,6 +1099,26 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Scrolls the help overlay; any other key closes it.
+    fn on_help_key(&mut self, key: KeyEvent) {
+        let scroll = match key.code {
+            KeyCode::Down | KeyCode::Char('j') => 1,
+            KeyCode::Up | KeyCode::Char('k') => -1,
+            KeyCode::PageDown => 8,
+            KeyCode::PageUp => -8,
+            _ => {
+                self.help_scroll = 0;
+                return;
+            }
+        };
+        self.scroll_help(scroll);
+    }
+
+    fn scroll_help(&mut self, delta: isize) {
+        self.help_scroll = self.help_scroll.saturating_add_signed(delta);
+        self.mode = Mode::Help;
     }
 
     fn on_search_key(&mut self, key: KeyEvent) {
@@ -1137,7 +1165,10 @@ impl App {
             }
             KeyCode::Left | KeyCode::Char('h') | KeyCode::Backspace if paged => self.back(),
             KeyCode::Right | KeyCode::Char('l') | KeyCode::Enter => self.drill(),
-            KeyCode::Char('?') => self.mode = Mode::Help,
+            KeyCode::Char('?') => {
+                self.help_scroll = 0;
+                self.mode = Mode::Help;
+            }
             KeyCode::Tab => self.switch_tab(self.tab.step(1)),
             KeyCode::BackTab => self.switch_tab(self.tab.step(-1)),
             KeyCode::Char(c @ '1'..='4') => {
@@ -1160,6 +1191,7 @@ impl App {
             KeyCode::Char('/') if !paged && self.tab != Tab::Overview => self.mode = Mode::Search,
             KeyCode::Char('f') if !paged => self.cycle_filter(),
             KeyCode::Char('t') if paged => self.cycle_range(),
+            KeyCode::Char('c') if paged => self.cycle_chart(),
             KeyCode::Char('u') if events_tab => {
                 self.unacked_only = !self.unacked_only;
                 let len = self.list_len(ListId::Events);
@@ -1186,8 +1218,11 @@ impl App {
     fn on_mouse(&mut self, mouse: MouseEvent) {
         match self.mode {
             Mode::Help => {
-                if matches!(mouse.kind, MouseEventKind::Down(_)) {
-                    self.mode = Mode::Normal;
+                match mouse.kind {
+                    MouseEventKind::Down(_) => self.mode = Mode::Normal,
+                    MouseEventKind::ScrollDown => self.scroll_help(1),
+                    MouseEventKind::ScrollUp => self.scroll_help(-1),
+                    _ => {}
                 }
                 return;
             }
@@ -1318,6 +1353,15 @@ impl App {
         }
     }
 
+    /// Shows the next chart when the page only has room for one.
+    fn cycle_chart(&mut self) {
+        match self.pages.last_mut() {
+            Some(Page::Host(p)) => p.chart_focus = p.chart_focus.wrapping_add(1),
+            Some(Page::Service(p)) => p.chart_focus = p.chart_focus.wrapping_add(1),
+            Some(Page::Event(_)) | None => {}
+        }
+    }
+
     fn cycle_range(&mut self) {
         let Some(page) = self.pages.last_mut() else {
             return;
@@ -1345,6 +1389,7 @@ impl App {
             error: None,
             charts: Charts::Loading,
             range: Range::default(),
+            chart_focus: 0,
             select_service,
         })));
         self.fetch_host(host_id);
@@ -1361,6 +1406,7 @@ impl App {
             error: None,
             charts: Charts::Loading,
             range: Range::default(),
+            chart_focus: 0,
         })));
     }
 

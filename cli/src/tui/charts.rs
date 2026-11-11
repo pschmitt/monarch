@@ -245,7 +245,16 @@ fn message(f: &mut Frame, area: Rect, title: &str, text: &str) {
 }
 
 /// Draws one chart per metric of `specs` side by side in `area`.
-pub fn render(f: &mut Frame, area: Rect, charts: &Charts, specs: &[Spec], range: Range) {
+/// Wide areas put the charts side by side. Narrow ones stack them, or, when
+/// they would get too few rows each, show one at a time (`focus` picks it).
+pub fn render(
+    f: &mut Frame,
+    area: Rect,
+    charts: &Charts,
+    specs: &[Spec],
+    range: Range,
+    focus: usize,
+) {
     let heading = format!("Metrics · last {}", range.label());
     let series = match charts {
         Charts::Loading => return message(f, area, &heading, "loading…"),
@@ -264,14 +273,42 @@ pub fn render(f: &mut Frame, area: Rect, charts: &Charts, specs: &[Spec], range:
     if shown.is_empty() {
         return message(f, area, &heading, "no history for this period yet");
     }
-    let cells =
-        Layout::horizontal(vec![Constraint::Ratio(1, shown.len() as u32); shown.len()]).split(area);
-    for ((spec, series), cell) in shown.into_iter().zip(cells.iter()) {
-        render_one(f, *cell, spec, series, range);
+    let count = shown.len();
+    if area.width >= 80 {
+        let cells = Layout::horizontal(vec![Constraint::Ratio(1, count as u32); count]).split(area);
+        for ((spec, series), cell) in shown.into_iter().zip(cells.iter()) {
+            render_one(f, *cell, spec, series, range, None);
+        }
+    } else if usize::from(area.height) / count >= MIN_STACKED_HEIGHT {
+        let cells = Layout::vertical(vec![Constraint::Ratio(1, count as u32); count]).split(area);
+        for ((spec, series), cell) in shown.into_iter().zip(cells.iter()) {
+            render_one(f, *cell, spec, series, range, None);
+        }
+    } else {
+        let index = focus % count;
+        let (spec, series) = shown[index];
+        render_one(
+            f,
+            area,
+            spec,
+            series,
+            range,
+            (count > 1).then_some((index + 1, count)),
+        );
     }
 }
 
-fn render_one(f: &mut Frame, area: Rect, spec: &Spec, series: &Series, range: Range) {
+/// Rows a chart needs to be readable when stacked.
+const MIN_STACKED_HEIGHT: usize = 7;
+
+fn render_one(
+    f: &mut Frame,
+    area: Rect,
+    spec: &Spec,
+    series: &Series,
+    range: Range,
+    position: Option<(usize, usize)>,
+) {
     let Some(stat) = stats(&series.points) else {
         return;
     };
@@ -304,6 +341,9 @@ fn render_one(f: &mut Frame, area: Rect, spec: &Spec, series: &Series, range: Ra
             ),
             dim(),
         ));
+    }
+    if let Some((index, count)) = position {
+        title.push(Span::styled(format!("  {index}/{count} c: next"), dim()));
     }
     title.push(Span::raw(" "));
 
@@ -402,7 +442,7 @@ mod tests {
     fn draw(charts: &Charts, w: u16, h: u16) -> String {
         let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
         terminal
-            .draw(|f| render(f, f.area(), charts, specs_for("system"), Range::SixHours))
+            .draw(|f| render(f, f.area(), charts, specs_for("system"), Range::SixHours, 0))
             .unwrap();
         let buffer = terminal.backend().buffer().clone();
         (0..h)

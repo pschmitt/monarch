@@ -1,28 +1,32 @@
-//! The drill-down pages: a host, a service and an event.
+//! The drill-down pages: a host, a service and an event. Like the views they
+//! adapt to the width: charts and blocks stack on narrow screens, and tables
+//! drop their low-priority columns.
 
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Cell, Paragraph, Row, Wrap};
+use ratatui::widgets::{Paragraph, Row, Wrap};
 use serde_json::Value;
+use unicode_width::UnicodeWidthStr;
 
 use super::app::{App, Hits, HostPage, ListId, Page, ServicePage, sorted_services};
 use super::charts::{self, Charts};
+use super::layout::{self, Size, ellipsize};
 use super::ui::{
-    EVENT_WIDTHS, block, block_focus, dim, event_header, event_row, header_row, render_list,
-    service_status, state_cell, style, title,
+    ServiceView, avail, block, block_focus, describe_mute, dim, event_cols, event_row, header_of,
+    longest_subject, render_list, service_cols, service_row, service_status, style, title,
+    widths_of,
 };
 use crate::fmt::{
     self, Tone, event_badge, event_tone, host_badge, host_tone, service_badge, service_tone,
     short_duration,
 };
-use crate::types::{Event, MutedUntil};
+use crate::types::Event;
 
 /// Below this many rows the charts are left out to keep the lists usable.
 const CHARTS_MIN_HEIGHT: u16 = 22;
 
-pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
+pub fn render(f: &mut Frame, app: &mut App, area: Rect, size: Size) {
     let App {
         pages,
         hits,
@@ -30,8 +34,8 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
         ..
     } = app;
     match pages.last_mut() {
-        Some(Page::Host(page)) => host_page(f, hits, page, area),
-        Some(Page::Service(page)) => service_page(f, hits, page, area),
+        Some(Page::Host(page)) => host_page(f, hits, page, area, size),
+        Some(Page::Service(page)) => service_page(f, hits, page, area, size),
         Some(Page::Event(page)) => {
             let event = events
                 .iter()
@@ -43,10 +47,12 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-fn field(name: &str, value: impl Into<String>) -> Line<'static> {
+/// `name  value` with the value cut to the width of the box.
+fn field(name: &str, value: impl AsRef<str>, width: u16) -> Line<'static> {
+    let room = usize::from(width).saturating_sub(13);
     Line::from(vec![
         Span::styled(format!(" {name:<10}"), dim()),
-        Span::raw(value.into()),
+        Span::raw(ellipsize(value.as_ref(), room)),
     ])
 }
 
@@ -56,17 +62,24 @@ fn placeholder(f: &mut Frame, area: Rect, heading: &str, error: Option<&String>)
         None => ("loading…", Tone::Dim),
     };
     f.render_widget(
-        Paragraph::new(Span::styled(format!(" {text}"), style(tone))).block(block(title(heading))),
+        Paragraph::new(Span::styled(format!(" {text}"), style(tone)))
+            .wrap(Wrap { trim: false })
+            .block(block(title(heading))),
         area,
     );
 }
 
-fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
-    let heading = format!("{} · charts: last {}", page.name, page.range.label());
+fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect, size: Size) {
+    let heading = if size.narrow() {
+        format!("{} · {}", ellipsize(&page.name, 18), page.range.label())
+    } else {
+        format!("{} · charts: last {}", page.name, page.range.label())
+    };
     let Some(data) = page.data.as_ref() else {
         return placeholder(f, area, &heading, page.error.as_ref());
     };
     let h = &data.summary;
+    let width = area.width;
     let os = [&h.os.name, &h.os.release, &h.os.machine]
         .into_iter()
         .flatten()
@@ -77,9 +90,15 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
         Line::from(vec![
             Span::styled(format!(" {:<10}", "state"), dim()),
             Span::styled(host_badge(h.state), style(host_tone(h.state))),
-            Span::styled(format!("   {}", h.hostname), dim()),
+            Span::styled(
+                format!(
+                    "  {}",
+                    ellipsize(&h.hostname, usize::from(width).saturating_sub(26))
+                ),
+                dim(),
+            ),
         ]),
-        field("os", if os.is_empty() { "-".to_owned() } else { os }),
+        field("os", if os.is_empty() { "-" } else { os.as_str() }, width),
         field(
             "seen",
             format!(
@@ -89,8 +108,9 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
                     .uptime
                     .map_or_else(|| "-".to_owned(), short_duration)
             ),
+            width,
         ),
-        field("load", fmt::load(h.system.load)),
+        field("load", fmt::load(h.system.load), width),
         field(
             "monit",
             match (&data.monit_url, h.can_act) {
@@ -98,37 +118,27 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
                 (Some(url), false) => format!("{url} (cannot act)"),
                 (None, _) => "unknown".to_owned(),
             },
+            width,
         ),
         field(
             "muted",
-            match &h.muted_until {
-                Some(MutedUntil::Forever(_)) => "until unmuted".to_owned(),
-                Some(MutedUntil::Until(ts)) => format!("until {}", fmt::clock(*ts)),
-                None => "no".to_owned(),
-            },
+            h.muted_until
+                .as_ref()
+                .map_or_else(|| "no".to_owned(), describe_mute),
+            width,
         ),
     ];
     if let Some(error) = &page.error {
         info.push(Line::from(Span::styled(
-            format!(" {error}"),
+            format!(
+                " {}",
+                ellipsize(error, usize::from(width).saturating_sub(4))
+            ),
             style(Tone::Bad),
         )));
     }
-    let rows: Vec<Row> = sorted_services(data)
-        .into_iter()
-        .map(|s| {
-            Row::new([
-                state_cell(s.state),
-                Cell::from(Span::styled(s.name.clone(), Style::new().bold())),
-                Cell::from(Span::styled(s.kind.clone(), dim())),
-                Cell::from(service_status(&s.status_text, s.pending_action.as_deref())),
-                Cell::from(Span::styled(fmt::ago(s.state_since), dim())),
-            ])
-        })
-        .collect();
-    let has_system = data.services.iter().any(|s| s.kind == "system");
-    let count = rows.len();
 
+    let has_system = data.services.iter().any(|s| s.kind == "system");
     let info_height = info.len() as u16 + 2;
     let (info_area, charts_area, list_area) = if area.height >= CHARTS_MIN_HEIGHT {
         let [info_area, charts_area, list_area] = Layout::vertical([
@@ -147,6 +157,31 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
         (info_area, None, list_area)
     };
 
+    let sorted = sorted_services(data);
+    let name_longest = sorted.iter().map(|s| s.name.width()).max().unwrap_or(0);
+    let planned = layout::plan(
+        &service_cols(size.narrow(), None, name_longest),
+        avail(list_area),
+    );
+    let rows: Vec<Row> = sorted
+        .into_iter()
+        .map(|s| {
+            service_row(
+                &planned,
+                &ServiceView {
+                    state: s.state,
+                    stale: false,
+                    host: "",
+                    name: &s.name,
+                    kind: &s.kind,
+                    status: service_status(&s.status_text, s.pending_action.as_deref()),
+                    since: s.state_since,
+                },
+            )
+        })
+        .collect();
+    let count = rows.len();
+
     f.render_widget(
         Paragraph::new(info).block(block(title(&heading))),
         info_area,
@@ -159,6 +194,7 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
                 &page.charts,
                 charts::specs_for("system"),
                 page.range,
+                page.chart_focus,
             );
         } else {
             let none = Charts::Failed("this host reports no system service".to_owned());
@@ -168,6 +204,7 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
                 &none,
                 charts::specs_for("system"),
                 page.range,
+                0,
             );
         }
     }
@@ -177,110 +214,166 @@ fn host_page(f: &mut Frame, hits: &mut Hits, page: &mut HostPage, area: Rect) {
         ListId::HostServices,
         list_area,
         block_focus(title(&format!("Services · {count}")), true),
-        Some(header_row(&["STATE", "SERVICE", "TYPE", "STATUS", "SINCE"])),
+        Some(header_of(&planned)),
         rows,
-        &[
-            Constraint::Length(15),
-            Constraint::Length(26),
-            Constraint::Length(11),
-            Constraint::Min(16),
-            Constraint::Length(12),
-        ],
+        &widths_of(&planned),
         &mut page.cursor,
         true,
     );
 }
 
-fn service_page(f: &mut Frame, hits: &mut Hits, page: &mut ServicePage, area: Rect) {
-    let heading = format!("{}/{}", page.host, page.service);
+fn service_page(f: &mut Frame, hits: &mut Hits, page: &mut ServicePage, area: Rect, size: Size) {
+    let narrow = size.narrow();
+    let subject = format!("{}/{}", page.host, page.service);
     let Some(data) = page.data.as_ref() else {
-        return placeholder(f, area, &heading, page.error.as_ref());
+        return placeholder(f, area, &subject, page.error.as_ref());
     };
     let s = &data.service;
+    let width = area.width;
     let mut status = vec![
         Line::from(vec![
             Span::styled(format!(" {:<10}", "state"), dim()),
             Span::styled(service_badge(s.state), style(service_tone(s.state))),
         ]),
-        field("type", s.kind.clone()),
+        field("type", &s.kind, width),
         field(
             "status",
             service_status(&s.status_text, s.pending_action.as_deref()),
+            width,
         ),
-        field("since", fmt::ago(s.state_since)),
-        field("monitor", s.monitor_mode.clone()),
+        field("since", fmt::ago(s.state_since), width),
+        field("monitor", &s.monitor_mode, width),
     ];
     if let Some(every) = &s.every {
-        status.push(field("every", every.clone()));
+        status.push(field("every", every, width));
     }
     if !s.groups.is_empty() {
-        status.push(field("groups", s.groups.join(", ")));
+        status.push(field("groups", s.groups.join(", "), width));
     }
     if let Some(error) = &page.error {
         status.push(Line::from(Span::styled(
-            format!(" {error}"),
+            format!(
+                " {}",
+                ellipsize(error, usize::from(width).saturating_sub(4))
+            ),
             style(Tone::Bad),
         )));
     }
     let mut pairs = Vec::new();
     flatten(&data.data, "", 0, &mut pairs);
+    let data_width = if narrow { width } else { width * 58 / 100 };
     let key_width = pairs
         .iter()
         .map(|(k, _)| k.chars().count())
         .max()
         .unwrap_or(0)
-        .min(24);
+        .min(usize::from(data_width / 2));
     let values: Vec<Line> = pairs
         .iter()
         .map(|(k, v)| {
+            let room = usize::from(data_width).saturating_sub(key_width + 6);
             Line::from(vec![
-                Span::styled(format!(" {k:<key_width$}  "), dim()),
-                Span::raw(v.clone()),
+                Span::styled(format!(" {:<key_width$}  ", ellipsize(k, key_width)), dim()),
+                Span::raw(ellipsize(v, room)),
             ])
         })
         .collect();
 
     let specs = charts::specs_for(&s.kind);
-    let rows: Vec<Row> = data.recent_events.iter().map(event_row).collect();
-    let count = rows.len();
-    let top_height = (status.len().max(values.len()).clamp(5, 12) + 2) as u16;
-
-    let show_charts = area.height >= CHARTS_MIN_HEIGHT && !specs.is_empty();
-    let (top_area, charts_area, list_area) = if show_charts {
-        let [top, charts, list] = Layout::vertical([
-            Constraint::Length(top_height),
-            Constraint::Fill(3),
-            Constraint::Fill(2),
-        ])
-        .areas(area);
-        (top, Some(charts), list)
-    } else {
-        let [top, list] = Layout::vertical([
-            Constraint::Length(top_height.min(area.height / 2)),
-            Constraint::Min(3),
-        ])
-        .areas(area);
-        (top, None, list)
-    };
-    let [status_area, data_area] =
-        Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
-            .areas(top_area);
-    let heading = format!("{heading} · charts: last {}", page.range.label());
-    f.render_widget(
-        Paragraph::new(status).block(block(title(&heading))),
-        status_area,
+    let planned = layout::plan(
+        &event_cols(narrow, longest_subject(&data.recent_events)),
+        avail(area),
     );
+    let rows: Vec<Row> = data
+        .recent_events
+        .iter()
+        .map(|e| event_row(&planned, e, narrow))
+        .collect();
+    let count = rows.len();
+
+    let heading = if narrow {
+        format!("{} · {}", ellipsize(&subject, 20), page.range.label())
+    } else {
+        format!("{subject} · charts: last {}", page.range.label())
+    };
+    let show_charts = area.height >= CHARTS_MIN_HEIGHT && !specs.is_empty();
+    let status_height = status.len() as u16 + 2;
     let data_lines = if values.is_empty() {
         vec![Line::from(Span::styled(" no data reported", dim()))]
     } else {
         values
     };
-    f.render_widget(
-        Paragraph::new(data_lines).block(block(title("Data"))),
-        data_area,
-    );
+    let list_area;
+    let mut charts_area = None;
+    if narrow {
+        // one column: status, data (only when there is room), charts, events
+        let data_height = if area.height >= 24 {
+            (data_lines.len() as u16).clamp(1, 8) + 2
+        } else {
+            0
+        };
+        let [status_area, data_area, charts, list] = Layout::vertical([
+            Constraint::Length(status_height.min(area.height / 2)),
+            Constraint::Length(data_height),
+            Constraint::Fill(if show_charts { 3 } else { 0 }),
+            Constraint::Fill(2),
+        ])
+        .areas(area);
+        f.render_widget(
+            Paragraph::new(status).block(block(title(&heading))),
+            status_area,
+        );
+        if data_height > 0 {
+            f.render_widget(
+                Paragraph::new(data_lines).block(block(title("Data"))),
+                data_area,
+            );
+        }
+        if show_charts {
+            charts_area = Some(charts);
+        }
+        list_area = list;
+    } else {
+        let top_height = (status.len().max(data_lines.len()).clamp(5, 12) + 2) as u16;
+        let (top_area, charts, list) = if show_charts {
+            let [top, charts, list] = Layout::vertical([
+                Constraint::Length(top_height),
+                Constraint::Fill(3),
+                Constraint::Fill(2),
+            ])
+            .areas(area);
+            (top, Some(charts), list)
+        } else {
+            let [top, list] = Layout::vertical([
+                Constraint::Length(top_height.min(area.height / 2)),
+                Constraint::Min(3),
+            ])
+            .areas(area);
+            (top, None, list)
+        };
+        let [status_area, data_area] =
+            Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
+                .areas(top_area);
+        f.render_widget(
+            Paragraph::new(status).block(block(title(&heading))),
+            status_area,
+        );
+        f.render_widget(
+            Paragraph::new(data_lines).block(block(title("Data"))),
+            data_area,
+        );
+        charts_area = charts;
+        list_area = list;
+    }
     if let Some(charts_area) = charts_area {
-        charts::render(f, charts_area, &page.charts, specs, page.range);
+        charts::render(
+            f,
+            charts_area,
+            &page.charts,
+            specs,
+            page.range,
+            page.chart_focus,
+        );
     }
     render_list(
         f,
@@ -288,9 +381,9 @@ fn service_page(f: &mut Frame, hits: &mut Hits, page: &mut ServicePage, area: Re
         ListId::ServiceEvents,
         list_area,
         block_focus(title(&format!("Recent events · {count}")), true),
-        Some(event_header()),
+        Some(header_of(&planned)),
         rows,
-        &EVENT_WIDTHS,
+        &widths_of(&planned),
         &mut page.cursor,
         true,
     );
@@ -309,6 +402,7 @@ fn service_page(f: &mut Frame, hits: &mut Hits, page: &mut ServicePage, area: Re
 }
 
 fn event_page(f: &mut Frame, e: &Event, area: Rect) {
+    let width = area.width;
     let subject = match (&e.host, &e.service) {
         (Some(h), Some(s)) => format!("{h} / {s}"),
         (Some(h), None) => h.clone(),
@@ -328,7 +422,7 @@ fn event_page(f: &mut Frame, e: &Event, area: Rect) {
         Line::from(vec![
             Span::styled(format!(" {:<10}", "state"), dim()),
             Span::styled(event_badge(e.state), style(event_tone(e.state))),
-            Span::styled(format!("   {}", e.kind_label), dim()),
+            Span::styled(format!("   {}", ellipsize(&e.kind_label, 30)), dim()),
         ]),
         field(
             "when",
@@ -337,12 +431,13 @@ fn event_page(f: &mut Frame, e: &Event, area: Rect) {
                 fmt::clock(e.created_at),
                 short_duration(fmt::now() - e.created_at)
             ),
+            width,
         ),
-        field("subject", subject),
-        field("kind", e.kind.clone()),
-        field("action", e.action.clone().unwrap_or_else(|| "-".to_owned())),
-        field("source", e.source.clone()),
-        field("acked", acked),
+        field("subject", subject, width),
+        field("kind", &e.kind, width),
+        field("action", e.action.as_deref().unwrap_or("-"), width),
+        field("source", &e.source, width),
+        field("acked", acked, width),
         Line::from(""),
         Line::from(Span::styled(" Message", dim())),
     ];
