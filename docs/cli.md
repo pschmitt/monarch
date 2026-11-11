@@ -114,6 +114,28 @@ The **Overview** has a compact summary of hosts and services, a 24 hour activity
 chart (succeeded events above, failed below, with a time axis) and two lists you
 can focus and select in: *Needs attention* and *Recent events*.
 
+### Screen sizes
+
+The layout follows the terminal size, also while it is resized, so the TUI works
+on a phone in portrait (Termux, SSH) as well as on a wide terminal.
+
+| Width | Layout |
+| --- | --- |
+| 120 columns or more (wide) | Everything side by side; tables use all their columns, the sparklines grow with the spare room and extra columns (uptime, failing services) appear |
+| 80 to 119 (medium) | As wide, with compact summary counts and without the URL in the header when it does not fit |
+| fewer than 80 (narrow) | The Overview stacks vertically (summary, chart, *Needs attention*, *Recent events*); the header shows `1:Overview 2 3 4` plus the counts and live dot; tables keep the state symbol, name and the most important values; charts and blocks on host and service pages stack |
+
+Table columns are sized to their content, never wider than needed, and the least
+important ones are dropped first as the width shrinks. Long text is cut with `…`,
+never wrapped inside a cell. A host that is muted is marked `(muted)`, or `⊘` on a
+narrow screen. The load column always shows the full values or is left out.
+
+When a narrow screen is too short to stack all the charts of a page, it shows one
+at a time and `c` switches to the next. The help (`?`) and the confirmation
+dialogs fit the screen; the help scrolls with `j`/`k` when it does not. Taps are
+mouse clicks, so they work on the same narrow layout: the numbers in the header
+switch views.
+
 ### Drilling in and going back
 
 `Enter`, `l` or Right open the selected entry, `h`, Left, `Esc` or `q` go back.
@@ -148,8 +170,9 @@ short terminals.
 | `m` | Monitor or unmonitor the selected service, depending on its state |
 | `R` | Remonitor the selected service |
 | `t` | Chart range on a host or service page |
+| `c` | Next chart, on small screens that show one at a time |
 | `Ctrl-r`, `F5` | Refresh now |
-| `?` | Help |
+| `?` | Help (`j`/`k` scroll it when it does not fit) |
 | `Ctrl-c` | Quit |
 
 Service actions work in the Services view, on a host page (selected service) and
