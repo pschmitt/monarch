@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LoaderCircle } from "@lucide/svelte";
+  import { LoaderCircle, RotateCcw, Save, X } from "@lucide/svelte";
   import { api } from "../api";
   import type { Channel, EventKind } from "../types";
   import { toast, toastError } from "../state.svelte";
@@ -127,8 +127,8 @@
     </div>
   {/if}
   {#snippet footer()}
-    <button class="btn btn-ghost mr-auto" onclick={reset} disabled={busy || loading}>Reset to generic</button>
-    <button class="btn btn-ghost" onclick={() => (open = false)}>Cancel</button>
-    <button class="btn btn-primary" onclick={save} disabled={busy || loading}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{/if} Save</button>
+    <button class="btn btn-ghost mr-auto" onclick={reset} disabled={busy || loading}><RotateCcw size={15} aria-hidden="true" /> Reset to generic</button>
+    <button class="btn btn-ghost" onclick={() => (open = false)}><X size={15} aria-hidden="true" /> Cancel</button>
+    <button class="btn btn-primary" onclick={save} disabled={busy || loading}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{:else}<Save size={15} aria-hidden="true" />{/if} Save</button>
   {/snippet}
 </Modal>

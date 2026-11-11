@@ -77,6 +77,7 @@
       title: `Remove ${hostName(host)}?`,
       body: "All services, metrics and events for this host are deleted. If Monit keeps reporting, the host will re-appear as new.",
       confirm: "Remove host",
+      confirmIcon: "delete",
       danger: true,
     });
     if (!ok) return;

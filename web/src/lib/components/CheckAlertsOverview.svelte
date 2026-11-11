@@ -27,7 +27,7 @@
   const channelNames = (ids: number[]) => ids.map((id) => channels?.find((c) => c.id === id)?.name ?? `#${id}`).join(", ");
 
   async function reset(r: CheckAlert) {
-    if (!(await confirm({ title: `Reset ${r.service}?`, body: `${r.service} on ${r.host} goes back to the generic notification settings.`, confirm: "Reset" }))) return;
+    if (!(await confirm({ title: `Reset ${r.service}?`, body: `${r.service} on ${r.host} goes back to the generic notification settings.`, confirm: "Reset", confirmIcon: "reset" }))) return;
     try {
       await api.resetCheckAlert(r.host_id, r.service);
       toast("ok", "Back to the generic settings");

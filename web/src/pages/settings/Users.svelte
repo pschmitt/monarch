@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Ellipsis, ImageUp, KeyRound, LoaderCircle, Pencil, Plus, Trash, UserPlus, Users } from "@lucide/svelte";
+  import { Ellipsis, ImageUp, KeyRound, LoaderCircle, Pencil, Plus, Save, Trash, UserPlus, Users, X } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Role, User } from "../../lib/types";
   import { ago, datetime } from "../../lib/format";
@@ -106,7 +106,7 @@
   }
 
   async function remove(u: User) {
-    if (!(await confirm({ title: `Delete ${u.username}?`, body: "Their sessions are revoked immediately. Monit agents using this account will stop reporting.", confirm: "Delete user", danger: true }))) return;
+    if (!(await confirm({ title: `Delete ${u.username}?`, body: "Their sessions are revoked immediately. Monit agents using this account will stop reporting.", confirm: "Delete user", confirmIcon: "delete", danger: true }))) return;
     try {
       await api.deleteUser(u.id);
       toast("ok", `${u.username} deleted`);
@@ -243,7 +243,7 @@
     </fieldset>
   </form>
   {#snippet footer()}
-    <button class="btn btn-ghost" onclick={() => (addOpen = false)}>Cancel</button>
+    <button class="btn btn-ghost" onclick={() => (addOpen = false)}><X size={15} aria-hidden="true" /> Cancel</button>
     <button class="btn btn-primary" form="add-user" disabled={busy}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{:else}<UserPlus size={15} />{/if} Create user</button>
   {/snippet}
 </Modal>
@@ -255,8 +255,8 @@
     <p class="hint">At least 8 characters. Existing sessions stay signed in.</p>
   </form>
   {#snippet footer()}
-    <button class="btn btn-ghost" onclick={() => (pwOpen = false)}>Cancel</button>
-    <button class="btn btn-primary" form="set-pw" disabled={busy}>Update password</button>
+    <button class="btn btn-ghost" onclick={() => (pwOpen = false)}><X size={15} aria-hidden="true" /> Cancel</button>
+    <button class="btn btn-primary" form="set-pw" disabled={busy}><KeyRound size={15} aria-hidden="true" /> Update password</button>
   {/snippet}
 </Modal>
 
@@ -273,8 +273,8 @@
     </div>
   </form>
   {#snippet footer()}
-    <button class="btn btn-ghost" onclick={() => (nameOpen = false)}>Cancel</button>
-    <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || (newName.trim() === nameUser?.username && newEmail.trim() === (nameUser?.email ?? ""))}>Save</button>
+    <button class="btn btn-ghost" onclick={() => (nameOpen = false)}><X size={15} aria-hidden="true" /> Cancel</button>
+    <button class="btn btn-primary" form="rename" disabled={busy || !newName.trim() || (newName.trim() === nameUser?.username && newEmail.trim() === (nameUser?.email ?? ""))}><Save size={15} aria-hidden="true" /> Save</button>
   {/snippet}
 </Modal>
 

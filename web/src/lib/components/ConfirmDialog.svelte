@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TriangleAlert, CircleQuestionMark } from "@lucide/svelte";
+  import { Check, CircleQuestionMark, Eye, EyeOff, Play, RefreshCcw, RotateCw, Square, Trash, TriangleAlert, X } from "@lucide/svelte";
   import { confirmState } from "../state.svelte";
 
   function done(ok: boolean) {
@@ -12,12 +12,26 @@
     if (e.key === "Escape") done(false);
     if (e.key === "Enter") done(true);
   }
+  function actionIcon(action?: string) {
+    switch (action) {
+      case "start": return Play;
+      case "stop": return Square;
+      case "restart": return RotateCw;
+      case "monitor": return Eye;
+      case "unmonitor": return EyeOff;
+      case "remonitor": return RefreshCcw;
+      case "delete": case "delete user": case "revoke": return Trash;
+      case "reset": return RefreshCcw;
+      default: return Check;
+    }
+  }
 </script>
 
 <svelte:window onkeydown={onkey} />
 
 {#if confirmState.req}
   {@const req = confirmState.req}
+  {@const ActionIcon = actionIcon(req.confirmIcon ?? req.confirm?.toLowerCase())}
   <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
     <button class="absolute inset-0 cursor-default bg-[var(--mn-scrim)] backdrop-blur-sm" aria-label="Cancel" onclick={() => done(false)}></button>
     <div role="alertdialog" aria-modal="true" class="relative w-full max-w-sm rounded-2xl border border-line-strong bg-surface-solid p-5 shadow-2xl animate-in">
@@ -31,9 +45,9 @@
         </div>
       </div>
       <div class="mt-5 flex justify-end gap-2">
-        <button class="btn btn-ghost" onclick={() => done(false)}>Cancel</button>
+        <button class="btn btn-ghost" onclick={() => done(false)}><X size={15} aria-hidden="true" /> Cancel</button>
         <!-- svelte-ignore a11y_autofocus -->
-        <button class="btn {req.danger ? 'btn-danger' : 'btn-primary'}" autofocus onclick={() => done(true)}>{req.confirm ?? "Confirm"}</button>
+        <button class="btn {req.danger ? 'btn-danger' : 'btn-primary'}" autofocus onclick={() => done(true)}><ActionIcon size={15} aria-hidden="true" /> {req.confirm ?? "Confirm"}</button>
       </div>
     </div>
   </div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, LoaderCircle } from "@lucide/svelte";
+  import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, Check, LoaderCircle } from "@lucide/svelte";
   import { api } from "../api";
   import type { Target } from "../types";
   import { router, hostHref } from "../router.svelte";
@@ -79,7 +79,7 @@
         <CollectorSnippet {collectorUrl} compact />
         <div class="flex justify-end gap-2 pt-1">
           {#if can("admin")}<a class="btn btn-ghost" href="/settings/collector" onclick={() => (ui.addHost = false)}>More options</a>{/if}
-          <button class="btn btn-primary" onclick={() => (ui.addHost = false)}>Done</button>
+          <button class="btn btn-primary" onclick={() => (ui.addHost = false)}><Check size={15} aria-hidden="true" /> Done</button>
         </div>
       </div>
     {:else}

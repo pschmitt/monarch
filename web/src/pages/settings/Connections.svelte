@@ -73,6 +73,7 @@
       title: `Delete connection ${t.name}?`,
       body: "Monarch stops polling this agent. The host and its history stay — remove the host separately if you no longer need it.",
       confirm: "Delete connection",
+      confirmIcon: "delete",
       danger: true,
     });
     if (!ok) return;

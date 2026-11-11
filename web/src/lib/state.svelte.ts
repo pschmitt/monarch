@@ -121,6 +121,7 @@ export interface ConfirmRequest {
   title: string;
   body?: string;
   confirm?: string;
+  confirmIcon?: "start" | "stop" | "restart" | "monitor" | "unmonitor" | "remonitor" | "delete" | "reset";
   danger?: boolean;
   resolve: (ok: boolean) => void;
 }

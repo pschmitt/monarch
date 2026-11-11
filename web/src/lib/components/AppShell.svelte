@@ -93,6 +93,10 @@
     </nav>
 
     <div class="space-y-2 p-3">
+      <div class="flex items-center gap-2 px-3 py-2 text-xs text-fg-2 {collapsed && !mobile ? 'justify-center px-0' : ''}" title="Live connection" role="status" aria-label={`Live connection: ${liveLabel}`}>
+        <StatusDot tone={liveTone} pulse={fleet.status === "live"} size={7} />
+        {#if !collapsed || mobile}<span>{liveLabel}</span>{/if}
+      </div>
       {#if !mobile && !character}
         <button class="btn btn-ghost w-full {collapsed ? 'btn-icon' : 'justify-start'}" onclick={toggleSidebar} aria-label="Toggle sidebar">
           {#if collapsed}<ChevronsRight size={16} />{:else}<ChevronsLeft size={16} /> <span class="text-xs">Collapse</span>{/if}
@@ -138,10 +142,6 @@
         </button>
 
         <div class="ml-auto flex items-center gap-1.5">
-          <div class="mr-1 hidden items-center gap-2 rounded-full border border-line px-2.5 py-1 text-[11px] text-fg-2 sm:flex" title="Live connection">
-            <StatusDot tone={liveTone} pulse={fleet.status === "live"} size={7} />
-            {liveLabel}
-          </div>
           <button class="btn btn-ghost btn-icon" onclick={toggleTheme} aria-label="Toggle dark mode">
             {#if theme.value === "dark"}<Sun size={17} />{:else}<Moon size={17} />{/if}
           </button>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ImageUp, LoaderCircle, Trash } from "@lucide/svelte";
+  import { ImageUp, LoaderCircle, Save, Trash, X } from "@lucide/svelte";
   import { api } from "../api";
   import { refreshSession, session, toast, toastError } from "../state.svelte";
   import type { User } from "../types";
@@ -105,7 +105,7 @@
     {#if user?.avatar && !picked}
       <button class="btn btn-ghost mr-auto text-bad" onclick={remove} disabled={busy}><Trash size={14} /> Remove</button>
     {/if}
-    <button class="btn btn-ghost" onclick={() => (open = false)}>Cancel</button>
-    <button class="btn btn-primary" onclick={save} disabled={busy || !picked}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{/if} Save</button>
+    <button class="btn btn-ghost" onclick={() => (open = false)}><X size={15} aria-hidden="true" /> Cancel</button>
+    <button class="btn btn-primary" onclick={save} disabled={busy || !picked}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{:else}<Save size={15} aria-hidden="true" />{/if} Save</button>
   {/snippet}
 </Modal>

@@ -30,6 +30,7 @@ export async function runAction(hostId: number, hostLabel: string, services: str
         ? `Monarch will ask Monit on ${hostLabel} to unmonitor and then monitor ${services.length === 1 ? "this service" : "these services"} again, which resets the check. The new state shows up with the next report.`
         : `Monarch will ask Monit on ${hostLabel} to ${action} ${services.length === 1 ? "this service" : "these services"}. The new state shows up with the next report.`,
     confirm: ACTIONS.find((a) => a.id === action)!.label,
+    confirmIcon: action,
     danger: action === "stop" || action === "unmonitor",
   });
   if (!ok) return false;

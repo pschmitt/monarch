@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { ArrowUpRight, CircleCheck, CircleX, Lock, LoaderCircle, Pencil, Plug, Save } from "@lucide/svelte";
+  import { ArrowUpRight, CircleCheck, CircleX, Lock, LoaderCircle, Pencil, Plug, Save, X } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { HostAccess, Settings } from "../../lib/types";
   import { hostName, urlSourceLabel } from "../../lib/format";
-  import { toast, toastError } from "../../lib/state.svelte";
+  import { confirm, toast, toastError } from "../../lib/state.svelte";
   import { hostHref } from "../../lib/router.svelte";
   import Badge from "../../lib/components/Badge.svelte";
   import Modal from "../../lib/components/Modal.svelte";
@@ -105,7 +105,11 @@
 
   async function confirmReplacement(h: HostAccess) {
     const target = h.replacement_hostname ?? "the previous host";
-    if (!window.confirm(`Replace ${target} with this reporting host? Its history and settings will be kept.`)) return;
+    if (!(await confirm({
+      title: `Replace ${target}?`,
+      body: "This reporting host takes over the existing host's history and settings.",
+      confirm: "Confirm replacement",
+    }))) return;
     try {
       await api.confirmHostReplacement(h.id);
       toast("ok", `${target} replacement confirmed`);
@@ -248,7 +252,7 @@
           {/if}
         </div>
         <div class="flex gap-2">
-          <button type="button" class="btn btn-sm" onclick={() => (editOpen = false)}>Cancel</button>
+          <button type="button" class="btn btn-sm" onclick={() => (editOpen = false)}><X size={14} aria-hidden="true" /> Cancel</button>
           <button class="btn btn-primary btn-sm" disabled={saving}>{#if saving}<LoaderCircle size={14} class="animate-spin" />{:else}<Save size={14} />{/if} Save</button>
         </div>
       </div>

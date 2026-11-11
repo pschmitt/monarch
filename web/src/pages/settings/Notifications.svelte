@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BellRing, Globe, Hash, LoaderCircle, Mail, MessageCircle, Pencil, Plus, Send, Terminal, Trash, Webhook, Workflow } from "@lucide/svelte";
+  import { BellRing, Globe, Hash, LoaderCircle, Mail, MessageCircle, Pencil, Plus, Save, Send, Terminal, Trash, Webhook, Workflow, X } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { Channel, ChannelKind, EventKind, EventState } from "../../lib/types";
   import { ago, eventStateLabel, eventTone } from "../../lib/format";
@@ -194,7 +194,7 @@
   }
 
   async function remove(c: Channel) {
-    if (!(await confirm({ title: `Delete ${c.name}?`, body: "Notifications will no longer be delivered to this channel.", confirm: "Delete", danger: true }))) return;
+    if (!(await confirm({ title: `Delete ${c.name}?`, body: "Notifications will no longer be delivered to this channel.", confirm: "Delete", confirmIcon: "delete", danger: true }))) return;
     try {
       await api.deleteChannel(c.id);
       load();
@@ -375,7 +375,7 @@
   </form>
   {#snippet footer()}
     <label class="mr-auto flex items-center gap-2 text-xs text-fg-2"><Switch bind:checked={draft.enabled} label="Enabled" /> Enabled</label>
-    <button class="btn btn-ghost" onclick={() => (open = false)}>Cancel</button>
-    <button class="btn btn-primary" form="chan" disabled={busy}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{/if}{editing ? "Save" : "Create channel"}</button>
+    <button class="btn btn-ghost" onclick={() => (open = false)}><X size={15} aria-hidden="true" /> Cancel</button>
+    <button class="btn btn-primary" form="chan" disabled={busy}>{#if busy}<LoaderCircle size={15} class="animate-spin" />{:else if editing}<Save size={15} aria-hidden="true" />{:else}<Plus size={15} aria-hidden="true" />{/if}{editing ? "Save" : "Create channel"}</button>
   {/snippet}
 </Modal>

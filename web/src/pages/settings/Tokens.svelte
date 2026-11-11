@@ -50,7 +50,7 @@
   }
 
   async function revoke(t: ApiToken) {
-    if (!(await confirm({ title: `Revoke ${t.name}?`, body: "Anything using this token stops working immediately.", confirm: "Revoke", danger: true }))) return;
+    if (!(await confirm({ title: `Revoke ${t.name}?`, body: "Anything using this token stops working immediately.", confirm: "Revoke", confirmIcon: "delete", danger: true }))) return;
     try {
       await api.revokeToken(t.id);
       load();

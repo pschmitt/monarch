@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Activity, ArrowRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
+  import { Activity, ArrowRight, ChevronRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
   import { ago, compact, hostName, kb, mb, pct, serviceTypeLabel, timeShort, usageTone } from "../lib/format";
@@ -94,7 +94,7 @@
       seen.add(e.id);
       out.push(e);
     }
-    return out.sort((a, b) => b.created_at - a.created_at).slice(0, 12);
+    return out.sort((a, b) => b.created_at - a.created_at).slice(0, 10);
   });
 
   const activityMax = $derived(Math.max(1, ...(data?.activity ?? []).map((a) => a.ok + a.failed)));
@@ -244,7 +244,7 @@
         </h2>
         <p class="mt-0.5 text-xs text-fg-3">Live status across every node reporting to Monarch</p>
 
-        <div class="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
           {#each hostHealthSegments as segment (segment.key)}
             <button
               type="button"
@@ -300,7 +300,7 @@
       {/if}
   </div>
 
-  <div class="grid gap-6 xl:grid-cols-2 xl:gap-x-4">
+  <div class="overview-details-grid grid min-h-[240px] gap-6 xl:grid-cols-2 xl:gap-x-4">
     <div class="min-w-0 space-y-6">
       <!-- needs attention -->
       {#if data && attentionCount}
@@ -372,38 +372,20 @@
           </ul>
         </section>
       {/if}
-
-      <!-- fleet -->
-      <section>
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="card-title">Fleet</h2>
-          <a href="/hosts" class="flex items-center gap-1 text-xs text-fg-3 hover:text-fg">All hosts <ArrowRight size={13} /></a>
-        </div>
-        {#if !fleet.loaded}
-          <div class="grid gap-3 sm:grid-cols-2">
-            {#each Array(6) as _, i (i)}<div class="skeleton h-[196px] rounded-2xl"></div>{/each}
-          </div>
-        {:else if hosts.length === 0}
-          <div class="card">
-            <Empty icon={Sparkles} title="No hosts yet" body="Point a Monit agent at Monarch's collector and it will show up here within one poll cycle.">
-              <button class="btn btn-primary" onclick={() => (ui.addHost = true)}><Plus size={15} /> Add a host</button>
-            </Empty>
-          </div>
-        {:else}
-          <div class="grid gap-3 sm:grid-cols-2">
-            {#each hosts as h (h.id)}<HostCard host={h} />{/each}
-          </div>
-        {/if}
-      </section>
+      {#if data && !attentionCount && !data.unmonitored.length}
+        <section class="card min-h-[240px]"><Empty icon={CircleCheckBig} title="No active failures" body="New problems will appear here." /></section>
+      {/if}
     </div>
 
     <!-- right rail -->
-    <aside class="min-w-0 space-y-6">
-      <section class="card overflow-hidden">
-        <div class="flex items-center justify-between border-b border-line px-4 py-3.5">
+    <aside class="recent-events-column min-w-0 xl:relative xl:min-h-0">
+      <section class="recent-events-card card flex max-h-[32rem] flex-col overflow-hidden xl:absolute xl:inset-0 xl:max-h-none">
+        <div class="flex shrink-0 items-center justify-between border-b border-line px-4 py-3.5">
           <h2 class="card-title">Recent events</h2>
           <a href="/events" class="flex items-center gap-1 text-xs text-fg-3 hover:text-fg">View all <ArrowRight size={13} /></a>
         </div>
+        <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users need to scroll this region) -->
+        <div class="recent-events-scroll min-h-0 flex-1 overflow-y-auto" role="region" aria-label="Recent events" tabindex="0">
         {#if !data}
           <div class="space-y-3 p-4">{#each Array(6) as _, i (i)}<Skeleton class="h-10 w-full" />{/each}</div>
         {:else if recent.length === 0}
@@ -413,6 +395,7 @@
             {#each recent as e (e.id)}<div class="animate-in"><EventRow event={e} compact /></div>{/each}
           </div>
         {/if}
+        </div>
       </section>
 
 
@@ -428,7 +411,7 @@
           <h2 class="card-title">Top CPU</h2>
         </div>
         <ul class="p-2">
-          {#each data.top_cpu as p, i (p.host_id + p.service)}
+          {#each data.top_cpu.slice(0, 5) as p, i (p.host_id + p.service)}
             <li>
               <a href={serviceHref(p.host_id, p.service)} class="flex items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-hover">
                 <span class="num w-4 text-[11px] text-fg-3">{i + 1}</span>
@@ -450,7 +433,7 @@
           <h2 class="card-title">Top memory</h2>
         </div>
         <ul class="p-2">
-          {#each data.top_mem as p, i (p.host_id + p.service)}
+          {#each data.top_mem.slice(0, 5) as p, i (p.host_id + p.service)}
             <li>
               <a href={serviceHref(p.host_id, p.service)} class="flex items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-hover">
                 <span class="num w-4 text-[11px] text-fg-3">{i + 1}</span>
@@ -472,7 +455,7 @@
           <h2 class="card-title">Filesystems</h2>
         </div>
         <ul class="space-y-1 p-2">
-          {#each data.filesystems as f (f.host_id + f.service)}
+          {#each data.filesystems.slice(0, 5) as f (f.host_id + f.service)}
             <li>
               <a href={serviceHref(f.host_id, f.service)} class="block rounded-lg px-2.5 py-2 hover:bg-hover">
                 <div class="mb-1.5 flex items-center justify-between gap-3 text-[13px]">
@@ -488,9 +471,36 @@
       </section>
     </div>
   {/if}
+      <!-- fleet -->
+      <section>
+        <details class="fleet-disclosure group">
+        <summary class="mb-3 flex cursor-pointer items-center justify-between gap-3">
+          <span class="flex items-center gap-2"><ChevronRight size={16} class="transition-transform group-open:rotate-90" /><span class="card-title">Fleet</span><span class="text-xs text-fg-3">{hosts.length} hosts</span></span>
+          <a href="/hosts" class="flex items-center gap-1 text-xs text-fg-3 hover:text-fg">All hosts <ArrowRight size={13} /></a>
+        </summary>
+        {#if !fleet.loaded}
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {#each Array(6) as _, i (i)}<div class="skeleton h-[196px] rounded-2xl"></div>{/each}
+          </div>
+        {:else if hosts.length === 0}
+          <div class="card">
+            <Empty icon={Sparkles} title="No hosts yet" body="Point a Monit agent at Monarch's collector and it will show up here within one poll cycle.">
+              <button class="btn btn-primary" onclick={() => (ui.addHost = true)}><Plus size={15} /> Add a host</button>
+            </Empty>
+          </div>
+        {:else}
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {#each hosts as h (h.id)}<HostCard host={h} />{/each}
+          </div>
+        {/if}
+        </details>
+      </section>
+
 </div>
 
 <style>
+  .fleet-disclosure > summary { list-style: none; }
+  .fleet-disclosure > summary::-webkit-details-marker { display: none; }
   .fleet-health {
     transition: border-color 180ms ease, box-shadow 180ms ease;
   }
@@ -577,11 +587,9 @@
     color: var(--mn-fg-3);
     font-size: 0.75rem;
   }
-  @media (min-width: 640px) {
-    .health-legend:last-child .health-tooltip {
-      right: 0;
-      left: auto;
-    }
+  .health-legend:last-child .health-tooltip {
+    right: 0;
+    left: auto;
   }
   .health-dot {
     width: 0.5rem;

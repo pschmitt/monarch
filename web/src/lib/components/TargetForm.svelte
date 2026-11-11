@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleCheck, CircleX, LoaderCircle, Plug, Terminal } from "@lucide/svelte";
+  import { CircleCheck, CircleX, LoaderCircle, Plug, Plus, Save, Terminal, X } from "@lucide/svelte";
   import { api } from "../api";
   import type { Target, TargetInput, TargetTestResult } from "../types";
   import { toastError } from "../state.svelte";
@@ -170,8 +170,8 @@
       {#if testing}<LoaderCircle size={15} class="animate-spin" />{:else}<Plug size={15} />{/if} Test connection
     </button>
     <div class="ml-auto flex gap-2">
-      {#if oncancel}<button type="button" class="btn btn-ghost" onclick={oncancel}>Cancel</button>{/if}
-      <button class="btn btn-primary" disabled={saving || !canSubmit}>{#if saving}<LoaderCircle size={15} class="animate-spin" />{/if}{submitLabel}</button>
+      {#if oncancel}<button type="button" class="btn btn-ghost" onclick={oncancel}><X size={15} aria-hidden="true" /> Cancel</button>{/if}
+      <button class="btn btn-primary" disabled={saving || !canSubmit}>{#if saving}<LoaderCircle size={15} class="animate-spin" />{:else if submitLabel === "Add"}<Plus size={15} aria-hidden="true" />{:else}<Save size={15} aria-hidden="true" />{/if}{submitLabel}</button>
     </div>
   </div>
 </form>

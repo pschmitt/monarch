@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Moon, Sun } from "@lucide/svelte";
+  import { Check, Moon, Sun, Square, Layers, Crown, Hash, CircleDot, Activity, Server, ListChecks } from "@lucide/svelte";
   import { faviconPreference, setFaviconCountSource, setFaviconMode, type FaviconCountSource, type FaviconMode } from "../../lib/favicon.svelte";
   import { setTheme, setThemeStyle, theme, themeStyles, type Theme } from "../../lib/state.svelte";
 
@@ -8,18 +8,19 @@
     simple: "Flat and opaque, inspired by nixbot.",
     character: "A brighter lilac and apricot look, with a spacious navigation shell.",
   };
+  const styleIcons: Record<string, typeof Sun> = { simple: Square, monarch: Layers, character: Crown };
   const modes: { id: Theme; label: string; icon: typeof Sun }[] = [
     { id: "dark", label: "Dark", icon: Moon },
     { id: "light", label: "Light", icon: Sun },
   ];
-  const faviconModes: { id: FaviconMode; label: string }[] = [
-    { id: "count", label: "Issue count" },
-    { id: "binary", label: "Status dot" },
+  const faviconModes: { id: FaviconMode; label: string; icon: typeof Sun }[] = [
+    { id: "count", label: "Issue count", icon: Hash },
+    { id: "binary", label: "Status dot", icon: CircleDot },
   ];
-  const faviconCountSources: { id: FaviconCountSource; label: string; description: string }[] = [
-    { id: "issues", label: "Fleet issues", description: "Counts failed services and offline hosts, matching the current count behavior." },
-    { id: "hosts", label: "Hosts", description: "Counts distinct unhealthy hosts. Offline hosts are included." },
-    { id: "services", label: "Services", description: "Counts active failures on online hosts. Offline hosts and their stale service states still flag the icon but are excluded from this count." },
+  const faviconCountSources: { id: FaviconCountSource; label: string; description: string; icon: typeof Sun }[] = [
+    { id: "issues", icon: Activity, label: "Fleet issues", description: "Counts failed services and offline hosts, matching the current count behavior." },
+    { id: "hosts", icon: Server, label: "Hosts", description: "Counts distinct unhealthy hosts. Offline hosts are included." },
+    { id: "services", icon: ListChecks, label: "Services", description: "Counts active failures on online hosts. Offline hosts and their stale service states still flag the icon but are excluded from this count." },
   ];
 </script>
 
@@ -32,6 +33,7 @@
     <div class="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Theme">
       {#each themeStyles as st (st.id)}
         {@const active = theme.style === st.id}
+        {@const StyleIcon = styleIcons[st.id]}
         <button
           type="button"
           role="radio"
@@ -39,6 +41,7 @@
           class="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors {active ? 'border-accent bg-hover' : 'border-line hover:border-line-strong'}"
           onclick={() => setThemeStyle(st.id)}
         >
+          <StyleIcon size={20} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
           <span class="flex-1">
             <span class="block text-[13px] font-medium text-fg">{st.label}</span>
             <span class="mt-0.5 block text-xs text-fg-3">{styleDesc[st.id]}</span>
@@ -72,7 +75,7 @@
     <div class="flex gap-2" role="radiogroup" aria-label="Favicon">
       {#each faviconModes as f (f.id)}
         <button type="button" role="radio" aria-checked={faviconPreference.mode === f.id} class="btn {faviconPreference.mode === f.id ? 'btn-primary' : ''}" onclick={() => setFaviconMode(f.id)}>
-          {f.label}
+          <f.icon size={16} aria-hidden="true" /> {f.label}
         </button>
       {/each}
     </div>
@@ -90,6 +93,7 @@
               class="flex items-start gap-3 rounded-xl border p-4 text-left transition-colors {active ? 'border-accent bg-hover' : 'border-line hover:border-line-strong'}"
               onclick={() => setFaviconCountSource(source.id)}
             >
+              <source.icon size={20} class="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
               <span class="flex-1">
                 <span class="block text-[13px] font-medium text-fg">{source.label}</span>
                 <span class="mt-0.5 block text-xs text-fg-3">{source.description}</span>
