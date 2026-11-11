@@ -124,21 +124,22 @@
     <a href="/hosts" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent)">
       <div class="flex items-center justify-between">
         <span class="eyebrow">Hosts</span>
-        <svg class="h-11 w-11 shrink-0" viewBox="0 0 48 48" role="img" aria-label="Host health: {hostCounts.total - hostCounts.degraded - hostCounts.offline} healthy, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
-          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--mn-line-strong)" stroke-width="5" />
+        <span class="kpi-icon"><Server size={16} /></span>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <svg class="h-[76px] w-[76px] shrink-0" viewBox="0 0 48 48" role="img" aria-label="{hostCounts.online} online of {hostCounts.total} hosts; {hostCounts.total - hostCounts.degraded - hostCounts.offline} healthy, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--mn-line-strong)" stroke-width="3.5" />
           {#each hostHealthSegments as segment (segment.label)}
-            <circle cx="24" cy="24" r="20" fill="none" stroke={segment.color} stroke-width="5" stroke-dasharray="{segment.length} {2 * Math.PI * 20 - segment.length}" stroke-dashoffset={-segment.offset} transform="rotate(-90 24 24)"><title>{segment.label}: {segment.count}</title></circle>
+            <circle cx="24" cy="24" r="20" fill="none" stroke={segment.color} stroke-width="3.5" stroke-dasharray="{segment.length} {2 * Math.PI * 20 - segment.length}" stroke-dashoffset={-segment.offset} transform="rotate(-90 24 24)"><title>{segment.label}: {segment.count}</title></circle>
           {/each}
-          <text x="24" y="25" dominant-baseline="middle" text-anchor="middle" fill="var(--mn-fg)" font-size="14" font-weight="600">{hostCounts.total}</text>
+          <text x="24" y="22" dominant-baseline="middle" text-anchor="middle" fill="var(--mn-fg)" font-size="15" font-weight="600">{hostCounts.online}</text>
+          <text x="24" y="32" text-anchor="middle" fill="var(--mn-fg-3)" font-size="6.5">online</text>
         </svg>
-      </div>
-      <div class="mt-3 flex items-baseline gap-1.5">
-        <span class="num text-2xl font-semibold tracking-tight sm:text-3xl text-fg">{hostCounts.online}</span>
-        <span class="num text-sm text-fg-3">/ {hostCounts.total} online</span>
-      </div>
-      <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
-        <span class="flex items-center gap-1.5 {hostCounts.degraded ? 'text-warn' : 'text-fg-3'}"><StatusDot tone={hostCounts.degraded ? "warn" : "muted"} size={6} />{hostCounts.degraded} degraded</span>
-        <span class="flex items-center gap-1.5 {hostCounts.offline ? 'text-bad' : 'text-fg-3'}"><StatusDot tone={hostCounts.offline ? "bad" : "muted"} size={6} pulse={hostCounts.offline > 0} />{hostCounts.offline} offline</span>
+        <div class="min-w-[90px] flex-1 space-y-2">
+          <div class="text-sm text-fg-3">of <span class="num font-semibold text-fg">{hostCounts.total}</span> hosts</div>
+          <div class="flex items-center gap-1.5 text-xs {hostCounts.degraded ? 'text-warn' : 'text-fg-3'}"><StatusDot tone={hostCounts.degraded ? "warn" : "muted"} size={6} />{hostCounts.degraded} degraded</div>
+          <div class="flex items-center gap-1.5 text-xs {hostCounts.offline ? 'text-bad' : 'text-fg-3'}"><StatusDot tone={hostCounts.offline ? "bad" : "muted"} size={6} pulse={hostCounts.offline > 0} />{hostCounts.offline} offline</div>
+        </div>
       </div>
     </a>
 
