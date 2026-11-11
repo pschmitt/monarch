@@ -199,6 +199,7 @@
     </a>
   </div>
 
+  <div class="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
   <!-- fleet health summary -->
   <section class="card fleet-health p-4 sm:p-5">
     <div class="grid items-center gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-5">
@@ -275,6 +276,29 @@
       </div>
     </div>
   </section>
+
+      {#if data}
+        <section class="card min-w-0 p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="card-title">Event activity</h2>
+            <span class="text-[11px] text-fg-3">last 24 hours</span>
+          </div>
+          <div class="flex h-28 items-end gap-[3px]">
+            {#each data.activity as a (a.ts)}
+              {@const total = a.ok + a.failed}
+              <div class="group relative flex h-full flex-1 flex-col justify-end" title="{timeShort(a.ts)} — {a.failed} failed, {a.ok} other">
+                <div class="rounded-t-[3px] bg-[color-mix(in_oklab,var(--mn-accent-2)_55%,transparent)] transition-opacity group-hover:opacity-100" style="height:{(a.ok / activityMax) * 100}%"></div>
+                <div class="bg-bad {a.ok ? '' : 'rounded-t-[3px]'}" style="height:{(a.failed / activityMax) * 100}%"></div>
+                {#if total === 0}<div class="h-px bg-[var(--mn-line-strong)]"></div>{/if}
+              </div>
+            {/each}
+          </div>
+          <div class="num mt-2 flex justify-between text-[10px] text-fg-3">
+            <span>{timeShort(data.activity[0]?.ts ?? 0)}</span><span>{timeShort(data.activity[12]?.ts ?? 0)}</span><span>now</span>
+          </div>
+        </section>
+      {/if}
+  </div>
 
   <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
     <div class="min-w-0 space-y-6">
@@ -391,27 +415,7 @@
         {/if}
       </section>
 
-      {#if data}
-        <section class="card p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="card-title">Event activity</h2>
-            <span class="text-[11px] text-fg-3">last 24 hours</span>
-          </div>
-          <div class="flex h-28 items-end gap-[3px]">
-            {#each data.activity as a (a.ts)}
-              {@const total = a.ok + a.failed}
-              <div class="group relative flex h-full flex-1 flex-col justify-end" title="{timeShort(a.ts)} — {a.failed} failed, {a.ok} other">
-                <div class="rounded-t-[3px] bg-[color-mix(in_oklab,var(--mn-accent-2)_55%,transparent)] transition-opacity group-hover:opacity-100" style="height:{(a.ok / activityMax) * 100}%"></div>
-                <div class="bg-bad {a.ok ? '' : 'rounded-t-[3px]'}" style="height:{(a.failed / activityMax) * 100}%"></div>
-                {#if total === 0}<div class="h-px bg-[var(--mn-line-strong)]"></div>{/if}
-              </div>
-            {/each}
-          </div>
-          <div class="num mt-2 flex justify-between text-[10px] text-fg-3">
-            <span>{timeShort(data.activity[0]?.ts ?? 0)}</span><span>{timeShort(data.activity[12]?.ts ?? 0)}</span><span>now</span>
-          </div>
-        </section>
-      {/if}
+
     </aside>
   </div>
 
