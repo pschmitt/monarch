@@ -123,6 +123,34 @@ impl Client {
             .await
     }
 
+    pub async fn service(&self, host: u64, name: &str) -> Result<Value> {
+        let request = self.builder(
+            Method::GET,
+            &["api", "hosts", &host.to_string(), "services", name],
+        );
+        self.send(request).await
+    }
+
+    /// Metric history of one service between two unix timestamps.
+    pub async fn metrics(
+        &self,
+        host: u64,
+        service: &str,
+        keys: &[&str],
+        from: f64,
+        to: f64,
+    ) -> Result<Value> {
+        let query = [
+            ("host", host.to_string()),
+            ("service", service.to_owned()),
+            ("metrics", keys.join(",")),
+            ("from", (from as i64).to_string()),
+            ("to", (to as i64).to_string()),
+        ];
+        self.send(self.builder(Method::GET, &["api", "metrics"]).query(&query))
+            .await
+    }
+
     pub async fn services(&self, state: Option<&str>, q: Option<&str>) -> Result<Value> {
         let mut query = Vec::new();
         if let Some(state) = state {

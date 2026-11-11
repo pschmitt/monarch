@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use clap::ValueEnum;
 use serde::Deserialize;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -219,6 +220,7 @@ pub struct Service {
     pub state: ServiceState,
     pub status_text: String,
     pub monitor_mode: String,
+    pub every: Option<String>,
     pub pending_action: Option<String>,
     pub state_since: Option<f64>,
     pub groups: Vec<String>,
@@ -232,6 +234,31 @@ pub struct HostDetail {
     pub monit_url: Option<String>,
     pub remote_addr: Option<String>,
     pub services: Vec<Service>,
+}
+
+/// `GET /api/hosts/:id/services/:name`: the service plus its raw data and recent events.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct ServiceDetail {
+    #[serde(flatten)]
+    pub service: Service,
+    pub data: Value,
+    pub recent_events: Vec<Event>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct MetricSeries {
+    pub metric: String,
+    /// `[ts, avg, min, max]`, any of them may be null.
+    pub points: Vec<Vec<Option<f64>>>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+pub struct MetricsResponse {
+    pub resolution: u64,
+    pub series: Vec<MetricSeries>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -484,5 +511,27 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(me.user.unwrap().role, "viewer");
+    }
+
+    #[test]
+    fn service_detail_and_metrics() {
+        let d: ServiceDetail = serde_json::from_value(json!({
+            "id": 1, "host_id": 2, "name": "nginx", "type": "process", "state": "ok",
+            "status_text": "Running", "every": null, "events": 3,
+            "data": {"pid": 42, "cpu": {"percent": 1.5}},
+            "recent_events": [{"id": 5, "message": "m", "state": "failed"}],
+            "host": {"id": 2}
+        }))
+        .unwrap();
+        assert_eq!(d.service.name, "nginx");
+        assert_eq!(d.data["pid"], 42);
+        assert_eq!(d.recent_events[0].id, 5);
+        let m: MetricsResponse = serde_json::from_value(json!({
+            "resolution": 300,
+            "series": [{"metric": "cpu", "points": [[1700000000, 1.5, 1.0, 2.0], [1700000300, null, null, null]]}]
+        }))
+        .unwrap();
+        assert_eq!(m.series[0].points[0][1], Some(1.5));
+        assert_eq!(m.series[0].points[1][1], None);
     }
 }

@@ -6,6 +6,8 @@
 //! network.
 
 mod app;
+mod charts;
+mod pages;
 mod ui;
 
 use std::sync::Arc;
@@ -13,21 +15,34 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::Result;
-use ratatui::crossterm::event;
+use ratatui::crossterm::event::{self, DisableMouseCapture, EnableMouseCapture};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 use crate::api::Client;
 use crate::types::StreamMessage;
 use app::{App, Conn, Msg};
 
-/// Puts the terminal back however the UI ends. `ratatui::init` also installs a
-/// panic hook that restores it before the panic message is printed.
+/// Puts the terminal back however the UI ends: mouse capture off, then the
+/// screen and raw mode restored.
 struct Restore;
 
 impl Drop for Restore {
     fn drop(&mut self) {
+        let _ = ratatui::crossterm::execute!(std::io::stdout(), DisableMouseCapture);
         ratatui::restore();
     }
+}
+
+/// Turns the mouse on and makes sure a panic turns it off again.
+/// `ratatui::init` already installs a panic hook that restores the screen; ours
+/// runs first and disables mouse capture before handing over to it.
+fn enable_mouse() {
+    let _ = ratatui::crossterm::execute!(std::io::stdout(), EnableMouseCapture);
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let _ = ratatui::crossterm::execute!(std::io::stdout(), DisableMouseCapture);
+        previous(info);
+    }));
 }
 
 pub async fn run(client: Client) -> Result<()> {
@@ -36,6 +51,7 @@ pub async fn run(client: Client) -> Result<()> {
 
     let mut terminal = ratatui::init();
     let _restore = Restore;
+    enable_mouse();
 
     let stop = Arc::new(AtomicBool::new(false));
     spawn_input(tx.clone(), Arc::clone(&stop));
