@@ -133,11 +133,11 @@
         <div class="md:hidden"><Logo size={26} /></div>
 
         <button
-          class="group flex h-10 max-w-md flex-1 items-center gap-2.5 rounded-xl border border-line bg-surface-2/70 px-3 text-left text-[13px] text-fg-3 transition-colors hover:border-line-strong hover:text-fg-2"
+          class="group flex h-10 min-w-0 max-w-md flex-1 items-center gap-2.5 rounded-xl border border-line bg-surface-2/70 px-3 text-left text-[13px] text-fg-3 transition-colors hover:border-line-strong hover:text-fg-2"
           onclick={() => (ui.palette = true)}
         >
-          <Search size={16} />
-          <span class="flex-1 truncate">Search hosts, services…</span>
+          <Search size={16} class="shrink-0" />
+          <span class="min-w-0 flex-1 truncate">Search hosts, services…</span>
           <span class="kbd hidden sm:inline-flex">⌘K</span>
         </button>
 

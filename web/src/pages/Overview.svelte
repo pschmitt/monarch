@@ -2,7 +2,7 @@
   import { Activity, ArrowRight, ChevronRight, Plus, CircleCheckBig, Cpu, EyeOff, HardDrive, MemoryStick, Server, Siren, Sparkles } from "@lucide/svelte";
   import { api } from "../lib/api";
   import type { MonarchEvent, Overview } from "../lib/types";
-  import { ago, compact, hostName, kb, mb, pct, serviceTypeLabel, usageTone } from "../lib/format";
+  import { ago, hostName, kb, mb, pct, serviceTypeLabel, usageTone } from "../lib/format";
   import { clock, fleet, hostList, toastError, ui } from "../lib/state.svelte";
   import { hostHref, serviceHref } from "../lib/router.svelte";
   import Empty from "../lib/components/Empty.svelte";
@@ -65,21 +65,11 @@
     };
   });
 
-  const hostHealthSegments = $derived.by(() => {
-    const total = hostCounts.total;
-    const circumference = 2 * Math.PI * 20;
-    let offset = 0;
-    return [
-      { label: "Healthy", count: Math.max(0, total - hostCounts.degraded - hostCounts.offline), color: "var(--mn-ok)" },
-      { label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)" },
-      { label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)" },
-    ].map((segment) => {
-      const length = total ? segment.count / total * circumference : 0;
-      const result = { ...segment, length, offset };
-      offset += length;
-      return result;
-    });
-  });
+  const hostHealthSegments = $derived([
+    { label: "Healthy", count: Math.max(0, hostCounts.total - hostCounts.degraded - hostCounts.offline), color: "var(--mn-ok)" },
+    { label: "Degraded", count: hostCounts.degraded, color: "var(--mn-warn)" },
+    { label: "Offline", count: hostCounts.offline, color: "var(--mn-bad)" },
+  ]);
 
   const recent = $derived.by((): MonarchEvent[] => {
     const seen = new Set<number>();
@@ -94,6 +84,7 @@
 
   const activityMax = $derived(Math.max(1, ...(data?.activity ?? []).map((a) => a.ok + a.failed)));
   const healthPct = $derived(data && data.services.total ? (data.services.ok / data.services.total) * 100 : null);
+  const failingHostCount = $derived(data ? new Set(data.failing.map((f) => f.host_id)).size : 0);
   const greeting = $derived.by(() => {
     const h = new Date(clock.now * 1000).getHours();
     return h < 5 ? "Burning the midnight oil" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -120,88 +111,72 @@
   </div>
 
   <!-- KPI tiles -->
-  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-    <a href="/hosts" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent)">
-      <div class="flex items-center justify-between">
-        <span class="eyebrow">Hosts</span>
-        <span class="kpi-icon"><Server size={16} /></span>
+  <div class="overview-summary grid auto-rows-fr grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+    <a href="/hosts" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Hosts: {hostCounts.online} online of {hostCounts.total}, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
+      <div class="flex items-center gap-2 text-[13px] font-medium text-fg-2"><Server size={15} class="shrink-0 text-fg-3" />Hosts</div>
+      <div class="mt-2">
+        <div class="flex items-baseline gap-1.5"><span class="num text-2xl font-semibold leading-none tracking-tight text-fg">{hostCounts.online}</span><span class="num text-xs text-fg-3">/ {hostCounts.total}</span></div>
+        <div class="mt-1 text-xs leading-4 text-fg-3">online</div>
       </div>
-      <div class="mt-3 flex flex-wrap items-center gap-3">
-        <div class="relative h-[76px] w-[76px] shrink-0">
-        <svg class="absolute inset-0 h-full w-full" viewBox="0 0 48 48" role="img" aria-label="{hostCounts.online} online of {hostCounts.total} hosts; {hostCounts.total - hostCounts.degraded - hostCounts.offline} healthy, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
-          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--mn-line-strong)" stroke-width="5" />
-          {#each hostHealthSegments as segment (segment.label)}
-            <circle cx="24" cy="24" r="20" fill="none" stroke={segment.color} stroke-width="5" stroke-dasharray="{segment.length} {2 * Math.PI * 20 - segment.length}" stroke-dashoffset={-segment.offset} transform="rotate(-90 24 24)"><title>{segment.label}: {segment.count}</title></circle>
-          {/each}
-        </svg>
-        <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5" aria-hidden="true">
-          <span class="num text-2xl font-semibold leading-none tracking-tight text-fg">{hostCounts.online}</span>
-          <span class="text-[11px] leading-none text-fg-3">online</span>
-        </div>
-        </div>
-        <div class="min-w-[90px] flex-1 space-y-2">
-          <div class="text-sm text-fg-3"><span class="num font-semibold text-fg">{hostCounts.total}</span> hosts</div>
-          <div class="flex items-center gap-1.5 text-xs {hostCounts.degraded ? 'text-warn' : 'text-fg-3'}"><StatusDot tone={hostCounts.degraded ? "warn" : "muted"} size={6} />{hostCounts.degraded} degraded</div>
-          <div class="flex items-center gap-1.5 text-xs {hostCounts.offline ? 'text-bad' : 'text-fg-3'}"><StatusDot tone={hostCounts.offline ? "bad" : "muted"} size={6} pulse={hostCounts.offline > 0} />{hostCounts.offline} offline</div>
-        </div>
+      <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-line-strong" role="img" aria-label="Host health: {hostHealthSegments.map((s) => `${s.count} ${s.label.toLowerCase()}`).join(', ')}">
+        {#each hostHealthSegments as segment (segment.label)}
+          <span style="width: {hostCounts.total ? segment.count / hostCounts.total * 100 : 0}%; background: {segment.color}" title="{segment.label}: {segment.count}"></span>
+        {/each}
+      </div>
+      <div class="mt-auto flex flex-wrap gap-x-3 pt-2 text-xs leading-4 text-fg-3">
+        <span class={hostCounts.degraded ? "text-warn" : ""}>{hostCounts.degraded} degraded</span>
+        <span class={hostCounts.offline ? "text-bad" : ""}>{hostCounts.offline} offline</span>
       </div>
     </a>
 
-    <a href="/services" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-ok)">
-      <div class="flex items-center justify-between">
-        <span class="eyebrow">Services</span>
-        <span class="kpi-icon"><CircleCheckBig size={16} /></span>
-      </div>
+    <a href="/services" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Services: {data?.services.ok ?? 0} of {data?.services.total ?? 0} healthy">
+      <div class="flex items-center gap-2 text-[13px] font-medium text-fg-2"><CircleCheckBig size={15} class="shrink-0 text-fg-3" />Services</div>
       {#if data}
-        <div class="mt-3 flex items-baseline gap-1.5">
-          <span class="num text-2xl font-semibold tracking-tight sm:text-3xl text-fg">{data.services.ok}</span>
-          <span class="num text-sm text-fg-3">/ {data.services.total} healthy</span>
+        <div class="mt-2">
+          <div class="flex items-baseline gap-1.5"><span class="num text-2xl font-semibold leading-none tracking-tight text-fg">{data.services.ok}</span><span class="num text-xs text-fg-3">/ {data.services.total}</span></div>
+          <div class="mt-1 text-xs leading-4 text-fg-3">healthy</div>
         </div>
-        <div class="mt-2.5"><UsageBar value={healthPct} tone={data.services.failed ? "warn" : "ok"} height={4} /></div>
-        <div class="mt-2 flex flex-wrap gap-x-3 text-[11px] text-fg-3">
-          <span class={data.services.unmonitored > 0 ? "text-warn" : ""}>{data.services.unmonitored} unmonitored</span><span>{data.services.pending} pending</span>
+        <div class="mt-2"><UsageBar value={healthPct} tone={data.services.failed ? "warn" : "ok"} height={5} /></div>
+        <div class="mt-auto flex flex-wrap gap-x-3 pt-2 text-xs leading-4 text-fg-3">
+          {#if data.services.pending > 0}<span>{data.services.pending} pending</span>{/if}
+          {#if data.services.unmonitored > 0}<span class="text-warn">{data.services.unmonitored} unmonitored</span>{/if}
+          {#if data.services.pending === 0 && data.services.unmonitored === 0}<span>All monitored</span>{/if}
         </div>
-      {:else}<Skeleton class="mt-3 h-9 w-24" /><Skeleton class="mt-3 h-3 w-full" />{/if}
+      {:else}<Skeleton class="mt-2 h-7 w-24" /><Skeleton class="mt-2 h-1.5 w-full" /><span class="mt-auto pt-2 text-xs text-fg-3">Loading services</span>{/if}
     </a>
 
-    <a href="/services?state=failed" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: {data?.services.failed ? 'var(--mn-bad)' : 'var(--mn-fg-3)'}">
-      <div class="flex items-center justify-between">
-        <span class="eyebrow">Failing</span>
-        <span class="kpi-icon"><Siren size={16} /></span>
-      </div>
+    <a href="/services?state=failed" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Failing services: {data?.services.failed ?? 0} across {failingHostCount} hosts">
+      <div class="flex items-center gap-2 text-[13px] font-medium text-fg-2"><Siren size={15} class="shrink-0 text-fg-3" />Failing</div>
       {#if data}
-        <div class="mt-3 flex items-baseline gap-1.5">
-          <span class="num text-2xl font-semibold tracking-tight sm:text-3xl {data.services.failed ? 'text-bad' : 'text-fg'}">{data.services.failed}</span>
-          <span class="text-sm text-fg-3">service{data.services.failed === 1 ? "" : "s"}</span>
+        <div class="mt-2">
+          <div class="num text-2xl font-semibold leading-none tracking-tight {data.services.failed ? 'text-bad' : 'text-fg'}">{data.services.failed}</div>
+          <div class="mt-1 text-xs leading-4 text-fg-3">service{data.services.failed === 1 ? "" : "s"}</div>
         </div>
-        <div class="mt-2 truncate text-[11px] text-fg-3">
-          {#if data.failing[0]}longest: {data.failing[0].host} / {data.failing[0].service}{:else}nothing is on fire 🎉{/if}
-        </div>
-      {:else}<Skeleton class="mt-3 h-9 w-16" />{/if}
+        <div class="mt-auto pt-2 text-xs leading-4 text-fg-3">{data.services.failed ? `Across ${failingHostCount} host${failingHostCount === 1 ? "" : "s"}` : "No failing services"}</div>
+      {:else}<Skeleton class="mt-2 h-7 w-16" /><span class="mt-auto pt-2 text-xs text-fg-3">Loading status</span>{/if}
     </a>
 
-    <a href="/events" class="card card-hover kpi relative overflow-hidden p-4 sm:p-5" style="--kpi: var(--mn-accent-2)">
-      <div class="flex items-center justify-between">
-        <span class="eyebrow">Events · 24h</span>
-        <span class="kpi-icon"><Activity size={16} /></span>
-      </div>
+    <a href="/events" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Events in the last 24 hours: {data?.events_24h ?? 0}">
+      <div class="flex items-center gap-2 text-[13px] font-medium text-fg-2"><Activity size={15} class="shrink-0 text-fg-3" />Events</div>
       {#if data}
-        <div class="mt-3 flex items-end justify-between gap-3">
-          <span class="num text-2xl font-semibold tracking-tight sm:text-3xl text-fg">{compact(data.events_24h)}</span>
-          <svg viewBox="0 0 96 28" class="h-7 w-24" aria-hidden="true">
-            {#each data.activity as a, i (a.ts)}
-              {@const h = ((a.ok + a.failed) / activityMax) * 26}
-              {@const hf = (a.failed / activityMax) * 26}
-              <rect x={i * 4} y={28 - h} width="3" height={Math.max(h - hf, 0)} rx="1" fill="var(--mn-accent-2)" opacity="0.55" />
-              <rect x={i * 4} y={28 - hf} width="3" height={hf} rx="1" fill="var(--mn-bad)" />
-            {/each}
-          </svg>
+        <div class="mt-2">
+          <div class="flex min-w-0 items-end justify-between gap-2">
+            <span class="num shrink-0 text-2xl font-semibold leading-none tracking-tight text-fg">{data.events_24h}</span>
+            <svg viewBox="0 0 96 28" class="h-6 w-14 min-w-0 max-w-16" aria-hidden="true">
+              {#each data.activity as a, i (a.ts)}
+                {@const height = (a.ok + a.failed) / activityMax * 26}
+                {@const failedHeight = a.failed / activityMax * 26}
+                <rect x={i * 4} y={28 - height} width="3" height={height - failedHeight} rx="1" fill="var(--mn-accent-2)" opacity="0.6" />
+                <rect x={i * 4} y={28 - failedHeight} width="3" height={failedHeight} rx="1" fill="var(--mn-bad)" />
+              {/each}
+            </svg>
+          </div>
+          <div class="mt-1 text-xs leading-4 text-fg-3">last 24 hours</div>
         </div>
-        <div class="mt-2 text-[11px] text-fg-3">
-          <span class="text-bad">{data.activity.reduce((s, a) => s + a.failed, 0)}</span> failures ·
-          <span>{data.activity.reduce((s, a) => s + a.ok, 0)}</span> recoveries & changes
+        <div class="mt-auto pt-2 text-xs leading-4 text-fg-3">
+          <div class="text-bad">{data.activity.reduce((s, a) => s + a.failed, 0)} failures</div>
         </div>
-      {:else}<Skeleton class="mt-3 h-9 w-20" />{/if}
+      {:else}<Skeleton class="mt-2 h-7 w-20" /><span class="mt-auto pt-2 text-xs text-fg-3">Loading events</span>{/if}
     </a>
   </div>
 
@@ -406,22 +381,4 @@
 <style>
   .fleet-disclosure > summary { list-style: none; }
   .fleet-disclosure > summary::-webkit-details-marker { display: none; }
-  .kpi::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--kpi) 16%, transparent), transparent 60%);
-    pointer-events: none;
-  }
-  .kpi-icon {
-    display: inline-flex;
-    height: 1.875rem;
-    width: 1.875rem;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0.625rem;
-    color: var(--kpi);
-    background: color-mix(in oklab, var(--kpi) 14%, transparent);
-    border: 1px solid color-mix(in oklab, var(--kpi) 24%, transparent);
-  }
 </style>
