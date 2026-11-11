@@ -6,4 +6,5 @@ Monarch is an open-source dashboard for monitoring Monit agents. The repository 
 
 - Follow the README and project-specific instructions for the backend or frontend area you change.
 - Run focused Rust and web checks using the repository's documented commands; avoid unrelated dependency or generated-file changes.
+- Use browser-daemon for automated and live UI checks. Use the user's desktop browser only to present previews when requested.
 - Before changing GitHub Actions, check whether [pschmitt/ci-workflows](https://github.com/pschmitt/ci-workflows) provides a reusable workflow or action. Preserve current behavior and check coverage, and use `@main` for shared workflow or action references.
