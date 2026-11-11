@@ -87,6 +87,7 @@ Reload Monit (`monit reload`) and the host shows up within one poll cycle.
 | [Single sign-on](docs/oidc.md) | OpenID Connect and group-to-role mapping |
 | [Reverse proxy](docs/reverse-proxy.md) | nginx settings and the NixOS nginx option |
 | [Fleet status favicon](docs/favicon.md) | What the browser tab icon shows |
+| [monarchctl](docs/cli.md) | Command line client and terminal UI |
 | [API](docs/API.md) | HTTP API used by the web UI |
 | [Development](docs/development.md) | Dev shell, mock UI and tests |
 
