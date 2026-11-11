@@ -15,7 +15,6 @@
     Sun,
     UserRound,
   } from "@lucide/svelte";
-  import { isMock } from "../api";
   import { router } from "../router.svelte";
   import { clock, fleet, session, theme, toggleSidebar, toggleTheme, ui } from "../state.svelte";
   import { activeFailingHostCount, activeFailingServiceCount } from "../silence";
@@ -94,18 +93,6 @@
     </nav>
 
     <div class="space-y-2 p-3">
-      {#if !character && (!collapsed || mobile)}
-        <div class="rounded-xl border border-line bg-surface-2/60 p-3">
-          <div class="flex items-center gap-2 text-xs">
-            <StatusDot tone={liveTone} pulse={fleet.status === "live"} />
-            <span class="font-medium text-fg">{liveLabel}</span>
-            <span class="ml-auto num text-fg-3">{Object.keys(fleet.hosts).length} hosts</span>
-          </div>
-          <div class="mt-1.5 text-[11px] leading-snug text-fg-3">
-            {#if isMock}Demo data — mock backend{:else}Streaming updates from your Monit agents{/if}
-          </div>
-        </div>
-      {/if}
       {#if !mobile && !character}
         <button class="btn btn-ghost w-full {collapsed ? 'btn-icon' : 'justify-start'}" onclick={toggleSidebar} aria-label="Toggle sidebar">
           {#if collapsed}<ChevronsRight size={16} />{:else}<ChevronsLeft size={16} /> <span class="text-xs">Collapse</span>{/if}
