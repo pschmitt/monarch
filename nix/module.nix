@@ -53,6 +53,10 @@ let
             username_file =
               if u.usernameFile != null then "/run/credentials/monarch.service/user-${toString i}-name" else null;
             password_file = "/run/credentials/monarch.service/user-${toString i}";
+            api_tokens = lib.imap0 (j: t: {
+              inherit (t) name;
+              token_file = "/run/credentials/monarch.service/user-${toString i}-token-${toString j}";
+            }) u.apiTokens;
           }
         ) cfg.ensureUsers;
       }
@@ -187,6 +191,27 @@ in
               type = lib.types.nullOr lib.types.path;
               default = null;
               description = "File containing the email address (instead of `email`).";
+            };
+            apiTokens = lib.mkOption {
+              description = ''
+                API tokens provisioned for the account. They show up as managed
+                (not revocable in the UI) and are removed again when dropped here.
+              '';
+              default = [ ];
+              type = lib.types.listOf (
+                lib.types.submodule {
+                  options = {
+                    name = lib.mkOption {
+                      type = lib.types.str;
+                      description = "Token name, unique per account (1-64 characters).";
+                    };
+                    file = lib.mkOption {
+                      type = lib.types.path;
+                      description = "File containing the token (`mnr_` followed by URL-safe characters).";
+                    };
+                  };
+                }
+              );
             };
           };
         }
@@ -357,6 +382,11 @@ in
           ++ lib.concatLists (
             lib.imap0 (
               i: u: lib.optional (u.emailFile != null) "user-${toString i}-email:${u.emailFile}"
+            ) cfg.ensureUsers
+          )
+          ++ lib.concatLists (
+            lib.imap0 (
+              i: u: lib.imap0 (j: t: "user-${toString i}-token-${toString j}:${t.file}") u.apiTokens
             ) cfg.ensureUsers
           )
           ++ lib.optional (cfg.ssh.privateKeyFile != null) "ssh-key:${cfg.ssh.privateKeyFile}"

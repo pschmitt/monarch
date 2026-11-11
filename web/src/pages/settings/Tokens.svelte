@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Copy, KeyRound, LoaderCircle, Plus, Trash } from "@lucide/svelte";
+  import { Check, Copy, KeyRound, LoaderCircle, Lock, Plus, Trash } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { ApiToken } from "../../lib/types";
   import { ago, datetime } from "../../lib/format";
@@ -105,13 +105,18 @@
         <li class="flex items-center gap-3 px-3 py-2.5">
           <KeyRound size={15} class="shrink-0 text-fg-3" />
           <div class="min-w-0 flex-1">
-            <div class="truncate text-[13px] font-medium text-fg">{t.name}</div>
+            <div class="flex items-center gap-2">
+              <span class="truncate text-[13px] font-medium text-fg">{t.name}</span>
+              {#if t.managed}
+                <span class="inline-flex items-center gap-1 rounded-md border border-line px-1.5 py-px text-[10px] font-medium whitespace-nowrap text-fg-3" title="Declared in the configuration file — edit it there"><Lock size={10} /> managed by config</span>
+              {/if}
+            </div>
             <div class="num truncate text-[11px] text-fg-3">
               {t.prefix}… · {t.last_used ? `used ${ago(t.last_used, clock.now)}` : "never used"} ·
               {t.expires_at ? (t.expires_at < clock.now ? "expired" : `expires ${datetime(t.expires_at).split(",")[0]}`) : "no expiry"}
             </div>
           </div>
-          <button class="btn btn-ghost btn-sm btn-icon text-bad" aria-label="Revoke {t.name}" onclick={() => revoke(t)}><Trash size={15} /></button>
+          <button class="btn btn-ghost btn-sm btn-icon text-bad" aria-label="Revoke {t.name}" disabled={t.managed} title={t.managed ? "Managed by the configuration file" : undefined} onclick={() => revoke(t)}><Trash size={15} /></button>
         </li>
       {/each}
     </ul>

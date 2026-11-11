@@ -288,15 +288,20 @@ type StreamMessage =
 - `PUT /api/users/me/avatar` with the image as body (PNG, JPEG, WebP or GIF, at most 512 KiB; the web UI
   crops and scales to 256×256 first) → `User`; `DELETE /api/users/me/avatar` → `User`. Admins can do the
   same for any account via `/api/users/:id/avatar` (e.g. collector accounts, which never sign in).
-- `GET /api/tokens` → `{id, name, prefix, created_at, last_used, expires_at}[]` (your own API tokens)
+- `GET /api/tokens` → `{id, name, prefix, created_at, last_used, expires_at, managed}[]` (your own API tokens)
 - `POST /api/tokens` `{"name", "expires_days"?}` → the token info plus `token` (shown once)
-- `DELETE /api/tokens/:id` → `204`
+- `DELETE /api/tokens/:id` → `204`; `409` for a managed token
 
 Users also have an optional `email` (`PATCH /api/users/:id` or `/me` with `{"email": ""}` clears it;
 SSO accounts get theirs from the identity provider).
 
 API tokens (`mnr_…`) authenticate every endpoint as their owner (same role) via
 `Authorization: Bearer <token>`. They can only be managed from a browser session.
+
+**Managed tokens** are provisioned from the configuration file (`api_tokens` of an
+`[[ensure_users]]` entry, see [configuration](configuration.md)). They are listed with
+`managed: true`, never expire, cannot be revoked via the API or UI, and are deleted at
+startup once they are removed from the configuration.
 
 ## Notification channels (admin)
 

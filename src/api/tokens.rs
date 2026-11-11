@@ -22,6 +22,8 @@ pub struct TokenInfo {
     created_at: i64,
     last_used: Option<i64>,
     expires_at: Option<i64>,
+    /// Provisioned from the configuration file; cannot be revoked here.
+    managed: bool,
 }
 
 #[derive(Deserialize)]
@@ -58,7 +60,7 @@ pub async fn list(
     forbid_token_auth(&headers)?;
     Ok(Json(
         sqlx::query_as(
-            "SELECT id, name, prefix, created_at, last_used, expires_at FROM api_tokens
+            "SELECT id, name, prefix, created_at, last_used, expires_at, managed FROM api_tokens
              WHERE user_id = ? ORDER BY created_at DESC",
         )
         .bind(user.id)
@@ -110,6 +112,7 @@ pub async fn create(
             created_at: ts,
             last_used: None,
             expires_at,
+            managed: false,
         },
         token,
     }))
@@ -122,6 +125,18 @@ pub async fn revoke(
     Path(id): Path<i64>,
 ) -> ApiResult<StatusCode> {
     forbid_token_auth(&headers)?;
+    let managed: Option<bool> =
+        sqlx::query_scalar("SELECT managed FROM api_tokens WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(user.id)
+            .fetch_optional(&state.db)
+            .await?;
+    if managed == Some(true) {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "token is managed by the configuration file; remove it there",
+        ));
+    }
     let n = sqlx::query("DELETE FROM api_tokens WHERE id = ? AND user_id = ?")
         .bind(id)
         .bind(user.id)

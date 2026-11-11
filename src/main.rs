@@ -145,9 +145,12 @@ async fn serve(config: Config, pool: sqlx::SqlitePool) -> Result<()> {
         tracing::info!(%user, "created initial admin user");
     }
 
+    let mut managed_tokens = Vec::new();
     for u in &config.ensure_users {
-        ensure_user(&pool, u).await?;
+        let user_id = ensure_user(&pool, u).await?;
+        managed_tokens.extend(ensure_api_tokens(&pool, user_id, &u.api_tokens).await?);
     }
+    prune_managed_tokens(&pool, &managed_tokens).await?;
 
     let listen = config.listen;
     let state = state::AppState::new(pool, config, settings)?;
@@ -218,7 +221,7 @@ fn read_secret(path: &std::path::Path) -> Result<String> {
 }
 
 /// Declaratively managed account: create it, or reset role and password.
-async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<()> {
+async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<i64> {
     let username = match (&u.username, &u.username_file) {
         (Some(n), _) => n.clone(),
         (None, Some(f)) => read_secret(f)?,
@@ -236,6 +239,7 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
         (None, None) => None,
     }
     .filter(|e| !e.is_empty());
+    let user_id;
     let existing: Option<(i64,)> = sqlx::query_as("SELECT id FROM users WHERE username = ?")
         .bind(&username)
         .fetch_optional(pool)
@@ -243,6 +247,7 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
     match existing {
         None => {
             let user = auth::create_user(pool, &username, &password, role).await?;
+            user_id = user.id;
             if let Some(e) = &email {
                 sqlx::query("UPDATE users SET email = ? WHERE id = ?")
                     .bind(e)
@@ -253,6 +258,7 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
             tracing::info!(user = %username, role = %u.role, "created managed user");
         }
         Some((id,)) => {
+            user_id = id;
             if auth::check_credentials(pool, &username, &password)
                 .await?
                 .is_none()
@@ -279,5 +285,172 @@ async fn ensure_user(pool: &sqlx::SqlitePool, u: &config::EnsureUser) -> Result<
             }
         }
     }
+    Ok(user_id)
+}
+
+/// Upsert the API tokens declared for a user, keyed by (user, name). Returns their ids.
+async fn ensure_api_tokens(
+    pool: &sqlx::SqlitePool,
+    user_id: i64,
+    tokens: &[config::EnsureApiToken],
+) -> Result<Vec<i64>> {
+    let mut ids = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for t in tokens {
+        let name = t.name.trim();
+        if name.is_empty() || name.len() > 64 {
+            bail!("api token names must be 1-64 characters");
+        }
+        if !seen.insert(name.to_owned()) {
+            bail!("duplicate api token name {name:?}");
+        }
+        // Errors name the file and the problem, never the token.
+        let token = read_secret(&t.token_file)?.trim().to_owned();
+        let valid = token.len() >= 20
+            && token.len() <= 256
+            && token.strip_prefix(auth::API_TOKEN_PREFIX).is_some_and(|r| {
+                r.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            });
+        if !valid {
+            bail!(
+                "api token {name:?} ({}): must start with {} followed by 16-252 URL-safe characters",
+                t.token_file.display(),
+                auth::API_TOKEN_PREFIX
+            );
+        }
+        let hash = auth::api_token_hash(&token);
+        let prefix: String = token
+            .chars()
+            .take(auth::API_TOKEN_PREFIX.len() + 4)
+            .collect();
+        let existing: Option<i64> =
+            sqlx::query_scalar("SELECT id FROM api_tokens WHERE user_id = ? AND name = ?")
+                .bind(user_id)
+                .bind(name)
+                .fetch_optional(pool)
+                .await?;
+        let id = match existing {
+            Some(id) => {
+                sqlx::query(
+                    "UPDATE api_tokens SET token_hash = ?, prefix = ?, managed = 1, expires_at = NULL
+                     WHERE id = ? AND (token_hash != ? OR managed = 0 OR expires_at IS NOT NULL)",
+                )
+                .bind(&hash)
+                .bind(&prefix)
+                .bind(id)
+                .bind(&hash)
+                .execute(pool)
+                .await
+                .with_context(|| format!("updating api token {name:?}"))?;
+                id
+            }
+            None => sqlx::query(
+                "INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at, managed)
+                 VALUES (?, ?, ?, ?, ?, 1)",
+            )
+            .bind(user_id)
+            .bind(name)
+            .bind(&hash)
+            .bind(&prefix)
+            .bind(state::now())
+            .execute(pool)
+            .await
+            .with_context(|| format!("creating api token {name:?}"))?
+            .last_insert_rowid(),
+        };
+        ids.push(id);
+    }
+    Ok(ids)
+}
+
+/// Delete managed tokens that are no longer declared.
+async fn prune_managed_tokens(pool: &sqlx::SqlitePool, keep: &[i64]) -> Result<()> {
+    let managed: Vec<i64> = sqlx::query_scalar("SELECT id FROM api_tokens WHERE managed = 1")
+        .fetch_all(pool)
+        .await?;
+    for id in managed.into_iter().filter(|id| !keep.contains(id)) {
+        sqlx::query("DELETE FROM api_tokens WHERE id = ?")
+            .bind(id)
+            .execute(pool)
+            .await?;
+        tracing::info!(
+            id,
+            "removed managed api token no longer in the configuration"
+        );
+    }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn token_file(dir: &std::path::Path, name: &str, content: &str) -> config::EnsureApiToken {
+        let f = dir.join(name);
+        std::fs::write(&f, content).unwrap();
+        config::EnsureApiToken {
+            name: name.into(),
+            token_file: f,
+        }
+    }
+
+    #[tokio::test]
+    async fn provisions_updates_and_prunes_managed_tokens() {
+        let dir = std::env::temp_dir().join(format!("monarch-test-{}", auth::generate_api_token()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pool = db::connect(&dir.join("t.db")).await.unwrap();
+        let user = auth::create_user(&pool, "bob", "password123", auth::Role::Viewer)
+            .await
+            .unwrap();
+        let a = auth::generate_api_token();
+        let b = auth::generate_api_token();
+
+        let ta = token_file(&dir, "a", &format!("{a}\n"));
+        let tb = token_file(&dir, "b", &b);
+        let ids = ensure_api_tokens(&pool, user.id, &[ta.clone(), tb])
+            .await
+            .unwrap();
+        assert_eq!(ids.len(), 2);
+        prune_managed_tokens(&pool, &ids).await.unwrap();
+        let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM api_tokens WHERE managed = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(n, 2);
+
+        // Same name, new token: updated in place.
+        let a2 = auth::generate_api_token();
+        std::fs::write(&ta.token_file, &a2).unwrap();
+        let ids2 = ensure_api_tokens(&pool, user.id, std::slice::from_ref(&ta))
+            .await
+            .unwrap();
+        assert_eq!(ids2[0], ids[0]);
+        let hash: String = sqlx::query_scalar("SELECT token_hash FROM api_tokens WHERE id = ?")
+            .bind(ids2[0])
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(hash, auth::api_token_hash(&a2));
+
+        // Dropped from the config: pruned. Unmanaged tokens stay.
+        sqlx::query("INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at) VALUES (?, 'manual', 'h', 'mnr_', 0)")
+            .bind(user.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        prune_managed_tokens(&pool, &ids2).await.unwrap();
+        let names: Vec<String> = sqlx::query_scalar("SELECT name FROM api_tokens ORDER BY name")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+        assert_eq!(names, ["a", "manual"]);
+
+        // Invalid tokens are refused without echoing them.
+        let bad = token_file(&dir, "bad", "not-a-token");
+        let err = ensure_api_tokens(&pool, user.id, &[bad]).await.unwrap_err();
+        assert!(!format!("{err:#}").contains("not-a-token"));
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
 }

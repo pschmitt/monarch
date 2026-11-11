@@ -22,7 +22,20 @@ initial_admin_password_file = "/run/secrets/monarch-admin"
 username = "monit"
 role = "collector"           # default
 password_file = "/run/secrets/monarch-collector"
+
+# optional: API tokens provisioned from files (e.g. SOPS secrets), keyed by name
+[[ensure_users.api_tokens]]
+name = "monarchctl"
+token_file = "/run/secrets/monarch-token"   # `mnr_` + URL-safe characters
 ```
+
+Tokens from `api_tokens` are inserted or updated at startup and shown as
+*managed* (not revocable in the UI). Managed tokens that are dropped from the
+file are deleted on the next start. Generate a value with
+`echo "mnr_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"`.
+
+With NixOS: `services.monarch.ensureUsers.*.apiTokens = [ { name = "monarchctl"; file = config.sops.secrets.x.path; } ];`
+(delivered through systemd `LoadCredential`).
 
 For `action_url_template` see [Monit agents](agents.md); for `[oidc]` see
 [single sign-on](oidc.md).

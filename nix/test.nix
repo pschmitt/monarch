@@ -44,6 +44,17 @@
               email = "collector@example.com";
               passwordFile = pkgs.writeText "collector-pw" "collectorpass";
             }
+            {
+              username = "cli";
+              role = "viewer";
+              passwordFile = pkgs.writeText "cli-pw" "clipassword";
+              apiTokens = [
+                {
+                  name = "monarchctl";
+                  file = pkgs.writeText "cli-token" "mnr_test0123456789abcdefghijklmnopqrstuvwxyz01";
+                }
+              ];
+            }
           ];
         };
 
@@ -95,6 +106,14 @@
     assert machine.succeed("curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer mnr_bogus' http://127.0.0.1:8080/api/users") == "401"
     machine.succeed(api + f"-X DELETE http://127.0.0.1:8080/api/tokens/{tok['id']}")
     assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Bearer {tok['token']}' http://127.0.0.1:8080/api/users") == "401"
+
+    # Provisioned (managed) tokens work, are listed as managed and cannot be revoked.
+    managed = "mnr_test0123456789abcdefghijklmnopqrstuvwxyz01"
+    assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -H 'Authorization: Bearer {managed}' http://127.0.0.1:8080/api/hosts") == "200"
+    machine.succeed("curl -sf -c /tmp/cj3 -H 'content-type: application/json' -d '{\"username\":\"cli\",\"password\":\"clipassword\"}' http://127.0.0.1:8080/api/auth/login")
+    machine.succeed("curl -sf -b /tmp/cj3 http://127.0.0.1:8080/api/tokens | jq -e 'length == 1 and .[0].managed and .[0].name == \"monarchctl\"'")
+    mid = json.loads(machine.succeed("curl -sf -b /tmp/cj3 http://127.0.0.1:8080/api/tokens"))[0]["id"]
+    assert machine.succeed(f"curl -s -o /dev/null -w '%{{http_code}}' -b /tmp/cj3 -X DELETE http://127.0.0.1:8080/api/tokens/{mid}") == "409"
 
     # Event kinds can be muted globally; unknown ones are refused.
     kinds = json.loads(machine.succeed("curl -sf -b /tmp/cj http://127.0.0.1:8080/api/events/kinds"))

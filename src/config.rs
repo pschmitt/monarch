@@ -131,6 +131,18 @@ pub struct EnsureUser {
     pub email: Option<String>,
     /// Alternative to `email`, e.g. when the address is kept in a secret store.
     pub email_file: Option<PathBuf>,
+    /// API tokens provisioned from files; shown as managed and not revocable in the UI.
+    #[serde(default)]
+    pub api_tokens: Vec<EnsureApiToken>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnsureApiToken {
+    /// Token name, unique per user (1-64 characters).
+    pub name: String,
+    /// File containing the token (`mnr_…`).
+    pub token_file: PathBuf,
 }
 
 fn default_role() -> String {

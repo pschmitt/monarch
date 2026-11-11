@@ -397,4 +397,5 @@ export interface ApiToken {
   created_at: number;
   last_used: number | null;
   expires_at: number | null;
+  managed: boolean;
 }
