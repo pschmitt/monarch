@@ -199,7 +199,7 @@
     </a>
   </div>
 
-  <div class="grid items-stretch gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+  <div class="grid items-stretch gap-6 xl:grid-cols-2 xl:gap-x-4">
   <!-- fleet health summary -->
   <section class="card fleet-health p-4 sm:p-5">
     <div class="grid items-center gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:gap-5">
@@ -300,7 +300,7 @@
       {/if}
   </div>
 
-  <div class="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+  <div class="grid gap-6 xl:grid-cols-2 xl:gap-x-4">
     <div class="min-w-0 space-y-6">
       <!-- needs attention -->
       {#if data && attentionCount}
@@ -380,7 +380,7 @@
           <a href="/hosts" class="flex items-center gap-1 text-xs text-fg-3 hover:text-fg">All hosts <ArrowRight size={13} /></a>
         </div>
         {#if !fleet.loaded}
-          <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2">
             {#each Array(6) as _, i (i)}<div class="skeleton h-[196px] rounded-2xl"></div>{/each}
           </div>
         {:else if hosts.length === 0}
@@ -390,7 +390,7 @@
             </Empty>
           </div>
         {:else}
-          <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+          <div class="grid gap-3 sm:grid-cols-2">
             {#each hosts as h (h.id)}<HostCard host={h} />{/each}
           </div>
         {/if}
