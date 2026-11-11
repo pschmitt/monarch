@@ -104,33 +104,73 @@ monarchctl mute db-1 --for 2h
 
 ## Terminal UI
 
-Four views: Overview, Hosts, Services and Events. The header shows the host
-counts and the connection state: `live` means the event stream is connected,
-`reconnecting` that it dropped and is being re-opened, `offline` that the API
-cannot be reached. The lists update from the stream and are refreshed in full
-every 30 seconds as a fallback. Requests never block the UI.
+One header line holds the brand, the four views (Overview, Hosts, Services and
+Events), the host counts and the connection state: `live` means the event stream
+is connected, `reconnecting` that it dropped and is being re-opened, `offline`
+that the API cannot be reached. The lists update from the stream and are
+refreshed in full every 30 seconds as a fallback. Requests never block the UI.
+
+The **Overview** has a compact summary of hosts and services, a 24 hour activity
+chart (succeeded events above, failed below, with a time axis) and two lists you
+can focus and select in: *Needs attention* and *Recent events*.
+
+### Drilling in and going back
+
+`Enter`, `l` or Right open the selected entry, `h`, Left, `Esc` or `q` go back.
+Every page is pushed on a stack, so going back returns to the exact previous
+view with its tab, focused list and selection. Switching view with `Tab` or `1`-`4`
+starts over.
+
+| Entry | Opens |
+| --- | --- |
+| Host (Overview, Hosts) | The host page: details, CPU, memory and load charts, its services |
+| Service (Overview failing list, Services, host page) | The service page: status, data fields, charts for the service type and its recent events |
+| Event (Overview, Events, service page) | The event page; `Enter` there jumps on to its service (or host) |
+
+The charts come from `/api/metrics` and cover the last 6 hours; `t` cycles
+1h, 6h, 24h and 7d. They scale with the terminal height and are left out on very
+short terminals.
+
+### Keys
 
 | Key | |
 | --- | --- |
-| `Tab`, `Shift-Tab`, `1`-`4`, `h`/`l`, arrows | Switch view |
+| `Tab`, `Shift-Tab`, `1`-`4` | Switch view |
 | `j`/`k`, up/down, `g`/`G`, `Ctrl-d`/`Ctrl-u`, PageUp/PageDown | Move in a list |
-| `Enter` | Open the host (from Hosts, Services or Events) |
-| `Esc`, `q` | Back from a host page; clear the search; `q` quits |
+| `Enter`, `l`, Right | Open the selected entry |
+| `h`, Left, `Esc`, `q` | Go back; `q` quits at the top level |
+| `p` | Overview: focus the other list (*Needs attention* or *Recent events*) |
 | `/` | Search the current list (`Enter` keeps it, `Esc` clears it) |
 | `f` | Cycle the state filter (Hosts, Services) |
 | `u` | Only unacknowledged events (Events) |
-| `a` / `A` | Acknowledge the event / all listed unacknowledged events (Events) |
+| `a` / `A` | Acknowledge the event / all listed unacknowledged events (Events; `a` also on the event page) |
 | `r` `s` `S` | Restart, start, stop the selected service |
 | `m` | Monitor or unmonitor the selected service, depending on its state |
 | `R` | Remonitor the selected service |
+| `t` | Chart range on a host or service page |
 | `Ctrl-r`, `F5` | Refresh now |
 | `?` | Help |
 | `Ctrl-c` | Quit |
 
-Service actions work in the Services view and on a host page. They ask for
-confirmation (`y` or `Enter` confirms) and the result shows as a message in the
-footer. With a read-only token the header says `read-only` and actions are
-refused up front; a `403` from the server is reported the same way.
+Service actions work in the Services view, on a host page (selected service) and
+on a service page. They ask for confirmation (`y` or `Enter` confirms) and the
+result shows as a message in the footer. With a read-only token the header says
+`read-only` and actions are refused up front; a `403` from the server is
+reported the same way.
+
+### Mouse
+
+Mouse support is on while the UI runs and is switched off again when it exits,
+also after a crash.
+
+| Action | |
+| --- | --- |
+| Click a tab | Switch view |
+| Click a row | Select it |
+| Click the selected row again (or double-click) | Open it. The first click on an unfocused Overview list only focuses it |
+| Click a list on the Overview | Focus that list |
+| Scroll wheel | Scroll the list under the pointer |
+| Right-click | Go back |
 
 ## NixOS module
 
