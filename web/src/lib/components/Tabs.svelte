@@ -8,7 +8,7 @@
   }: { tabs: { id: string; label: string; count?: number | null; icon?: Component<{ size?: number; "aria-hidden"?: boolean }> }[]; active: string; href: (id: string) => string } = $props();
 </script>
 
-<nav class="-mb-px flex gap-1 overflow-x-auto border-b border-line" aria-label="Tabs">
+<nav class="-mb-px flex gap-1 overflow-x-auto" aria-label="Tabs">
   {#each tabs as t (t.id)}
     <a
       href={href(t.id)}
