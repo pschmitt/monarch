@@ -162,7 +162,7 @@
         <div class="mt-2">
           <div class="flex min-w-0 items-end justify-between gap-2">
             <span class="num shrink-0 text-2xl font-semibold leading-none tracking-tight text-fg">{data.events_24h}</span>
-            <svg viewBox="0 0 96 28" class="h-6 w-14 min-w-0 max-w-16" aria-hidden="true">
+            <svg viewBox="0 0 96 28" class="h-12 w-32 min-w-0 max-w-[55%]" aria-hidden="true">
               {#each data.activity as a, i (a.ts)}
                 {@const height = (a.ok + a.failed) / activityMax * 26}
                 {@const failedHeight = a.failed / activityMax * 26}
