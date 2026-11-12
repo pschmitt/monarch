@@ -450,6 +450,7 @@ function buildFleet(): MockHost[] {
       failing,
       muted_services: [],
       muted_until: null,
+      ignored: false,
       can_act: spec.name !== "build-02",
       source: PULL[spec.name] ? "pull" : "push",
       target_id: PULL[spec.name] ?? null,
@@ -804,9 +805,9 @@ export function createMock(): MockTransport {
   const delay = <T>(v: T, ms = 120 + Math.random() * 180) => new Promise<T>((r) => setTimeout(() => r(structuredClone(v)), ms));
 
   const overview = (): Overview => {
-    const hosts = fleet.map((h) => h.summary);
+    const hosts = fleet.map((h) => h.summary).filter((h) => !h.ignored);
     // Like the backend: an offline host's services are stale, leave them out.
-    const svcs = fleet.filter((h) => h.summary.online).flatMap((h) => h.detail.services.map((s) => ({ s, h: h.detail })));
+    const svcs = fleet.filter((h) => h.summary.online && !h.summary.ignored).flatMap((h) => h.detail.services.map((s) => ({ s, h: h.detail })));
     const c = { total: 0, ok: 0, failed: 0, unmonitored: 0, pending: 0 };
     for (const h of hosts.filter((h) => h.online)) for (const k of Object.keys(c) as (keyof typeof c)[]) c[k] += h.services[k];
     const procs = svcs.filter((x) => x.s.type === "process" && x.s.data.cpu);

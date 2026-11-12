@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowDownToLine, BellOff, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
+  import { TriangleAlert, ArrowDownToLine, BellOff, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { HostDetail, Target } from "../../lib/types";
   import { hostName, toLocalInput, urlSourceLabel } from "../../lib/format";
@@ -17,6 +17,7 @@
   let override_username = $state(initial.override_username ?? "");
   let override_password = $state("");
   let tls_skip_verify = $state(initial.tls_skip_verify);
+  let ignored = $state(initial.ignored);
   let muted_forever = $state(initial.muted_until === "forever");
   let muted_until = $state(toLocalInput(typeof initial.muted_until === "number" ? initial.muted_until : null));
   let saving = $state(false);
@@ -30,6 +31,7 @@
       const patch: Record<string, unknown> = {
         display_name,
         description,
+        ignored,
         muted_until: muted_forever ? "forever" : muted_until ? Math.floor(new Date(muted_until).getTime() / 1000) : null,
       };
       // Pulled hosts are reached through their connection; overrides only apply to push hosts.
@@ -98,6 +100,10 @@
         <h3 class="card-title">General</h3>
         <p class="mt-1 text-xs text-fg-3">How this host appears in Monarch.</p>
       </div>
+      <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+        <div><div class="text-[13px] font-medium text-fg">Ignore host</div><div class="text-xs text-fg-3">Exclude this host from fleet health and notifications. Its status and events remain available.</div></div>
+        <Switch bind:checked={ignored} label="Ignore host" />
+      </div>
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label class="label" for="dn">Display name</label>
@@ -153,7 +159,11 @@
           <input id="url" class="input num" placeholder="https://host.example.com:2812" bind:value={override_url} />
           <p class="hint">Leave empty to use the <a class="underline" href="/settings/hosts">action URL template</a> or the reported address.</p>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
+        <div><div class="text-[13px] font-medium text-fg">Ignore host</div><div class="text-xs text-fg-3">Exclude this host from fleet health and notifications. Its status and events remain available.</div></div>
+        <Switch bind:checked={ignored} label="Ignore host" />
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <label class="label" for="ou">Username override</label>
             <input id="ou" class="input" autocomplete="off" bind:value={override_username} />
@@ -190,10 +200,10 @@
   </div>
 
   <aside class="space-y-6">
-    <section class="card space-y-4 p-5">
+    <section class="card tone-warn space-y-4 border-tone-soft p-5">
       <div class="flex items-center gap-2">
-        <BellOff size={15} class="text-fg-3" />
-        <h3 class="card-title">Mute notifications</h3>
+        <BellOff size={15} class="text-warn" />
+        <h3 class="card-title text-warn">Mute notifications</h3>
       </div>
       <p class="text-xs text-fg-3">Events are still recorded. Choose a duration or mute forever until you unmute this host.</p>
       <div class="flex flex-wrap gap-2">
@@ -224,7 +234,7 @@
     </section>
 
     <section class="card tone-bad space-y-3 border-tone-soft p-5">
-      <h3 class="card-title text-bad">Danger zone</h3>
+      <div class="flex items-center gap-2 text-bad"><TriangleAlert size={15} /><h3 class="card-title text-bad">Danger zone</h3></div>
       <p class="text-xs text-fg-3">Remove the host together with its history. Useful for decommissioned machines.</p>
       <button type="button" class="btn btn-danger" onclick={remove}><Trash size={15} /> Remove host</button>
     </section>

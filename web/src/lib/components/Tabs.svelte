@@ -1,9 +1,11 @@
 <script lang="ts">
+  import type { Component } from "svelte";
+
   let {
     tabs,
     active,
     href,
-  }: { tabs: { id: string; label: string; count?: number | null }[]; active: string; href: (id: string) => string } = $props();
+  }: { tabs: { id: string; label: string; count?: number | null; icon?: Component<{ size?: number; "aria-hidden"?: boolean }> }[]; active: string; href: (id: string) => string } = $props();
 </script>
 
 <nav class="-mb-px flex gap-1 overflow-x-auto border-b border-line" aria-label="Tabs">
@@ -15,6 +17,7 @@
         : 'text-fg-3 hover:text-fg-2'}"
       aria-current={active === t.id ? "page" : undefined}
     >
+      {#if t.icon}<t.icon size={15} aria-hidden={true} />{/if}
       {t.label}
       {#if t.count !== undefined && t.count !== null}
         <span class="num rounded-md bg-surface-2 px-1.5 py-px text-[10px] text-fg-3">{t.count}</span>

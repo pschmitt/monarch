@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, Server, ServerCrash, Tag, Terminal } from "@lucide/svelte";
+  import { Activity, LayoutDashboard, ListChecks, Settings, ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, Server, ServerCrash, Tag, Terminal } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
   import type { HostDetail, ServiceCounts, Target } from "../lib/types";
   import { ago, datetime, duration, hostName, hostStateLabel, hostTone, kb } from "../lib/format";
@@ -89,10 +89,10 @@
   });
 
   const tabs = $derived([
-    { id: "overview", label: "Overview" },
-    { id: "services", label: "Services", count: counts.total },
-    { id: "events", label: "Events" },
-    ...(can("admin") ? [{ id: "settings", label: "Settings" }] : []),
+    { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "services", label: "Services", icon: ListChecks, count: counts.total },
+    { id: "events", label: "Events", icon: Activity },
+    ...(can("admin") ? [{ id: "settings", label: "Settings", icon: Settings }] : []),
   ]);
 </script>
 

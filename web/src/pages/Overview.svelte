@@ -50,13 +50,13 @@
 
   // Offline hosts head "Needs attention"; their services are left out of the
   // overview because they only hold the state of the last report.
-  const offlineHosts = $derived(hosts.filter((h) => h.state === "offline").sort((a, b) => a.last_seen - b.last_seen));
+  const offlineHosts = $derived(hosts.filter((h) => !h.ignored && h.state === "offline").sort((a, b) => a.last_seen - b.last_seen));
   const attentionCount = $derived((data?.failing.length ?? 0) + offlineHosts.length);
 
   // Live hosts take precedence over the (possibly stale) overview snapshot.
   const hostCounts = $derived.by(() => {
-    const list = Object.values(fleet.hosts);
-    if (!list.length && data) return data.hosts;
+    const list = Object.values(fleet.hosts).filter((h) => !h.ignored);
+    if (!Object.keys(fleet.hosts).length && data) return data.hosts;
     return {
       total: list.length,
       online: list.filter((h) => h.online).length,

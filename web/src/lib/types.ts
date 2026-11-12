@@ -71,6 +71,7 @@ export interface HostSummary {
   description: string | null;
   state: HostState;
   online: boolean;
+  ignored: boolean;
   last_seen: number;
   first_seen: number;
   poll: number;

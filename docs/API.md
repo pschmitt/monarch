@@ -86,6 +86,7 @@ interface HostSummary {
   failing: string[];           // names of failed services
   muted_services: string[];    // checks whose notifications are muted
   muted_until: number | "forever" | null;
+  ignored: boolean;
   can_act: boolean;            // true when we know how to reach the monit httpd
 }
 ```
@@ -125,8 +126,8 @@ interface HostDetail extends HostSummary {
 ```
 
 `PATCH /api/hosts/:id` (admin) body (all optional):
-`{"display_name","description","override_url","override_username","override_password","tls_skip_verify","muted_until"}`
-→ `HostDetail`. Empty string clears a field. `muted_until: null` unmutes; `"forever"` silences notifications until manually unmuted.
+`{"display_name","description","override_url","override_username","override_password","tls_skip_verify","muted_until","ignored"}`
+→ `HostDetail`. `ignored` excludes the host from fleet health and notifications while retaining its status and events. Empty string clears a field. `muted_until: null` unmutes; `"forever"` silences notifications until manually unmuted.
 
 `DELETE /api/hosts/:id` (admin) → `204`.
 

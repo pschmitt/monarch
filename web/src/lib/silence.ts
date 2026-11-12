@@ -1,9 +1,9 @@
 import type { HostSummary } from "./types";
 
-type SilencedHost = Pick<HostSummary, "online" | "state" | "failing" | "muted_services" | "muted_until">;
+type SilencedHost = Pick<HostSummary, "ignored" | "online" | "state" | "failing" | "muted_services" | "muted_until">;
 
 export function isHostSilenced(host: SilencedHost, now: number): boolean {
-  return host.muted_until === "forever" || (typeof host.muted_until === "number" && host.muted_until > now);
+  return host.ignored || host.muted_until === "forever" || (typeof host.muted_until === "number" && host.muted_until > now);
 }
 
 export function activeFailureCount(host: SilencedHost, now: number): number {

@@ -121,6 +121,9 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
     let mut procs = Vec::new();
     let mut fss = Vec::new();
     for (h, services) in &hosts {
+        if h.ignored != 0 {
+            continue;
+        }
         match views::host_state(h, services) {
             // An offline host's services only hold the state of its last
             // report; the host itself is what needs attention, so leave its
@@ -226,7 +229,7 @@ pub async fn overview(State(state): State<SharedState>, _user: User) -> ApiResul
         .collect();
 
     Ok(Json(json!({
-        "hosts": {"total": hosts.len(), "online": online, "offline": offline, "degraded": degraded},
+        "hosts": {"total": hosts.iter().filter(|(h, _)| h.ignored == 0).count(), "online": online, "offline": offline, "degraded": degraded},
         "services": {"total": total, "ok": ok, "failed": failed, "unmonitored": unmonitored, "pending": pending},
         "events_24h": events_24h,
         "failing": failing.into_iter().map(|(_, v)| v).collect::<Vec<_>>(),
@@ -373,6 +376,17 @@ pub async fn update(
         let column = match key.as_str() {
             "display_name" | "description" | "override_url" | "override_username"
             | "override_password" => key.as_str(),
+            "ignored" => {
+                let b = value
+                    .as_bool()
+                    .ok_or_else(|| ApiError::bad_request("ignored must be a boolean"))?;
+                sqlx::query("UPDATE hosts SET ignored = ? WHERE id = ?")
+                    .bind(b as i64)
+                    .bind(id)
+                    .execute(&state.db)
+                    .await?;
+                continue;
+            }
             "tls_skip_verify" => {
                 let b = value
                     .as_bool()
@@ -583,4 +597,68 @@ pub async fn service(
     v["host"] = views::host_summary(&state.db, &h, &services).await?;
     v["recent_events"] = Value::Array(events.iter().map(views::event_json).collect());
     Ok(Json(v))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        config::{Config, Settings},
+        state::AppState,
+    };
+
+    #[tokio::test]
+    async fn ignored_host_can_be_restored_to_fleet_health() {
+        let db = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::migrate!("./migrations").run(&db).await.unwrap();
+        sqlx::query("INSERT INTO hosts (monit_id, hostname, first_seen, last_seen, online) VALUES ('one', 'one', 0, 0, 0)")
+            .execute(&db).await.unwrap();
+        let state = AppState::new(db, Config::default(), Settings::default()).unwrap();
+        let user = User {
+            id: 1,
+            username: "admin".into(),
+            role: "admin".into(),
+            created_at: 0,
+            last_login: None,
+            auth_source: "local".into(),
+            sso: false,
+            email: None,
+            avatar: None,
+        };
+        let body = |ignored| Json(serde_json::from_value(json!({"ignored": ignored})).unwrap());
+        assert_eq!(
+            overview(State(state.clone()), user.clone())
+                .await
+                .unwrap()
+                .0["hosts"]["offline"],
+            1
+        );
+        let ignored = update(State(state.clone()), user.clone(), Path(1), body(true))
+            .await
+            .unwrap()
+            .0;
+        assert_eq!(ignored["ignored"], true);
+        assert_eq!(
+            overview(State(state.clone()), user.clone())
+                .await
+                .unwrap()
+                .0["hosts"]["offline"],
+            0
+        );
+        assert_eq!(
+            list(State(state.clone()), user.clone())
+                .await
+                .unwrap()
+                .0
+                .len(),
+            1
+        );
+        let _ = update(State(state.clone()), user.clone(), Path(1), body(false))
+            .await
+            .unwrap();
+        assert_eq!(
+            overview(State(state), user).await.unwrap().0["hosts"]["offline"],
+            1
+        );
+    }
 }

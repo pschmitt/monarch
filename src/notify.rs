@@ -228,8 +228,8 @@ async fn is_silenced(state: &SharedState, e: &EventRow) -> Result<bool> {
     let Some(host_id) = e.host_id else {
         return Ok(false);
     };
-    let row: Option<(Option<i64>, i64)> = sqlx::query_as(
-        "SELECT h.muted_until, COALESCE(a.muted, 0)
+    let row: Option<(Option<i64>, i64, i64)> = sqlx::query_as(
+        "SELECT h.muted_until, COALESCE(a.muted, 0), h.ignored
          FROM hosts h
          LEFT JOIN check_alerts a ON a.host_id = h.id AND a.service = ?
          WHERE h.id = ?",
@@ -238,7 +238,9 @@ async fn is_silenced(state: &SharedState, e: &EventRow) -> Result<bool> {
     .bind(host_id)
     .fetch_optional(&state.db)
     .await?;
-    Ok(row.is_some_and(|(until, muted)| until.is_some_and(|t| t > now()) || muted != 0))
+    Ok(row.is_some_and(|(until, muted, ignored)| {
+        until.is_some_and(|t| t > now()) || muted != 0 || ignored != 0
+    }))
 }
 
 /// Send a notification and record the outcome on the channel.
@@ -664,6 +666,28 @@ mod tests {
 
     fn ids(v: Vec<&ChannelRow>) -> Vec<i64> {
         v.into_iter().map(|c| c.id).collect()
+    }
+
+    #[tokio::test]
+    async fn ignored_hosts_suppress_notifications_until_restored() {
+        let db = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::migrate!("./migrations").run(&db).await.unwrap();
+        sqlx::query("INSERT INTO hosts (monit_id, hostname, first_seen, last_seen, ignored) VALUES ('one', 'one', 0, 0, 1)")
+            .execute(&db).await.unwrap();
+        let state = crate::state::AppState::new(
+            db,
+            crate::config::Config::default(),
+            crate::config::Settings::default(),
+        )
+        .unwrap();
+        let mut e = event(0x200000);
+        e.host_id = Some(1);
+        assert!(is_silenced(&state, &e).await.unwrap());
+        sqlx::query("UPDATE hosts SET ignored = 0 WHERE id = 1")
+            .execute(&state.db)
+            .await
+            .unwrap();
+        assert!(!is_silenced(&state, &e).await.unwrap());
     }
 
     #[test]

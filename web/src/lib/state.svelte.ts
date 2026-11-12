@@ -187,7 +187,8 @@ function handle(msg: StreamMessage) {
       fleet.live.unshift(msg.event);
       if (fleet.live.length > 50) fleet.live.length = 50;
       const ev = msg.event;
-      if (ev.state === "failed") {
+      const ignored = ev.host_id != null && fleet.hosts[ev.host_id]?.ignored;
+      if (!ignored && ev.state === "failed") {
         toast(
           "bad",
           `${ev.host ?? "Monarch"}${ev.service ? ` · ${ev.service}` : ""}`,
@@ -195,7 +196,7 @@ function handle(msg: StreamMessage) {
           ev.host_id ? `/hosts/${ev.host_id}` : undefined,
           8000,
         );
-      } else if (ev.state === "succeeded" && ev.source === "monarch") {
+      } else if (!ignored && ev.state === "succeeded" && ev.source === "monarch") {
         toast("ok", `${ev.host ?? "Monarch"}`, ev.message);
       }
       for (const fn of eventListeners) fn(ev);

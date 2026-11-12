@@ -47,40 +47,7 @@
     </div>
   {/if}
 
-  <div class="grid items-start gap-4 lg:grid-cols-3">
-    <!-- filesystems -->
-    <section class="card overflow-hidden lg:col-span-2">
-      <div class="flex items-center gap-2 border-b border-line px-5 py-3.5">
-        <HardDrive size={15} class="text-fg-3" />
-        <h2 class="card-title">Filesystems</h2>
-      </div>
-      {#if filesystems.length === 0}
-        <p class="px-5 py-6 text-[13px] text-fg-3">No filesystem checks configured.</p>
-      {:else}
-        <ul class="divide-y divide-[var(--mn-line)]">
-          {#each filesystems as f (f.id)}
-            {@const sp = f.data.space ?? {}}
-            <li>
-              <a href={serviceHref(host.id, f.name)} class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-5 py-3 hover:bg-hover sm:grid-cols-[180px_minmax(0,1fr)_auto]">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 truncate text-[13px] font-medium text-fg"><StatusDot tone={f.state === "failed" ? "bad" : usageTone(sp.percent)} size={6} />{f.name}</div>
-                  <div class="num truncate text-[11px] text-fg-3">{f.data.fstype ?? ""}</div>
-                </div>
-                <div class="col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">
-                  <UsageBar value={sp.percent} height={7} />
-                  {#if f.data.inodes}<div class="mt-1"><UsageBar value={f.data.inodes.percent} height={3} tone="info" /></div>{/if}
-                </div>
-                <div class="num text-right text-xs">
-                  <div class="font-semibold text-fg">{pct(sp.percent)}</div>
-                  <div class="text-[11px] text-fg-3">{mb(sp.used_mb)} / {mb(sp.total_mb)}</div>
-                </div>
-              </a>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </section>
-
+  <div class="grid items-start gap-4 lg:grid-cols-2">
     <!-- monit info -->
     <section class="card p-5">
       <div class="mb-4 flex items-center gap-2">
@@ -100,6 +67,39 @@
         <div class="col-span-2"><KV label="Actions via" mono>{host.monit_url ?? "unavailable — no httpd"}{#if host.monit_url_source === "remote_addr"} <span class="text-warn" title="Monit listens on all interfaces; this is the address it pushes from. Set an action URL template or override if it is not reachable.">(guessed)</span>{/if}</KV></div>
         <div class="col-span-2"><KV label="Monit ID" mono><span class="text-[11px]">{host.monit_id}</span></KV></div>
       </dl>
+    </section>
+
+    <!-- filesystems -->
+    <section class="card min-w-0 overflow-hidden">
+      <div class="flex items-center gap-2 border-b border-line px-5 py-3.5">
+        <HardDrive size={15} class="text-fg-3" />
+        <h2 class="card-title">Filesystems</h2>
+      </div>
+      {#if filesystems.length === 0}
+        <p class="px-5 py-6 text-[13px] text-fg-3">No filesystem checks configured.</p>
+      {:else}
+        <ul class="divide-y divide-[var(--mn-line)]">
+          {#each filesystems as f (f.id)}
+            {@const sp = f.data.space ?? {}}
+            <li>
+              <a href={serviceHref(host.id, f.name)} class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-5 py-3 hover:bg-hover sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 truncate text-[13px] font-medium text-fg"><StatusDot tone={f.state === "failed" ? "bad" : usageTone(sp.percent)} size={6} />{f.name}</div>
+                  <div class="num truncate text-[11px] text-fg-3">{f.data.fstype ?? ""}</div>
+                </div>
+                <div class="col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">
+                  <UsageBar value={sp.percent} height={7} />
+                  {#if f.data.inodes}<div class="mt-1"><UsageBar value={f.data.inodes.percent} height={3} tone="info" /></div>{/if}
+                </div>
+                <div class="num text-right text-xs">
+                  <div class="font-semibold text-fg">{pct(sp.percent)}</div>
+                  <div class="text-[11px] text-fg-3">{mb(sp.used_mb)} / {mb(sp.total_mb)}</div>
+                </div>
+              </a>
+            </li>
+          {/each}
+        </ul>
+      {/if}
     </section>
   </div>
 

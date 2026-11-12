@@ -174,7 +174,7 @@
                 <a href={hostHref(h.id)} class="flex items-center gap-3" onclick={(e) => e.stopPropagation()}>
                   <StatusDot tone={hostTone(h.state)} pulse={h.state !== "ok"} />
                   <div class="min-w-0">
-                    <div class="flex items-center gap-1.5 truncate font-semibold text-fg">{hostName(h)}{#if h.source === "pull"}<span title="Polled by Monarch" class="text-fg-3"><ArrowDownToLine size={12} /></span>{/if}</div>
+                    <div class="flex items-center gap-1.5 truncate font-semibold text-fg">{hostName(h)}{#if h.ignored}<span class="text-xs font-medium text-fg-3">Ignored</span>{/if}{#if h.source === "pull"}<span title="Polled by Monarch" class="text-fg-3"><ArrowDownToLine size={12} /></span>{/if}</div>
                     <div class="truncate text-[11px] text-fg-3">{osLabel(h.os)}{h.hostgroups.length ? ` · ${h.hostgroups.join(", ")}` : ""}</div>
                   </div>
                 </a>

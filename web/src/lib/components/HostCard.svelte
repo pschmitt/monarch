@@ -26,7 +26,7 @@
       <div class="flex items-center gap-2">
         <StatusDot {tone} pulse={host.state !== "ok"} />
         <span class="truncate text-[15px] font-semibold tracking-tight text-fg">{hostName(host)}</span>
-        {#if muted}<BellOff size={13} class="text-fg-3" />{/if}
+        {#if host.ignored}<span class="text-xs font-medium text-fg-3">Ignored</span>{:else if muted}<BellOff size={13} class="text-fg-3" />{/if}
       </div>
       <div class="mt-1 truncate text-xs text-fg-3">{osLabel(host.os)}</div>
       {#if host.services.unmonitored > 0}

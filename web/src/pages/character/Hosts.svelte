@@ -59,7 +59,7 @@
         <a class="c-row c-host-row" href={`${hostHref(h.id)}${queryString ? `?${queryString}` : ""}`}>
           <span class="c-row-icon"><Server size={19} strokeWidth={1.7} /></span>
           <span class="c-row-main">
-            <span class="c-row-title">{hostName(h)}</span>
+            <span class="c-row-title">{hostName(h)}{#if h.ignored} · Ignored{/if}</span>
             <span class="c-meta">{h.online ? `Seen ${ago(h.last_seen, clock.now)}` : `Last report ${ago(h.last_seen, clock.now)}`}</span>
             <span class="c-meta c-host-facts">Kernel {h.os.release ?? "—"} · Load avg {h.system.load ? h.system.load.map((v) => v.toFixed(2)).join("  ") : "—"}</span>
             <span class="c-meta">{h.services.total} services</span>

@@ -27,7 +27,7 @@
 
   const failingHosts = $derived(activeFailingHostCount(Object.values(fleet.hosts), clock.now));
   const failingServices = $derived(activeFailingServiceCount(Object.values(fleet.hosts), clock.now));
-  const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by).length);
+  const unseen = $derived(fleet.live.filter((e) => e.state === "failed" && !e.acked_by && (e.host_id == null || !fleet.hosts[e.host_id]?.ignored)).length);
 
   const nav = $derived([
     { href: "/", label: "Overview", icon: LayoutDashboard, active: router.route.name === "overview", badge: 0 },

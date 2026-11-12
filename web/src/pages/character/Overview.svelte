@@ -42,7 +42,7 @@
   });
 
   const liveHosts = $derived(Object.values(fleet.hosts));
-  const offlineHosts = $derived(liveHosts.filter((h) => !h.online).sort((a, b) => a.last_seen - b.last_seen));
+  const offlineHosts = $derived(liveHosts.filter((h) => !h.ignored && !h.online).sort((a, b) => a.last_seen - b.last_seen));
   const attention = $derived.by(() => {
     const rows: ({ kind: "host"; host: HostSummary } | { kind: "service"; service: Overview["failing"][number] })[] = [];
     for (const host of offlineHosts) rows.push({ kind: "host", host });
