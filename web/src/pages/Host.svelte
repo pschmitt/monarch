@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Activity, LayoutDashboard, ListChecks, Settings, ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, Server, ServerCrash, Tag, Terminal } from "@lucide/svelte";
+  import { Activity, EyeOff, LayoutDashboard, ListChecks, Settings, ArrowDownToLine, ArrowUpFromLine, BellOff, ChevronRight, Clock, Cpu, MemoryStick, RefreshCw, Server, ServerCrash, Tag, Terminal } from "@lucide/svelte";
   import { api, ApiError } from "../lib/api";
   import type { HostDetail, ServiceCounts, Target } from "../lib/types";
   import { ago, datetime, duration, hostName, hostStateLabel, hostTone, kb } from "../lib/format";
@@ -82,6 +82,7 @@
   });
   const hstate = $derived(live?.state ?? host?.state ?? "ok");
   const lastSeen = $derived(live?.last_seen ?? host?.last_seen ?? 0);
+  const ignored = $derived(live?.ignored ?? host?.ignored ?? false);
   const muted = $derived(host?.muted_until === "forever" || (typeof host?.muted_until === "number" && host.muted_until > clock.now));
 
   $effect(() => {
@@ -118,7 +119,7 @@
           <CharacterStatus state={hstate} />
           <span>Kernel {host.os.release ?? "Unknown"}</span>
           {#if host.system.load}<span>{hstate === "offline" ? "Last reported load" : "Load average"} {host.system.load.map((n) => n.toFixed(2)).join("  ")}</span>{/if}
-          {#if muted}<span><BellOff size={16} /> Notifications silenced</span>{/if}
+          {#if ignored}<span class="tone-warn text-tone"><EyeOff size={16} /> Ignored</span>{:else if muted}<span><BellOff size={16} /> Notifications silenced</span>{/if}
         </div>
       </CharacterHero>
       <div class="c-summary-links">
@@ -139,7 +140,8 @@
             <StatusDot tone={hostTone(hstate)} pulse={hstate !== "ok"} size={10} />
             <h1 class="truncate text-2xl font-semibold tracking-tight text-fg sm:text-[28px]">{hostName(host)}</h1>
             <Badge tone={hostTone(hstate)}>{hostStateLabel[hstate]}</Badge>
-            {#if muted}
+            {#if ignored}<Badge tone="warn"><EyeOff size={12} /> Ignored</Badge>{/if}
+            {#if muted && !ignored}
               {#if host.muted_until === "forever"}<Badge tone="muted"><BellOff size={12} /> muted forever</Badge>
               {:else if typeof host.muted_until === "number"}<Badge tone="muted"><BellOff size={12} /> muted until {datetime(host.muted_until)}</Badge>{/if}
             {/if}
@@ -199,7 +201,7 @@
     {:else if tab === "events"}
       <EventsList host={host.id} />
     {:else if tab === "settings" && can("admin")}
-      <HostSettings {host} {target} onsaved={(h) => (host = h)} />
+      <HostSettings {host} {target} onsaved={(h) => { host = h; if (fleet.hosts[h.id]) fleet.hosts[h.id].ignored = h.ignored; }} />
     {:else}
       <HostOverview {host} />
     {/if}

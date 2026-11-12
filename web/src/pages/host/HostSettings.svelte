@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { TriangleAlert, ArrowDownToLine, BellOff, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
+  import { TriangleAlert, ArrowDownToLine, BellOff, BellRing, Clock3, EyeOff, Infinity, CircleCheck, CircleX, Link, LoaderCircle, Plug, Save, Terminal, Trash } from "@lucide/svelte";
   import { api } from "../../lib/api";
   import type { HostDetail, Target } from "../../lib/types";
   import { hostName, toLocalInput, urlSourceLabel } from "../../lib/format";
@@ -100,8 +100,12 @@
         <h3 class="card-title">General</h3>
         <p class="mt-1 text-xs text-fg-3">How this host appears in Monarch.</p>
       </div>
-      <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-        <div><div class="text-[13px] font-medium text-fg">Ignore host</div><div class="text-xs text-fg-3">Exclude this host from fleet health and notifications. Its status and events remain available.</div></div>
+      <div class="tone-warn flex items-center justify-between gap-4 rounded-xl border px-4 py-3 {ignored ? 'border-tone-soft bg-tone-soft' : 'border-line'}">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2 text-[13px] font-medium {ignored ? 'text-tone' : 'text-fg'}"><EyeOff size={15} /> Ignore host{#if ignored}<span class="rounded-md border border-tone-soft bg-tone-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">Ignored</span>{/if}</div>
+          <div class="mt-1 text-xs text-fg-3">Exclude this host from fleet health and notifications. Its status and events remain available.</div>
+          {#if ignored !== host.ignored}<div class="mt-1 text-xs text-tone">Save changes to apply.</div>{/if}
+        </div>
         <Switch bind:checked={ignored} label="Ignore host" />
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
@@ -159,11 +163,7 @@
           <input id="url" class="input num" placeholder="https://host.example.com:2812" bind:value={override_url} />
           <p class="hint">Leave empty to use the <a class="underline" href="/settings/hosts">action URL template</a> or the reported address.</p>
         </div>
-        <div class="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">
-        <div><div class="text-[13px] font-medium text-fg">Ignore host</div><div class="text-xs text-fg-3">Exclude this host from fleet health and notifications. Its status and events remain available.</div></div>
-        <Switch bind:checked={ignored} label="Ignore host" />
-      </div>
-      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <label class="label" for="ou">Username override</label>
             <input id="ou" class="input" autocomplete="off" bind:value={override_username} />
@@ -205,30 +205,35 @@
         <BellOff size={15} class="text-warn" />
         <h3 class="card-title text-warn">Mute notifications</h3>
       </div>
-      <p class="text-xs text-fg-3">Events are still recorded. Choose a duration or mute forever until you unmute this host.</p>
+      {#if ignored}
+        <p class="rounded-lg border border-tone-soft bg-tone-soft px-3 py-2 text-xs text-tone">Ignoring this host suppresses notifications. Its mute setting is preserved and will apply again when the host is no longer ignored.</p>
+      {:else}
+        <p class="text-xs text-fg-3">Events are still recorded. Choose a duration or mute forever until you unmute this host.</p>
+      {/if}
       <div class="flex flex-wrap gap-2">
-        {#each [[1, "1 hour"], [8, "8 hours"], [24, "1 day"], [168, "1 week"]] as [h, label] (h)}
-          <button type="button" class="btn btn-sm" onclick={() => mute(h as number)}>{label}</button>
+        {#each [[1, "1h", "1 hour"], [8, "8h", "8 hours"], [24, "1d", "1 day"], [168, "1w", "1 week"]] as [h, label, description] (h)}
+          <button type="button" class="btn btn-sm" aria-label={`Mute for ${description}`} disabled={ignored} onclick={() => mute(h as number)}>{label}</button>
         {/each}
-        <button type="button" class="btn btn-sm" onclick={muteForever}>Forever</button>
+        <button type="button" class="btn btn-sm tone-warn border-tone-soft bg-tone-soft text-tone" disabled={ignored} onclick={muteForever}><Infinity size={14} /> Forever</button>
       </div>
       <div>
-        <label class="label" for="mu">Muted until</label>
+        <label class="label flex items-center gap-1.5" for="mu"><Clock3 size={13} /> Muted until</label>
         {#if muted_forever}
           <div id="mu" class="input num text-fg-2" aria-live="polite">Forever · until manually unmuted</div>
         {:else}
-          <input id="mu" type="datetime-local" class="input num" bind:value={muted_until} oninput={() => (muted_forever = false)} />
+          <input id="mu" type="datetime-local" class="input num" disabled={ignored} bind:value={muted_until} oninput={() => (muted_forever = false)} />
         {/if}
       </div>
       {#if muted_until || muted_forever}
         <button
           type="button"
-          class="btn btn-sm btn-ghost"
+          class="btn btn-sm tone-ok border-tone-soft bg-tone-soft text-tone"
+          disabled={ignored}
           onclick={() => {
             muted_forever = false;
             muted_until = "";
             save();
-          }}>Unmute now</button
+          }}><BellRing size={14} /> Unmute now</button
         >
       {/if}
     </section>
