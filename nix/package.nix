@@ -1,6 +1,7 @@
 {
   lib,
   runCommand,
+  cacert,
   # crane's library for this nixpkgs (`crane.mkLib pkgs`).
   craneLib,
   callPackage,
@@ -71,7 +72,8 @@ craneLib.buildPackage (
       chmod -R u+w web/dist
     '';
 
-    # The unit tests run here, reusing the built dependencies.
+    # Tests construct an HTTP client, so the sandbox needs a CA bundle.
+    SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
     doCheck = true;
 
     passthru = { inherit web; };
