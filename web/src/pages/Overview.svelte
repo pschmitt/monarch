@@ -52,6 +52,7 @@
   // overview because they only hold the state of the last report.
   const offlineHosts = $derived(hosts.filter((h) => !h.ignored && h.state === "offline").sort((a, b) => a.last_seen - b.last_seen));
   const attentionCount = $derived((data?.failing.length ?? 0) + offlineHosts.length);
+  const ignoredHostCount = $derived(fleet.loaded ? Object.values(fleet.hosts).filter((h) => h.ignored).length : null);
 
   // Live hosts take precedence over the (possibly stale) overview snapshot.
   const hostCounts = $derived.by(() => {
@@ -112,7 +113,7 @@
 
   <!-- KPI tiles -->
   <div class="overview-summary grid auto-rows-fr grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
-    <a href="/hosts" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Hosts: {hostCounts.online} online of {hostCounts.total}, {hostCounts.degraded} degraded, {hostCounts.offline} offline">
+    <a href="/hosts" class="summary-card card card-hover flex min-h-[144px] flex-col p-3 sm:p-4" aria-label="Hosts: {hostCounts.online} online of {hostCounts.total}, {hostCounts.degraded} degraded, {hostCounts.offline} offline{ignoredHostCount === null ? "" : `, ${ignoredHostCount} ignored`}">
       <div class="flex items-center gap-2 text-[13px] font-medium text-fg-2"><Server size={15} class="shrink-0 text-fg-3" />Hosts</div>
       <div class="mt-2">
         <div class="flex items-baseline gap-1.5"><span class="num text-2xl font-semibold leading-none tracking-tight text-fg">{hostCounts.online}</span><span class="num text-xs text-fg-3">/ {hostCounts.total}</span></div>
@@ -126,6 +127,7 @@
       <div class="mt-auto flex flex-wrap gap-x-3 pt-2 text-xs leading-4 text-fg-3">
         <span class={hostCounts.degraded ? "text-warn" : ""}>{hostCounts.degraded} degraded</span>
         <span class={hostCounts.offline ? "text-bad" : ""}>{hostCounts.offline} offline</span>
+        {#if ignoredHostCount !== null}<span class="inline-flex items-center gap-1"><EyeOff size={12} />{ignoredHostCount} ignored</span>{/if}
       </div>
     </a>
 
