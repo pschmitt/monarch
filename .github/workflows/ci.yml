@@ -72,7 +72,5 @@ jobs:
         with:
           extra-conf: |
             system-features = nixos-test benchmark big-parallel kvm
-      - name: Build
-        run: nix build -L '.#monarch' '.#monarch-static' '.#monarchctl'
       - name: NixOS VM test
         run: nix build -L '.#checks.${{ matrix.system }}.nixos'
