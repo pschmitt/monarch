@@ -3,68 +3,109 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  status:
 
 permissions:
   contents: write
   packages: write
+  statuses: read
 
 jobs:
-  build:
-    name: Build ${{ matrix.system }}
-    strategy:
-      matrix:
-        include:
-          - system: x86_64-linux
-            runner: ubuntu-latest
-            arch: amd64
-          - system: aarch64-linux
-            runner: ubuntu-24.04-arm
-            arch: arm64
-    runs-on: ${{ matrix.runner }}
+  ready:
+    name: Find tags with Circus artifacts
+    if: ${{ github.event_name == 'push' || (github.event_name == 'status' && github.event.context == 'circus/artifacts' && github.event.state == 'success' && github.event.sha == github.sha) }}
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+      ready: ${{ steps.tags.outputs.ready }}
     steps:
       - uses: actions/checkout@v7
-      - uses: pschmitt/ci-workflows/.github/actions/nix-setup@main
+        with:
+          fetch-depth: 0
+      - name: Test release scheduling
+        run: python3 -m unittest discover -s tests -p test_release_ready.py
+      - id: tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: bash scripts/release-ready.sh
+
+  build:
+    name: Assemble ${{ matrix.tag }} (${{ matrix.platform.system }})
+    needs: ready
+    if: ${{ needs.ready.outputs.ready == 'true' }}
+    strategy:
+      matrix:
+        tag: ${{ fromJSON(needs.ready.outputs.tags) }}
+        platform:
+          - system: x86_64-linux
+            arch: amd64
+          - system: aarch64-linux
+            arch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pschmitt/ci-workflows/.github/actions/nix-niks3@main
+        with:
+          s3-store: ${{ secrets.NIKS3_S3_STORE }}
+          s3-access-key: ${{ secrets.NIKS3_S3_ACCESS_KEY }}
+          s3-secret-key: ${{ secrets.NIKS3_S3_SECRET_KEY }}
       - name: Static binary
+        env:
+          RELEASE_TAG: ${{ matrix.tag }}
         run: |
-          nix build -L '.#monarch-static'
+          nix --option max-jobs 0 --option builders '' --option fallback false --option allow-import-from-derivation false build -L '.#packages.${{ matrix.platform.system }}.monarch-static'
           mkdir dist
-          tar -C result/bin -czf "dist/monarch-${GITHUB_REF_NAME}-${{ matrix.system }}.tar.gz" monarch
-          (cd dist && sha256sum *.tar.gz > "monarch-${GITHUB_REF_NAME}-${{ matrix.system }}.sha256")
+          tar -C result/bin -czf "dist/monarch-${RELEASE_TAG}-${{ matrix.platform.system }}.tar.gz" monarch
+          (cd dist && sha256sum -- *.tar.gz > "monarch-${RELEASE_TAG}-${{ matrix.platform.system }}.sha256")
       - uses: actions/upload-artifact@v7
         with:
-          name: dist-${{ matrix.system }}
+          name: dist-${{ matrix.tag }}-${{ matrix.platform.system }}
           path: dist/*
       - name: Container image
+        env:
+          RELEASE_TAG: ${{ matrix.tag }}
         run: |
-          nix build -L '.#image' -o image
-          echo "${{ secrets.GITHUB_TOKEN }}" | nix run nixpkgs#skopeo -- login ghcr.io -u "${{ github.actor }}" --password-stdin
-          nix run nixpkgs#skopeo -- copy "docker-archive:image" \
-            "docker://ghcr.io/${{ github.repository }}:${GITHUB_REF_NAME#v}-${{ matrix.arch }}"
+          nix --option max-jobs 0 --option builders '' --option fallback false --option allow-import-from-derivation false build -L '.#packages.${{ matrix.platform.system }}.image' -o image
+          echo "${{ secrets.GITHUB_TOKEN }}" | nix --option max-jobs 0 --option fallback false run nixpkgs#skopeo -- login ghcr.io -u "${{ github.actor }}" --password-stdin
+          nix --option max-jobs 0 --option fallback false run nixpkgs#skopeo -- copy "docker-archive:image" \
+            "docker://ghcr.io/${{ github.repository }}:${RELEASE_TAG#v}-${{ matrix.platform.arch }}"
 
   manifest:
     name: Multi-arch image manifest
-    needs: build
+    needs: [ready, build]
+    strategy:
+      matrix:
+        tag: ${{ fromJSON(needs.ready.outputs.tags) }}
     runs-on: ubuntu-latest
     steps:
       - name: Push manifest
+        env:
+          RELEASE_TAG: ${{ matrix.tag }}
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           img="ghcr.io/${{ github.repository }}"
-          v="${GITHUB_REF_NAME#v}"
+          v="${RELEASE_TAG#v}"
           for tag in "$v" latest; do
             docker buildx imagetools create -t "$img:$tag" "$img:$v-amd64" "$img:$v-arm64"
           done
 
   release:
     name: GitHub release
-    needs: build
+    needs: [ready, build]
+    strategy:
+      matrix:
+        tag: ${{ fromJSON(needs.ready.outputs.tags) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
+          pattern: dist-${{ matrix.tag }}-*
       - uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          tag_name: ${{ matrix.tag }}
           files: dist/*
