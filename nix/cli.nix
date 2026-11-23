@@ -3,6 +3,7 @@
   stdenv,
   runCommand,
   installShellFiles,
+  cacert,
   # crane's library for this nixpkgs (`crane.mkLib pkgs`).
   craneLib,
 }:
@@ -62,6 +63,7 @@ craneLib.buildPackage (
 
     # The unit tests run here, reusing the built dependencies.
     doCheck = true;
+    SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
 
     postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
       installShellCompletion --cmd monarchctl \
