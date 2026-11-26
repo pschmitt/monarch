@@ -5,16 +5,14 @@
   nodes.machine =
     { pkgs, ... }:
     let
-      # test-only key pair for the SSH pull connection
-      sshKey = pkgs.runCommand "monarch-test-ssh-key" { nativeBuildInputs = [ pkgs.openssh ]; } ''
-        mkdir $out
-        ssh-keygen -q -t ed25519 -N "" -C monarch-test -f $out/id_ed25519
-      '';
+      # Fixed test-only key pair for the SSH pull connection. A key generated at
+      # build time differs between builds, which breaks binary cache substitution.
+      sshKeys = import "${pkgs.path}/nixos/tests/ssh-keys.nix" pkgs;
     in
     {
       imports = [ ./module.nix ];
 
-      users.users.root.openssh.authorizedKeys.keyFiles = [ "${sshKey}/id_ed25519.pub" ];
+      users.users.root.openssh.authorizedKeys.keys = [ sshKeys.snakeOilEd25519PublicKey ];
 
       services = {
         openssh.enable = true;
@@ -27,7 +25,7 @@
             allow_exec_channels = true;
           };
           initialAdmin.passwordFile = pkgs.writeText "pw" "supersecret";
-          ssh.privateKeyFile = "${sshKey}/id_ed25519";
+          ssh.privateKeyFile = "${sshKeys.snakeOilEd25519PrivateKey}";
           targets = [
             {
               name = "self-via-ssh";
